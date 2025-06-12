@@ -150,7 +150,9 @@ $(SYSTEM_FILE): $(METAPROGRAM) $(IMAGES) $(DTB)
 	$(OBJCOPY) --update-section .blk_driver_config=blk_driver.data blk_driver.elf
 	$(OBJCOPY) --update-section .blk_virt_config=blk_virt.data blk_virt.elf
 	$(OBJCOPY) --update-section .blk_client_config=blk_client_fatfs1.data fat1.elf
+	$(OBJCOPY) --update-section .blk_client_config=blk_client_fatfs2.data fat2.elf
 	$(OBJCOPY) --update-section .fs_server_config=fs_server_fatfs1.data fat1.elf
+	$(OBJCOPY) --update-section .fs_server_config=fs_server_fatfs2.data fat2.elf
 
 $(IMAGE_FILE) $(REPORT_FILE): $(IMAGES) $(SYSTEM_FILE)
 	$(MICROKIT_TOOL) $(SYSTEM_FILE) --search-path $(BUILD_DIR) --board $(MICROKIT_BOARD) --config $(MICROKIT_CONFIG) -o $(IMAGE_FILE) -r $(REPORT_FILE)
