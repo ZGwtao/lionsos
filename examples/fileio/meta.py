@@ -8,7 +8,7 @@ from typing import List, Tuple
 from sdfgen import SystemDescription, Sddf, DeviceTree, LionsOs
 from importlib.metadata import version
 
-assert version('sdfgen').split(".")[1] == "23", "Unexpected sdfgen version"
+assert version('sdfgen').split(".")[1] == "24", "Unexpected sdfgen version"
 
 ProtectionDomain = SystemDescription.ProtectionDomain
 MemoryRegion = SystemDescription.MemoryRegion
@@ -73,14 +73,22 @@ def generate(sdf_path: str, output_dir: str, dtb: DeviceTree):
     serial_system.add_client(micropython)
     timer_system.add_client(micropython)
 
-    fatfs = ProtectionDomain("fatfs", "fat.elf", priority=96)
+    fatfs1 = ProtectionDomain("fatfs1", "fat.elf", priority=96)
+    fatfs2 = ProtectionDomain("fatfs2", "fat.elf", priority=96)
 
-    fs = LionsOs.FileSystem.Fat(
+    fs1 = LionsOs.FileSystem.Fat(
         sdf,
-        fatfs,
+        fatfs1,
         micropython,
         blk=blk_system,
-        partition=board.blk_partition
+        partition=0
+    )
+    fs2 = LionsOs.FileSystem.Fat(
+        sdf,
+        fatfs2,
+        micropython,
+        blk=blk_system,
+        partition=1
     )
 
     if board.name == "maaxboard":
@@ -91,7 +99,8 @@ def generate(sdf_path: str, output_dir: str, dtb: DeviceTree):
         serial_virt_tx,
         serial_virt_rx,
         micropython,
-        fatfs,
+        fatfs1,
+        fatfs2,
         timer_driver,
         blk_driver,
         blk_virt,
@@ -99,8 +108,10 @@ def generate(sdf_path: str, output_dir: str, dtb: DeviceTree):
     for pd in pds:
         sdf.add_pd(pd)
 
-    assert fs.connect()
-    assert fs.serialise_config(output_dir)
+    assert fs1.connect()
+    assert fs1.serialise_config(output_dir)
+    assert fs2.connect()
+    assert fs2.serialise_config(output_dir)
     assert serial_system.connect()
     assert serial_system.serialise_config(output_dir)
     assert timer_system.connect()
