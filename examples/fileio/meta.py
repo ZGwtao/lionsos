@@ -73,8 +73,8 @@ def generate(sdf_path: str, output_dir: str, dtb: DeviceTree):
     serial_system.add_client(micropython)
     timer_system.add_client(micropython)
 
-    fatfs1 = ProtectionDomain("fatfs1", "fat.elf", priority=96)
-    fatfs2 = ProtectionDomain("fatfs2", "fat.elf", priority=96)
+    fatfs1 = ProtectionDomain("fatfs1", "fat1.elf", priority=96)
+    fatfs2 = ProtectionDomain("fatfs2", "fat2.elf", priority=96)
 
     fs1 = LionsOs.FileSystem.Fat(
         sdf,
