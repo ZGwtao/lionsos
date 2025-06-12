@@ -30,7 +30,9 @@
 __attribute__((__section__(".serial_client_config"))) serial_client_config_t serial_config;
 __attribute__((__section__(".timer_client_config"))) timer_client_config_t timer_config;
 __attribute__((__section__(".net_client_config"))) net_client_config_t net_config;
-__attribute__((__section__(".fs_client_config"))) fs_client_config_t fs_config;
+//__attribute__((__section__(".fs_client_config"))) fs_client_config_t fs_config;
+__attribute__((__section__(".fs1_client_config"))) fs_client_config_t fs1_config;
+__attribute__((__section__(".fs2_client_config"))) fs_client_config_t fs2_config;
 __attribute__((__section__(".i2c_client_config"))) i2c_client_config_t i2c_config;
 
 /* MicroPython is always built with networking and I2C support, but whether we
@@ -118,7 +120,9 @@ void init(void) {
     assert(serial_config_check_magic(&serial_config));
     assert(timer_config_check_magic(&timer_config));
     net_enabled = net_config_check_magic(&net_config);
-    assert(fs_config_check_magic(&fs_config));
+    // assert(fs_config_check_magic(&fs_config));
+    assert(fs_config_check_magic(&fs1_config));
+    assert(fs_config_check_magic(&fs2_config));
 
     net_enabled = net_config_check_magic(&net_config);
 
@@ -127,9 +131,10 @@ void init(void) {
     }
     serial_queue_init(&serial_tx_queue_handle, serial_config.tx.queue.vaddr, serial_config.tx.data.size, serial_config.tx.data.vaddr);
 
-    fs_command_queue = fs_config.server.command_queue.vaddr;
-    fs_completion_queue = fs_config.server.completion_queue.vaddr;
-    fs_share = fs_config.server.share.vaddr;
+    // by default link it to fs1
+    fs_command_queue = fs1_config.server.command_queue.vaddr;
+    fs_completion_queue = fs1_config.server.completion_queue.vaddr;
+    fs_share = fs1_config.server.share.vaddr;
 
     i2c_enabled = i2c_config_check_magic(&i2c_config);
     if (i2c_enabled) {
