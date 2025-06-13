@@ -168,7 +168,7 @@ static void vfs_fs_sanitize_pathname(const char path[], size_t len, part_id_t *w
         /* still not found */
         return;
     }
-#if 1
+#if 0
     /* debug */
     printf("partition ID retrieved: %s", part_id);
 #endif
@@ -184,11 +184,11 @@ static void vfs_fs_sanitize_pathname(const char path[], size_t len, part_id_t *w
     }
     /* assign possible partition ID */
     _p_id = atoi(part_id);
-#if 1
+#if 0
     printf("retrieved ID: %d\n", _p_id);
 #endif
-    if (_p_id >= 256 || _p_id < 0) {
-        /* still invalid (0~255) */
+    if (_p_id >= 256 || _p_id < 1) {
+        /* still invalid (1~255) */
         *valid = false;
         return;
     }
