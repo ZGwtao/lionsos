@@ -15,6 +15,10 @@
 
 #include <stdio.h>
 #include <string.h>
+#include <stdlib.h>
+
+/* partition ID (max 256) */
+typedef uint8_t part_id_t;
 
 typedef struct _mp_obj_vfs_fs_t {
     mp_obj_base_t base;
@@ -103,6 +107,95 @@ static mp_obj_t vfs_fs_make_new(const mp_obj_type_t *type, size_t n_args, size_t
     return MP_OBJ_FROM_PTR(vfs);
 }
 
+/*
+ * Take abs path, determine if there is a partition id in the pathname.
+ * If there is a partition ID, return the partition ID to (*wp), and set
+ * valid to be TRUE, otherwise set valid to FALSE
+ *
+ * Valid partition number should be 1 to 255?
+ */
+static void vfs_fs_sanitize_pathname(const char path[], size_t len, part_id_t *wp, bool *valid)
+{
+    /* the start of partition-local path name */
+    char *path_local_off;
+    /* partition ID string */
+    char part_id[10] = {0};
+    size_t len_pre;
+    size_t len_new;
+    int _p_id;
+
+    path_local_off = (char *)path;
+    len_pre = 0;
+
+    if (valid != NULL) {
+        *valid = false;
+    }
+    /* No partition ID is given */
+    if (path[0] == ':') {
+        return;
+    }
+    /* ignore heading spaces */
+    for (size_t i = 0; i < len; ++i) {
+        if (*(path_local_off) != ' ') {
+            break;
+        }
+        path_local_off++;
+    }
+    len_new = strlen(path_local_off);
+
+    /* ignore heading zeros */
+    for (size_t i = 0; i < len_new; ++i) {
+        if (*(path_local_off) != '0') {
+            break;
+        }
+        path_local_off++;
+    }
+    len_new = strlen(path_local_off);
+
+    /* at most the first 8 character to avoid */
+    for (; len_pre < len_new && len_pre < 8; ++len_pre) {
+        if (*(path_local_off + len_pre) == ':') {
+            /* copy the partition ID */
+            strncpy(part_id, path_local_off, len_pre);
+            /* add tailing character */
+            part_id[len_pre] = '\n';
+            /* assume the partition ID is valid */
+            *valid = true;
+            break;
+        }
+    }
+    if (*valid == false) {
+        /* still not found */
+        return;
+    }
+#if 1
+    /* debug */
+    printf("partition ID retrieved: %s", part_id);
+#endif
+    for (int i = 0; i < 8; ++i) {
+        if (part_id[i] == '\n' && i > 0) {
+            break;
+        }
+        if (part_id[i] > '9' || part_id[i] < '0') {
+            /* number invalid */
+            *valid = false;
+            return;
+        }
+    }
+    /* assign possible partition ID */
+    _p_id = atoi(part_id);
+#if 1
+    printf("retrieved ID: %d\n", _p_id);
+#endif
+    if (_p_id >= 256 || _p_id < 0) {
+        /* still invalid (0~255) */
+        *valid = false;
+        return;
+    }
+    /* assign valid partition ID */
+    *wp = (part_id_t)_p_id;
+}
+
 static mp_obj_t vfs_fs_mount(mp_obj_t self_in, mp_obj_t readonly, mp_obj_t mkfs) {
     fs_cmpl_t completion;
     int err = fs_command_blocking(&completion, (fs_cmd_t){ .type = FS_CMD_INITIALISE });
@@ -130,6 +223,19 @@ static mp_obj_t vfs_fs_open(mp_obj_t self_in, mp_obj_t path_in, mp_obj_t mode_in
     }
     if (!mp_obj_is_small_int(path_in)) {
         path_in = vfs_fs_get_path_obj(self, path_in);
+    }
+    
+    printf("%s\n", mp_obj_str_get_str(path_in));
+    
+    bool is_valid = false;
+    part_id_t ID = 0;
+    
+    vfs_fs_sanitize_pathname(mp_obj_str_get_str(path_in), strlen(mp_obj_str_get_str(path_in)), &ID, &is_valid);
+    if (is_valid) {
+        printf("Is valid pathname with pID: %s\n", mp_obj_str_get_str(path_in));
+        printf("Partition ID: %d\n", ID);
+    } else {
+        printf("Not a valid pathname with pID: %s\n", mp_obj_str_get_str(path_in));
     }
     return mp_vfs_fs_file_open(&mp_type_vfs_fs_textio, path_in, mode_in);
 }
