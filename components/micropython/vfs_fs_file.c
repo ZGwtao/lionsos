@@ -47,10 +47,13 @@ static MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(vfs_fs_file___exit___obj, 4, 4, vfs_f
 static mp_uint_t vfs_fs_file_read(mp_obj_t o_in, void *buf, mp_uint_t size, int *errcode) {
     mp_obj_vfs_fs_file_t *o = MP_OBJ_TO_PTR(o_in);
     // check_fd_is_open(o);
+    part_id_t _c_id = fs_retrieve_partition();
+    fs_switch_partition(o->p_id);
 
     ptrdiff_t read_buffer;
     int err = fs_buffer_allocate(&read_buffer);
     if (err) {
+        fs_switch_partition(_c_id);
         return MP_STREAM_ERROR;
     }
 
@@ -66,6 +69,7 @@ static mp_uint_t vfs_fs_file_read(mp_obj_t o_in, void *buf, mp_uint_t size, int 
     });
     if (err || completion.status != FS_STATUS_SUCCESS) {
         fs_buffer_free(read_buffer);
+        fs_switch_partition(_c_id);
         return MP_STREAM_ERROR;
     }
 
@@ -73,16 +77,20 @@ static mp_uint_t vfs_fs_file_read(mp_obj_t o_in, void *buf, mp_uint_t size, int 
     o->pos += completion.data.file_read.len_read;
     fs_buffer_free(read_buffer);
 
+    fs_switch_partition(_c_id);
     return (mp_uint_t)completion.data.file_read.len_read;
 }
 
 static mp_uint_t vfs_fs_file_write(mp_obj_t o_in, const void *buf, mp_uint_t size, int *errcode) {
     mp_obj_vfs_fs_file_t *o = MP_OBJ_TO_PTR(o_in);
     // check_fd_is_open(o);
+    part_id_t _c_id = fs_retrieve_partition();
+    fs_switch_partition(o->p_id);
 
     ptrdiff_t write_buffer;
     int err = fs_buffer_allocate(&write_buffer);
     if (err) {
+        fs_switch_partition(_c_id);
         return MP_STREAM_ERROR;
     }
 
@@ -101,12 +109,14 @@ static mp_uint_t vfs_fs_file_write(mp_obj_t o_in, const void *buf, mp_uint_t siz
     fs_buffer_free(write_buffer);
 
     if (completion.status != FS_STATUS_SUCCESS) {
+        fs_switch_partition(_c_id);
         return MP_STREAM_ERROR;
     }
     o->pos += completion.data.file_write.len_written;
     if (o->pos > o->size) {
         o->size = o->pos;
-    }
+    }    
+    fs_switch_partition(_c_id);
     return (mp_uint_t)completion.data.file_write.len_written;
 }
 
@@ -117,6 +127,9 @@ static mp_uint_t vfs_fs_file_ioctl(mp_obj_t o_in, mp_uint_t request, uintptr_t a
         // check_fd_is_open(o);
     }
 
+    part_id_t _c_id = fs_retrieve_partition();
+    fs_switch_partition(o->p_id);
+
     switch (request) {
         case MP_STREAM_FLUSH: {
             fs_cmpl_t completion;
@@ -124,6 +137,7 @@ static mp_uint_t vfs_fs_file_ioctl(mp_obj_t o_in, mp_uint_t request, uintptr_t a
                 .type = FS_CMD_FILE_SYNC,
                 .params.file_sync.fd = o->fd,
             });
+            fs_switch_partition(_c_id);
             if (err || completion.status != FS_STATUS_SUCCESS) {
                 mp_raise_OSError(completion.status);
                 return -1;
@@ -142,6 +156,7 @@ static mp_uint_t vfs_fs_file_ioctl(mp_obj_t o_in, mp_uint_t request, uintptr_t a
             } else {
                 o->pos = s->offset;
             }
+            fs_switch_partition(_c_id);
             return 0;
         }
         case MP_STREAM_CLOSE: {
@@ -150,9 +165,11 @@ static mp_uint_t vfs_fs_file_ioctl(mp_obj_t o_in, mp_uint_t request, uintptr_t a
                 .type = FS_CMD_FILE_CLOSE,
                 .params.file_close.fd = o->fd,
             });
+            fs_switch_partition(_c_id);
             return 0;
         }
         case MP_STREAM_GET_FILENO:
+            fs_switch_partition(_c_id);
             return o->fd;
         #if MICROPY_PY_USELECT
         case MP_STREAM_POLL: {
@@ -161,9 +178,11 @@ static mp_uint_t vfs_fs_file_ioctl(mp_obj_t o_in, mp_uint_t request, uintptr_t a
         }
         #endif
         case MP_STREAM_GET_BUFFER_SIZE: {
+            fs_switch_partition(_c_id);
             return VFS_FS_FILE_BUFFER_SIZE;
         }
         default:
+            fs_switch_partition(_c_id);
             *errcode = EINVAL;
             return MP_STREAM_ERROR;
     }
