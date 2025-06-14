@@ -130,7 +130,7 @@ static void vfs_fs_sanitize_pathname(const char path[], size_t len, part_id_t *w
     path_local_off = (char *)path;
     len_pre = 0;
 
-    if (valid == NULL) {
+    if (valid == NULL || wp == NULL) {
         /* internal vfs error */
         assert(0);
     }
