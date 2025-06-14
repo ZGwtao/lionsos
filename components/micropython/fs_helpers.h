@@ -32,3 +32,5 @@ typedef struct fs_signal_rt {
     microkit_channel fs_server_id;
     char *fs_share;
 } fs_signal_rt_t;
+
+void fs_switch_partition(uint8_t part_id);

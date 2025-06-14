@@ -13,6 +13,11 @@
 #include "fs_helpers.h"
 
 extern fs_signal_rt_t *curr_fs_chann;
+extern fs_signal_rt_t fs_chann_table[];
+
+void fs_switch_partition(uint8_t part_id) {
+    curr_fs_chann = &fs_chann_table[part_id];
+}
 
 #define REQUEST_ID_MAXIMUM (FS_QUEUE_CAPACITY - 1)
 struct request_metadata {
