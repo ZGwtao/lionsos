@@ -203,7 +203,7 @@ static mp_obj_t vfs_fs_mount(mp_obj_t self_in, mp_obj_t readonly, mp_obj_t mkfs)
     fs_cmpl_t completion;
     int err;
     for (int i = 0; i < 2; ++i) {
-        curr_fs_chann = &fs_chann_table[i];
+        fs_switch_partition(i);
         err = fs_command_blocking(&completion, (fs_cmd_t){ .type = FS_CMD_INITIALISE });
         if (err || completion.status != FS_STATUS_SUCCESS) {
             printf("MP|ERROR: Failed to mount\n");
