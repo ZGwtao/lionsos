@@ -287,8 +287,8 @@ mp_obj_t mp_vfs_fs_file_open(const mp_obj_type_t *type, mp_obj_t file_in, mp_obj
     ptrdiff_t buffer;
     int err = fs_buffer_allocate(&buffer);
     if (err) {
-        mp_raise_OSError(err);
         fs_switch_partition(_p_oid);
+        mp_raise_OSError(err);
         return mp_const_none;
     }
 
@@ -306,8 +306,8 @@ mp_obj_t mp_vfs_fs_file_open(const mp_obj_type_t *type, mp_obj_t file_in, mp_obj
     });
     fs_buffer_free(buffer);
     if (completion.status != FS_STATUS_SUCCESS) {
-        mp_raise_OSError(completion.status);
         fs_switch_partition(_p_oid);
+        mp_raise_OSError(completion.status);
         return mp_const_none;
     }
     o->fd = completion.data.file_open.fd;
@@ -322,8 +322,8 @@ mp_obj_t mp_vfs_fs_file_open(const mp_obj_type_t *type, mp_obj_t file_in, mp_obj
             .params.file_close.fd = o->fd,
         });
         fs_buffer_free(buffer);
-        mp_raise_OSError(completion.status);
         fs_switch_partition(_p_oid);
+        mp_raise_OSError(completion.status);
         return mp_const_none;
     }
     o->size = completion.data.file_size.size;
@@ -341,8 +341,8 @@ mp_obj_t mp_vfs_fs_file_open(const mp_obj_type_t *type, mp_obj_t file_in, mp_obj
                 .type = FS_CMD_FILE_CLOSE,
                 .params.file_close.fd = o->fd,
             });
-            mp_raise_OSError(completion.status);
             fs_switch_partition(_p_oid);
+            mp_raise_OSError(completion.status);
             return mp_const_none;
         }
     } else if (append) {
