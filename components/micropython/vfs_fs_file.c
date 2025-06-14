@@ -19,6 +19,7 @@
 
 typedef struct _mp_obj_vfs_fs_file_t {
     mp_obj_base_t base;
+    part_id_t p_id;
     uint64_t fd;
     uint64_t pos;
     uint64_t size;
@@ -260,6 +261,7 @@ mp_obj_t mp_vfs_fs_file_open(const mp_obj_type_t *type, mp_obj_t file_in, mp_obj
     mp_obj_t fid = file_in;
 
     if (mp_obj_is_small_int(fid)) {
+        // FIXME: what about partition?
         o->fd = MP_OBJ_SMALL_INT_VALUE(fid);
         return MP_OBJ_FROM_PTR(o);
     }
@@ -272,6 +274,8 @@ mp_obj_t mp_vfs_fs_file_open(const mp_obj_type_t *type, mp_obj_t file_in, mp_obj
         /* if the pathname is not of abs+p_id format */
         fname_plocal = (char *)fname;
     }
+    /* assign partition (currently switch is finished) */
+    o->p_id = fs_retrieve_partition();
 
     ptrdiff_t buffer;
     int err = fs_buffer_allocate(&buffer);
