@@ -37,6 +37,7 @@ void fs_command_issue(fs_cmd_t cmd);
 void fs_command_complete(uint64_t request_id, fs_cmd_t *cmd, fs_cmpl_t *cmpl);
 int fs_command_blocking(fs_cmpl_t *cmpl, fs_cmd_t cmd);
 
+bool fs_sanitize_pathname_wrap(const char fname[], char **fname_plocal);
 void fs_sanitize_pathname(const char path[], size_t len, char *path_plocal[], part_id_t *wp, bool *valid);
 
 void fs_switch_partition(uint8_t part_id);

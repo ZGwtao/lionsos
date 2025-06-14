@@ -227,3 +227,19 @@ void fs_sanitize_pathname(const char path[], size_t len, char *path_plocal[], pa
     *wp = (part_id_t)_p_id;
     *path_plocal = (path_local_off + len_pre + 1);
 }
+
+bool fs_sanitize_pathname_wrap(const char fname[], char **fname_plocal)
+{
+    /* keep the state of the pathname (true => partition-abs, false => others) */
+    bool _v;
+    /* partition ID (if valid) */
+    part_id_t _p_id;
+
+    /* check pathname format */
+    fs_sanitize_pathname(fname, strlen(fname), fname_plocal, &_p_id, &_v);
+    if (_v) {
+        /* switch to target communication channel */
+        fs_switch_partition(_p_id);
+    }
+    return _v;
+}

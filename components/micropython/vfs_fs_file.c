@@ -264,24 +264,13 @@ mp_obj_t mp_vfs_fs_file_open(const mp_obj_type_t *type, mp_obj_t file_in, mp_obj
         return MP_OBJ_FROM_PTR(o);
     }
 
-    /* keep the state of the pathname (true => partition-abs, false => others) */
-    bool _v;
-    /* partition ID (if valid), original partition ID */
-    part_id_t _p_id, _p_oid;
     const char *fname = mp_obj_str_get_str(fid);
+
     char *fname_plocal = NULL;
-
-    /* keep the original partition ID */
-    _p_oid = fs_retrieve_partition();
-
-    /* check pathname format */
-    fs_sanitize_pathname(fname, strlen(fname), &fname_plocal, &_p_id, &_v);
-    if (!_v) {
+    part_id_t _p_oid = fs_retrieve_partition();
+    if (!fs_sanitize_pathname_wrap(fname, &fname_plocal)) {
         /* if the pathname is not of abs+p_id format */
         fname_plocal = (char *)fname;
-    } else {
-        /* switch to target communication channel */
-        fs_switch_partition(_p_id);
     }
 
     ptrdiff_t buffer;
