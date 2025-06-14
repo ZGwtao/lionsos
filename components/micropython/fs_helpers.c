@@ -12,13 +12,7 @@
 #include "micropython.h"
 #include "fs_helpers.h"
 
-// extern fs_client_config_t fs_config;
-extern fs_client_config_t fs1_config;
-extern fs_client_config_t fs2_config;
-extern fs_queue_t *fs_command_queue;
-extern fs_queue_t *fs_completion_queue;
-extern microkit_channel fs_server_id;
-extern char *fs_share;
+extern fs_signal_rt_t *curr_fs_chann;
 
 #define REQUEST_ID_MAXIMUM (FS_QUEUE_CAPACITY - 1)
 struct request_metadata {
@@ -70,14 +64,14 @@ void fs_buffer_free(ptrdiff_t buffer) {
 }
 
 void *fs_buffer_ptr(ptrdiff_t buffer) {
-    return fs_share + buffer;
+    return curr_fs_chann->fs_share + buffer;
 }
 
 void fs_process_completions(void) {
     fs_msg_t message;
-    uint64_t to_consume = fs_queue_length_consumer(fs_completion_queue);
+    uint64_t to_consume = fs_queue_length_consumer(curr_fs_chann->fs_completion_queue);
     for (uint64_t i = 0; i < to_consume; i++) {
-        fs_cmpl_t completion = fs_queue_idx_filled(fs_completion_queue, i)->cmpl;
+        fs_cmpl_t completion = fs_queue_idx_filled(curr_fs_chann->fs_completion_queue, i)->cmpl;
 
         if (completion.id > REQUEST_ID_MAXIMUM) {
             printf("received bad fs completion: invalid request id: %lu\n", completion.id);
@@ -88,7 +82,7 @@ void fs_process_completions(void) {
         request_metadata[completion.id].complete = true;
         fs_request_flag_set(completion.id);
     }
-    fs_queue_publish_consumption(fs_completion_queue, to_consume);
+    fs_queue_publish_consumption(curr_fs_chann->fs_completion_queue, to_consume);
 }
 
 void fs_command_issue(fs_cmd_t cmd) {
@@ -96,10 +90,10 @@ void fs_command_issue(fs_cmd_t cmd) {
     assert(request_metadata[cmd.id].used);
 
     fs_msg_t message = { .cmd = cmd };
-    assert(fs_queue_length_producer(fs_command_queue) != FS_QUEUE_CAPACITY);
-    *fs_queue_idx_empty(fs_command_queue, 0) = message;
-    fs_queue_publish_production(fs_command_queue, 1);
-    microkit_notify(fs_server_id);
+    assert(fs_queue_length_producer(curr_fs_chann->fs_command_queue) != FS_QUEUE_CAPACITY);
+    *fs_queue_idx_empty(curr_fs_chann->fs_command_queue, 0) = message;
+    fs_queue_publish_production(curr_fs_chann->fs_command_queue, 1);
+    microkit_notify(curr_fs_chann->fs_server_id);
     request_metadata[cmd.id].command = cmd;
 }
 
@@ -123,7 +117,7 @@ int fs_command_blocking(fs_cmpl_t *completion, fs_cmd_t cmd) {
 
     fs_command_issue(cmd);
     while (!request_metadata[request_id].complete) {
-        microkit_cothread_wait_on_channel(fs_server_id);
+        microkit_cothread_wait_on_channel(curr_fs_chann->fs_server_id);
     }
 
     fs_command_complete(request_id, NULL, completion);

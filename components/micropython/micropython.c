@@ -30,7 +30,6 @@
 __attribute__((__section__(".serial_client_config"))) serial_client_config_t serial_config;
 __attribute__((__section__(".timer_client_config"))) timer_client_config_t timer_config;
 __attribute__((__section__(".net_client_config"))) net_client_config_t net_config;
-//__attribute__((__section__(".fs_client_config"))) fs_client_config_t fs_config;
 __attribute__((__section__(".fs1_client_config"))) fs_client_config_t fs1_config;
 __attribute__((__section__(".fs2_client_config"))) fs_client_config_t fs2_config;
 __attribute__((__section__(".i2c_client_config"))) i2c_client_config_t i2c_config;
@@ -47,10 +46,8 @@ static char heap[MICROPY_HEAP_SIZE];
 static char mp_stack[MICROPY_STACK_SIZE];
 static co_control_t co_controller_mem;
 
-fs_queue_t *fs_command_queue;
-fs_queue_t *fs_completion_queue;
-microkit_channel fs_server_id;
-char *fs_share;
+fs_signal_rt_t fs_chann_table[2];
+fs_signal_rt_t *curr_fs_chann;
 
 serial_queue_handle_t serial_rx_queue_handle;
 serial_queue_handle_t serial_tx_queue_handle;
@@ -133,10 +130,17 @@ void init(void) {
     serial_queue_init(&serial_tx_queue_handle, serial_config.tx.queue.vaddr, serial_config.tx.data.size, serial_config.tx.data.vaddr);
 
     // by default link it to fs1
-    fs_command_queue = fs1_config.server.command_queue.vaddr;
-    fs_completion_queue = fs1_config.server.completion_queue.vaddr;
-    fs_server_id = fs1_config.server.id;
-    fs_share = fs1_config.server.share.vaddr;
+    fs_chann_table[0].fs_command_queue = fs1_config.server.command_queue.vaddr;
+    fs_chann_table[0].fs_completion_queue = fs1_config.server.completion_queue.vaddr;
+    fs_chann_table[0].fs_server_id = fs1_config.server.id;
+    fs_chann_table[0].fs_share = fs1_config.server.share.vaddr;
+
+    fs_chann_table[1].fs_command_queue = fs2_config.server.command_queue.vaddr;
+    fs_chann_table[1].fs_completion_queue = fs2_config.server.completion_queue.vaddr;
+    fs_chann_table[1].fs_server_id = fs2_config.server.id;
+    fs_chann_table[1].fs_share = fs2_config.server.share.vaddr;
+
+    curr_fs_chann = fs_chann_table;
 
     i2c_enabled = i2c_config_check_magic(&i2c_config);
     if (i2c_enabled) {

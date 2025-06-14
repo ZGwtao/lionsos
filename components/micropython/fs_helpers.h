@@ -7,6 +7,8 @@
 
 #include <stdint.h>
 #include <lions/fs/protocol.h>
+#include <sddf/serial/queue.h>
+#include <microkit.h>
 
 #define FS_BUFFER_SIZE 0x8000
 
@@ -23,3 +25,10 @@ void fs_process_completions(void);
 void fs_command_issue(fs_cmd_t cmd);
 void fs_command_complete(uint64_t request_id, fs_cmd_t *cmd, fs_cmpl_t *cmpl);
 int fs_command_blocking(fs_cmpl_t *cmpl, fs_cmd_t cmd);
+
+typedef struct fs_signal_rt {
+    fs_queue_t *fs_command_queue;
+    fs_queue_t *fs_completion_queue;
+    microkit_channel fs_server_id;
+    char *fs_share;
+} fs_signal_rt_t;
