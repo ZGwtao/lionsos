@@ -137,7 +137,7 @@ static mp_obj_t vfs_fs_open(mp_obj_t self_in, mp_obj_t path_in, mp_obj_t mode_in
     if (!mp_obj_is_small_int(path_in)) {
         path_in = vfs_fs_get_path_obj(self, path_in);
     }
-    
+#if 0 
     // printf("%s\n", mp_obj_str_get_str(path_in));
     
     part_id_t ID;
@@ -172,6 +172,8 @@ static mp_obj_t vfs_fs_open(mp_obj_t self_in, mp_obj_t path_in, mp_obj_t mode_in
     }
 
     return fd_obj;
+#endif
+    return mp_vfs_fs_file_open(&mp_type_vfs_fs_textio, path_in, mode_in);
 }
 static MP_DEFINE_CONST_FUN_OBJ_3(vfs_fs_open_obj, vfs_fs_open);
 
@@ -181,6 +183,9 @@ static mp_obj_t vfs_fs_chdir(mp_obj_t self_in, mp_obj_t path_in) {
 static MP_DEFINE_CONST_FUN_OBJ_2(vfs_fs_chdir_obj, vfs_fs_chdir);
 
 static mp_obj_t vfs_fs_getcwd(mp_obj_t self_in) {
+#if 1
+    printf("Current fs channel links to partition: %d\n", fs_retrieve_partition());
+#endif
     return mp_obj_new_str("/", strlen("/"));
 }
 static MP_DEFINE_CONST_FUN_OBJ_1(vfs_fs_getcwd_obj, vfs_fs_getcwd);

@@ -264,17 +264,36 @@ mp_obj_t mp_vfs_fs_file_open(const mp_obj_type_t *type, mp_obj_t file_in, mp_obj
         return MP_OBJ_FROM_PTR(o);
     }
 
+    /* keep the state of the pathname (true => partition-abs, false => others) */
+    bool _v;
+    /* partition ID (if valid), original partition ID */
+    part_id_t _p_id, _p_oid;
     const char *fname = mp_obj_str_get_str(fid);
+    char *fname_plocal = NULL;
+
+    /* keep the original partition ID */
+    _p_oid = fs_retrieve_partition();
+
+    /* check pathname format */
+    fs_sanitize_pathname(fname, strlen(fname), &fname_plocal, &_p_id, &_v);
+    if (!_v) {
+        /* if the pathname is not of abs+p_id format */
+        fname_plocal = (char *)fname;
+    } else {
+        /* switch to target communication channel */
+        fs_switch_partition(_p_id);
+    }
 
     ptrdiff_t buffer;
     int err = fs_buffer_allocate(&buffer);
     if (err) {
         mp_raise_OSError(err);
+        fs_switch_partition(_p_oid);
         return mp_const_none;
     }
 
-    uint64_t path_len = strlen(fname) + 1;
-    memcpy(fs_buffer_ptr(buffer), fname, path_len);
+    uint64_t path_len = strlen(fname_plocal) + 1;
+    memcpy(fs_buffer_ptr(buffer), fname_plocal, path_len);
 
     fs_cmpl_t completion;
     fs_command_blocking(&completion, (fs_cmd_t){
@@ -288,6 +307,7 @@ mp_obj_t mp_vfs_fs_file_open(const mp_obj_type_t *type, mp_obj_t file_in, mp_obj
     fs_buffer_free(buffer);
     if (completion.status != FS_STATUS_SUCCESS) {
         mp_raise_OSError(completion.status);
+        fs_switch_partition(_p_oid);
         return mp_const_none;
     }
     o->fd = completion.data.file_open.fd;
@@ -303,6 +323,7 @@ mp_obj_t mp_vfs_fs_file_open(const mp_obj_type_t *type, mp_obj_t file_in, mp_obj
         });
         fs_buffer_free(buffer);
         mp_raise_OSError(completion.status);
+        fs_switch_partition(_p_oid);
         return mp_const_none;
     }
     o->size = completion.data.file_size.size;
@@ -321,11 +342,13 @@ mp_obj_t mp_vfs_fs_file_open(const mp_obj_type_t *type, mp_obj_t file_in, mp_obj
                 .params.file_close.fd = o->fd,
             });
             mp_raise_OSError(completion.status);
+            fs_switch_partition(_p_oid);
             return mp_const_none;
         }
     } else if (append) {
         o->pos = o->size;
     }
 
+    fs_switch_partition(_p_oid);
     return MP_OBJ_FROM_PTR(o);
 }
