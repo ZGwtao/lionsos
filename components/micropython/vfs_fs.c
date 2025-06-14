@@ -27,6 +27,9 @@ typedef struct _mp_obj_vfs_fs_t {
     bool readonly;
 } mp_obj_vfs_fs_t;
 
+extern fs_signal_rt_t *curr_fs_chann;
+extern fs_signal_rt_t fs_chann_table[];
+
 static const char *vfs_fs_get_path_str(mp_obj_vfs_fs_t *self, mp_obj_t path) {
     if (self->root_len == 0) {
         return mp_obj_str_get_str(path);
@@ -198,12 +201,15 @@ static void vfs_fs_sanitize_pathname(const char path[], size_t len, part_id_t *w
 
 static mp_obj_t vfs_fs_mount(mp_obj_t self_in, mp_obj_t readonly, mp_obj_t mkfs) {
     fs_cmpl_t completion;
-    int err = fs_command_blocking(&completion, (fs_cmd_t){ .type = FS_CMD_INITIALISE });
-    if (err || completion.status != FS_STATUS_SUCCESS) {
-        printf("MP|ERROR: Failed to mount\n");
-        mp_raise_OSError(1);
+    int err;
+    for (int i = 0; i < 2; ++i) {
+        curr_fs_chann = &fs_chann_table[i];
+        err = fs_command_blocking(&completion, (fs_cmd_t){ .type = FS_CMD_INITIALISE });
+        if (err || completion.status != FS_STATUS_SUCCESS) {
+            printf("MP|ERROR: Failed to mount\n");
+            mp_raise_OSError(1);
+        }
     }
-
     return mp_const_none;
 }
 static MP_DEFINE_CONST_FUN_OBJ_3(vfs_fs_mount_obj, vfs_fs_mount);
