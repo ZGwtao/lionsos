@@ -17,6 +17,7 @@ extern fs_client_config_t fs1_config;
 extern fs_client_config_t fs2_config;
 extern fs_queue_t *fs_command_queue;
 extern fs_queue_t *fs_completion_queue;
+extern microkit_channel fs_server_id;
 extern char *fs_share;
 
 #define REQUEST_ID_MAXIMUM (FS_QUEUE_CAPACITY - 1)
@@ -98,9 +99,7 @@ void fs_command_issue(fs_cmd_t cmd) {
     assert(fs_queue_length_producer(fs_command_queue) != FS_QUEUE_CAPACITY);
     *fs_queue_idx_empty(fs_command_queue, 0) = message;
     fs_queue_publish_production(fs_command_queue, 1);
-    // by default signal fs1
-    // microkit_notify(fs_config.server.id);
-    microkit_notify(fs1_config.server.id);
+    microkit_notify(fs_server_id);
     request_metadata[cmd.id].command = cmd;
 }
 
@@ -124,9 +123,7 @@ int fs_command_blocking(fs_cmpl_t *completion, fs_cmd_t cmd) {
 
     fs_command_issue(cmd);
     while (!request_metadata[request_id].complete) {
-        // by default signal fs1
-        // microkit_cothread_wait_on_channel(fs_config.server.id);
-        microkit_cothread_wait_on_channel(fs1_config.server.id);
+        microkit_cothread_wait_on_channel(fs_server_id);
     }
 
     fs_command_complete(request_id, NULL, completion);

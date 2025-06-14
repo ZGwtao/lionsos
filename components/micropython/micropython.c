@@ -49,6 +49,7 @@ static co_control_t co_controller_mem;
 
 fs_queue_t *fs_command_queue;
 fs_queue_t *fs_completion_queue;
+microkit_channel fs_server_id;
 char *fs_share;
 
 serial_queue_handle_t serial_rx_queue_handle;
@@ -134,6 +135,7 @@ void init(void) {
     // by default link it to fs1
     fs_command_queue = fs1_config.server.command_queue.vaddr;
     fs_completion_queue = fs1_config.server.completion_queue.vaddr;
+    fs_server_id = fs1_config.server.id;
     fs_share = fs1_config.server.share.vaddr;
 
     i2c_enabled = i2c_config_check_magic(&i2c_config);
