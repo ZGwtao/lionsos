@@ -130,9 +130,12 @@ static void vfs_fs_sanitize_pathname(const char path[], size_t len, part_id_t *w
     path_local_off = (char *)path;
     len_pre = 0;
 
-    if (valid != NULL) {
-        *valid = false;
+    if (valid == NULL) {
+        /* internal vfs error */
+        assert(0);
     }
+    *valid = false;
+
     /* No partition ID is given */
     if (path[0] == ':') {
         return;
