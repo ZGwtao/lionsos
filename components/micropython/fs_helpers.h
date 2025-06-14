@@ -12,6 +12,17 @@
 
 #define FS_BUFFER_SIZE 0x8000
 
+/* partition ID (max 256) */
+typedef uint8_t part_id_t;
+
+/* signalling channels for fs instances */
+typedef struct fs_signal_rt {
+    fs_queue_t *fs_command_queue;
+    fs_queue_t *fs_completion_queue;
+    microkit_channel fs_server_id;
+    char *fs_share;
+} fs_signal_rt_t;
+
 int fs_request_allocate(uint64_t *request_id);
 void fs_request_free(uint64_t request_id);
 void fs_request_flag_set(uint64_t request_id);
@@ -26,11 +37,7 @@ void fs_command_issue(fs_cmd_t cmd);
 void fs_command_complete(uint64_t request_id, fs_cmd_t *cmd, fs_cmpl_t *cmpl);
 int fs_command_blocking(fs_cmpl_t *cmpl, fs_cmd_t cmd);
 
-typedef struct fs_signal_rt {
-    fs_queue_t *fs_command_queue;
-    fs_queue_t *fs_completion_queue;
-    microkit_channel fs_server_id;
-    char *fs_share;
-} fs_signal_rt_t;
+void fs_sanitize_pathname(const char path[], size_t len, char *path_plocal[], part_id_t *wp, bool *valid);
 
 void fs_switch_partition(uint8_t part_id);
+uint8_t fs_retrieve_partition();
