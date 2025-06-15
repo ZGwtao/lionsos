@@ -119,7 +119,7 @@ void init(void) {
     assert(timer_config_check_magic(&timer_config));
     net_enabled = net_config_check_magic(&net_config);
     assert(fs_config_check_magic(&fs_excl_config));
-    assert(fs_config_check_magic(&fs_shrd_config));
+    // assert(fs_config_check_magic(&fs_shrd_config));
 
     net_enabled = net_config_check_magic(&net_config);
 
@@ -132,12 +132,12 @@ void init(void) {
     fs_chann_table[0].fs_completion_queue   = fs_excl_config.server.completion_queue.vaddr;
     fs_chann_table[0].fs_server_id          = fs_excl_config.server.id;
     fs_chann_table[0].fs_share              = fs_excl_config.server.share.vaddr;
-
+#if 0
     fs_chann_table[1].fs_command_queue      = fs_shrd_config.server.command_queue.vaddr;
     fs_chann_table[1].fs_completion_queue   = fs_shrd_config.server.completion_queue.vaddr;
     fs_chann_table[1].fs_server_id          = fs_shrd_config.server.id;
     fs_chann_table[1].fs_share              = fs_shrd_config.server.share.vaddr;
-
+#endif
     curr_fs_chann = fs_chann_table;
 
     i2c_enabled = i2c_config_check_magic(&i2c_config);

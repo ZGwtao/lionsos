@@ -119,14 +119,14 @@ static mp_obj_t vfs_fs_make_new(const mp_obj_type_t *type, size_t n_args, size_t
 static mp_obj_t vfs_fs_mount(mp_obj_t self_in, mp_obj_t readonly, mp_obj_t mkfs) {
     fs_cmpl_t completion;
     int err;
-    for (int i = 1; i <= FS_PARTITION_NUM; ++i) {
-        fs_switch_partition(i);
+    //for (int i = 1; i <= FS_PARTITION_NUM; ++i) {
+    //    fs_switch_partition(i);
         err = fs_command_blocking(&completion, (fs_cmd_t){ .type = FS_CMD_INITIALISE });
         if (err || completion.status != FS_STATUS_SUCCESS) {
             printf("MP|ERROR: Failed to mount\n");
             mp_raise_OSError(1);
         }
-    }
+    //}
     return mp_const_none;
 }
 static MP_DEFINE_CONST_FUN_OBJ_3(vfs_fs_mount_obj, vfs_fs_mount);
