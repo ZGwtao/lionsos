@@ -228,7 +228,7 @@ void fs_sanitize_pathname(const char path[], size_t len, char *path_plocal[], pa
     *path_plocal = (path_local_off + len_pre + 1);
 }
 
-bool fs_sanitize_pathname_wrap(const char fname[], char **fname_plocal)
+bool fs_sanitize_pathname_wrap(const char fname[], char **pfname_plocal)
 {
     /* keep the state of the pathname (true => partition-abs, false => others) */
     bool _v;
@@ -236,10 +236,43 @@ bool fs_sanitize_pathname_wrap(const char fname[], char **fname_plocal)
     part_id_t _p_id;
 
     /* check pathname format */
-    fs_sanitize_pathname(fname, strlen(fname), fname_plocal, &_p_id, &_v);
+    fs_sanitize_pathname(fname, strlen(fname), pfname_plocal, &_p_id, &_v);
     if (_v) {
         /* switch to target communication channel */
         fs_switch_partition(_p_id);
     }
     return _v;
+}
+
+int fs_sanitize_pathname_pair_wrap(const char f1[], const char f2[], char **pf1_plocal, char **pf2_plocal)
+{
+    /* two partition IDs */
+    part_id_t _p_id1;
+    part_id_t _p_id2;
+
+    bool _v;
+
+    fs_sanitize_pathname(f1, strlen(f1), pf1_plocal, &_p_id1, &_v);
+    if (!_v) {
+        /* fail to get target partition of the source file */
+        _p_id1 = fs_retrieve_partition();
+        /* no partition index for the path */
+        *pf1_plocal = (char *)f1;
+    }
+
+    fs_sanitize_pathname(f2, strlen(f2), pf2_plocal, &_p_id2, &_v);
+    if (!_v) {
+        _p_id2 = fs_retrieve_partition();
+        /* no partition index for the path */
+        *pf2_plocal = (char *)f2;
+    }
+
+    if (_p_id1 != _p_id2) {
+        /* invalid rename operation */
+        return 1;
+    }
+
+    /* assume to work on the same target partition as source file */
+    fs_switch_partition(_p_id1);
+    return 0;
 }

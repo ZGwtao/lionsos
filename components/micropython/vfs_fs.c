@@ -374,9 +374,22 @@ static mp_obj_t vfs_fs_rename(mp_obj_t self_in, mp_obj_t old_path_in, mp_obj_t n
     const char *old_path = vfs_fs_get_path_str(self, old_path_in);
     const char *new_path = vfs_fs_get_path_str(self, new_path_in);
 
-    ptrdiff_t old_path_buffer;
-    int err = fs_buffer_allocate(&old_path_buffer);
+    part_id_t c_id = fs_retrieve_partition();
+
+    char *old_path_plocal = NULL;
+    char *new_path_plocal = NULL;
+
+    /* If both paths are valid and works on the same partition, return 0 */
+    int err = fs_sanitize_pathname_pair_wrap(old_path, new_path, &old_path_plocal, &new_path_plocal);
     if (err) {
+        fs_switch_partition(c_id);
+        mp_raise_OSError(err);
+    }
+
+    ptrdiff_t old_path_buffer;
+    err = fs_buffer_allocate(&old_path_buffer);
+    if (err) {
+        fs_switch_partition(c_id);
         mp_raise_OSError(err);
     }
 
@@ -384,14 +397,15 @@ static mp_obj_t vfs_fs_rename(mp_obj_t self_in, mp_obj_t old_path_in, mp_obj_t n
     err = fs_buffer_allocate(&new_path_buffer);
     if (err) {
         fs_buffer_free(old_path_buffer);
+        fs_switch_partition(c_id);
         mp_raise_OSError(err);
     }
 
-    uint64_t old_path_len = strlen(old_path);
-    uint64_t new_path_len = strlen(new_path);
+    uint64_t old_path_len = strlen(old_path_plocal);
+    uint64_t new_path_len = strlen(new_path_plocal);
 
-    memcpy(fs_buffer_ptr(old_path_buffer), old_path, old_path_len);
-    memcpy(fs_buffer_ptr(new_path_buffer), new_path, new_path_len);
+    memcpy(fs_buffer_ptr(old_path_buffer), old_path_plocal, old_path_len);
+    memcpy(fs_buffer_ptr(new_path_buffer), new_path_plocal, new_path_len);
 
     fs_cmpl_t completion;
     fs_command_blocking(&completion, (fs_cmd_t){
@@ -408,8 +422,10 @@ static mp_obj_t vfs_fs_rename(mp_obj_t self_in, mp_obj_t old_path_in, mp_obj_t n
     fs_buffer_free(new_path_buffer);
 
     if (completion.status != FS_STATUS_SUCCESS) {
+        fs_switch_partition(c_id);
         mp_raise_OSError(completion.status);
     }
+    fs_switch_partition(c_id);
     return mp_const_none;
 }
 static MP_DEFINE_CONST_FUN_OBJ_3(vfs_fs_rename_obj, vfs_fs_rename);
