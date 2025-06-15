@@ -10,7 +10,8 @@
 #include <sddf/serial/queue.h>
 #include <microkit.h>
 
-#define FS_BUFFER_SIZE 0x8000
+#define FS_BUFFER_SIZE      0x8000
+#define FS_PARTITION_NUM    2
 
 /* partition ID (max 256) */
 typedef uint8_t part_id_t;

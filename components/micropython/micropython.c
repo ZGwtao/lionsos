@@ -46,7 +46,7 @@ static char heap[MICROPY_HEAP_SIZE];
 static char mp_stack[MICROPY_STACK_SIZE];
 static co_control_t co_controller_mem;
 
-fs_signal_rt_t fs_chann_table[2];
+fs_signal_rt_t fs_chann_table[FS_PARTITION_NUM];
 fs_signal_rt_t *curr_fs_chann;
 
 serial_queue_handle_t serial_rx_queue_handle;
@@ -118,7 +118,6 @@ void init(void) {
     assert(serial_config_check_magic(&serial_config));
     assert(timer_config_check_magic(&timer_config));
     net_enabled = net_config_check_magic(&net_config);
-    // assert(fs_config_check_magic(&fs_config));
     assert(fs_config_check_magic(&fs1_config));
     assert(fs_config_check_magic(&fs2_config));
 
@@ -129,7 +128,6 @@ void init(void) {
     }
     serial_queue_init(&serial_tx_queue_handle, serial_config.tx.queue.vaddr, serial_config.tx.data.size, serial_config.tx.data.vaddr);
 
-    // by default link it to fs1
     fs_chann_table[0].fs_command_queue = fs1_config.server.command_queue.vaddr;
     fs_chann_table[0].fs_completion_queue = fs1_config.server.completion_queue.vaddr;
     fs_chann_table[0].fs_server_id = fs1_config.server.id;
