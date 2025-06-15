@@ -30,8 +30,8 @@
 __attribute__((__section__(".serial_client_config"))) serial_client_config_t serial_config;
 __attribute__((__section__(".timer_client_config"))) timer_client_config_t timer_config;
 __attribute__((__section__(".net_client_config"))) net_client_config_t net_config;
-__attribute__((__section__(".fs1_client_config"))) fs_client_config_t fs1_config;
-__attribute__((__section__(".fs2_client_config"))) fs_client_config_t fs2_config;
+__attribute__((__section__(".fs_excl_client_config"))) fs_client_config_t fs_excl_config;
+__attribute__((__section__(".fs_shrd_client_config"))) fs_client_config_t fs_shrd_config;
 __attribute__((__section__(".i2c_client_config"))) i2c_client_config_t i2c_config;
 
 /* MicroPython is always built with networking and I2C support, but whether we
@@ -118,8 +118,8 @@ void init(void) {
     assert(serial_config_check_magic(&serial_config));
     assert(timer_config_check_magic(&timer_config));
     net_enabled = net_config_check_magic(&net_config);
-    assert(fs_config_check_magic(&fs1_config));
-    assert(fs_config_check_magic(&fs2_config));
+    assert(fs_config_check_magic(&fs_excl_config));
+    assert(fs_config_check_magic(&fs_shrd_config));
 
     net_enabled = net_config_check_magic(&net_config);
 
@@ -128,15 +128,15 @@ void init(void) {
     }
     serial_queue_init(&serial_tx_queue_handle, serial_config.tx.queue.vaddr, serial_config.tx.data.size, serial_config.tx.data.vaddr);
 
-    fs_chann_table[0].fs_command_queue = fs1_config.server.command_queue.vaddr;
-    fs_chann_table[0].fs_completion_queue = fs1_config.server.completion_queue.vaddr;
-    fs_chann_table[0].fs_server_id = fs1_config.server.id;
-    fs_chann_table[0].fs_share = fs1_config.server.share.vaddr;
+    fs_chann_table[0].fs_command_queue      = fs_excl_config.server.command_queue.vaddr;
+    fs_chann_table[0].fs_completion_queue   = fs_excl_config.server.completion_queue.vaddr;
+    fs_chann_table[0].fs_server_id          = fs_excl_config.server.id;
+    fs_chann_table[0].fs_share              = fs_excl_config.server.share.vaddr;
 
-    fs_chann_table[1].fs_command_queue = fs2_config.server.command_queue.vaddr;
-    fs_chann_table[1].fs_completion_queue = fs2_config.server.completion_queue.vaddr;
-    fs_chann_table[1].fs_server_id = fs2_config.server.id;
-    fs_chann_table[1].fs_share = fs2_config.server.share.vaddr;
+    fs_chann_table[1].fs_command_queue      = fs_shrd_config.server.command_queue.vaddr;
+    fs_chann_table[1].fs_completion_queue   = fs_shrd_config.server.completion_queue.vaddr;
+    fs_chann_table[1].fs_server_id          = fs_shrd_config.server.id;
+    fs_chann_table[1].fs_share              = fs_shrd_config.server.share.vaddr;
 
     curr_fs_chann = fs_chann_table;
 
