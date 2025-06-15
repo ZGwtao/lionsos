@@ -286,15 +286,22 @@ static mp_obj_t vfs_fs_mkdir(mp_obj_t self_in, mp_obj_t path_in) {
     mp_obj_vfs_fs_t *self = MP_OBJ_TO_PTR(self_in);
     const char *path = vfs_fs_get_path_str(self, path_in);
 
+    char *path_plocal = NULL;
+    part_id_t c_id = fs_retrieve_partition();
+    if (!fs_sanitize_pathname_wrap(path, &path_plocal)) {
+        path_plocal = (char *)path;
+    }
+
     ptrdiff_t path_buffer;
     int err = fs_buffer_allocate(&path_buffer);
     if (err) {
+        fs_switch_partition(c_id);
         mp_raise_OSError(err);
         return mp_const_none;
     }
 
-    uint64_t path_len = strlen(path);
-    memcpy(fs_buffer_ptr(path_buffer), path, path_len);
+    uint64_t path_len = strlen(path_plocal);
+    memcpy(fs_buffer_ptr(path_buffer), path_plocal, path_len);
 
     fs_cmpl_t completion;
     err = fs_command_blocking(&completion, (fs_cmd_t){
@@ -306,14 +313,17 @@ static mp_obj_t vfs_fs_mkdir(mp_obj_t self_in, mp_obj_t path_in) {
     });
     if (err) {
         fs_buffer_free(path_buffer);
+        fs_switch_partition(c_id);
         mp_raise_OSError(err);
     }
 
     fs_buffer_free(path_buffer);
 
     if (completion.status != FS_STATUS_SUCCESS) {
+        fs_switch_partition(c_id);
         mp_raise_OSError(completion.status);
     }
+    fs_switch_partition(c_id);
     return mp_const_none;
 }
 static MP_DEFINE_CONST_FUN_OBJ_2(vfs_fs_mkdir_obj, vfs_fs_mkdir);
@@ -399,15 +409,22 @@ static mp_obj_t vfs_fs_rmdir(mp_obj_t self_in, mp_obj_t path_in) {
     mp_obj_vfs_fs_t *self = MP_OBJ_TO_PTR(self_in);
     const char *path = vfs_fs_get_path_str(self, path_in);
 
+    char *path_plocal = NULL;
+    part_id_t c_id = fs_retrieve_partition();
+    if (!fs_sanitize_pathname_wrap(path, &path_plocal)) {
+        path_plocal = (char *)path;
+    }
+
     ptrdiff_t path_buffer;
     int err = fs_buffer_allocate(&path_buffer);
     if (err) {
+        fs_switch_partition(c_id);
         mp_raise_OSError(err);
         return mp_const_none;
     }
 
-    uint64_t path_len = strlen(path);
-    memcpy(fs_buffer_ptr(path_buffer), path, path_len);
+    uint64_t path_len = strlen(path_plocal);
+    memcpy(fs_buffer_ptr(path_buffer), path_plocal, path_len);
 
     fs_cmpl_t completion;
     fs_command_blocking(&completion, (fs_cmd_t){
@@ -421,8 +438,10 @@ static mp_obj_t vfs_fs_rmdir(mp_obj_t self_in, mp_obj_t path_in) {
     fs_buffer_free(path_buffer);
 
     if (completion.status != FS_STATUS_SUCCESS) {
+        fs_switch_partition(c_id);
         mp_raise_OSError(completion.status);
     }
+    fs_switch_partition(c_id);
     return mp_const_none;
 }
 static MP_DEFINE_CONST_FUN_OBJ_2(vfs_fs_rmdir_obj, vfs_fs_rmdir);
