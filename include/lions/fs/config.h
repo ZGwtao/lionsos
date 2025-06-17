@@ -39,10 +39,19 @@ typedef struct fs_client_config {
      */
 } fs_client_config_t;
 
+typedef struct fs_virt_config_client {
+    fs_connection_resource_t conn;
+    uint32_t cid;
+} fs_virt_client_config_t;
+
+typedef struct fs_virt_config_server {
+    fs_connection_resource_t conn;
+} fs_virt_server_config_t;
+
 /* copy-paste from the block virtualiser */
 typedef struct fs_virt_config {
     uint64_t num_clients;
     char magic[LIONS_FS_MAGIC_LEN];
-    fs_server_config_t server;
-    fs_client_config_t clients[LIONS_FS_MAX_CLIENTS];
+    fs_virt_server_config_t server;
+    fs_virt_client_config_t clients[LIONS_FS_MAX_CLIENTS];
 } fs_virt_config_t;
