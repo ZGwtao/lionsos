@@ -69,16 +69,16 @@ def generate(sdf_path: str, output_dir: str, dtb: DeviceTree):
     blk_system = Sddf.Blk(sdf, blk_node, blk_driver, blk_virt)
 
     client1_micropython = ProtectionDomain("c1_micropython", "c1_mpy.elf", priority=1)
-    client2_micropython = ProtectionDomain("c2_micropython", "c2_mpy.elf", priority=1)
+#   client2_micropython = ProtectionDomain("c2_micropython", "c2_mpy.elf", priority=1)
 
     serial_system.add_client(client1_micropython)
-    serial_system.add_client(client2_micropython)
+#   serial_system.add_client(client2_micropython)
     timer_system.add_client(client1_micropython)
-    timer_system.add_client(client2_micropython)
+#   timer_system.add_client(client2_micropython)
 
     fatfs1 = ProtectionDomain("fatfs1", "fat1.elf", priority=96)
-    fatfs2 = ProtectionDomain("fatfs2", "fat2.elf", priority=96)
-    fatfs3 = ProtectionDomain("fatfs3", "fat3.elf", priority=96)
+#   fatfs2 = ProtectionDomain("fatfs2", "fat2.elf", priority=96)
+#   fatfs3 = ProtectionDomain("fatfs3", "fat3.elf", priority=96)
 
     fs1 = LionsOs.FileSystem.Fat(
         sdf,
@@ -87,20 +87,20 @@ def generate(sdf_path: str, output_dir: str, dtb: DeviceTree):
         blk=blk_system,
         partition=0
     )
-    fs2 = LionsOs.FileSystem.Fat(
-        sdf,
-        fatfs2,
-        client1_micropython,
-        blk=blk_system,
-        partition=1
-    )
-    fs3 = LionsOs.FileSystem.Fat(
-        sdf,
-        fatfs3,
-        client2_micropython,
-        blk=blk_system,
-        partition=2
-    )
+#   fs2 = LionsOs.FileSystem.Fat(
+#       sdf,
+#       fatfs2,
+#       client1_micropython,
+#       blk=blk_system,
+#       partition=1
+#   )
+#   fs3 = LionsOs.FileSystem.Fat(
+#       sdf,
+#       fatfs3,
+#       client2_micropython,
+#       blk=blk_system,
+#       partition=2
+#   )
 
     if board.name == "maaxboard":
         timer_system.add_client(blk_driver)
@@ -110,10 +110,10 @@ def generate(sdf_path: str, output_dir: str, dtb: DeviceTree):
         serial_virt_tx,
         serial_virt_rx,
         client1_micropython,
-        client2_micropython,
+#       client2_micropython,
         fatfs1,
-        fatfs2,
-        fatfs3,
+#       fatfs2,
+#       fatfs3,
         timer_driver,
         blk_driver,
         blk_virt,
@@ -123,10 +123,10 @@ def generate(sdf_path: str, output_dir: str, dtb: DeviceTree):
 
     assert fs1.connect()
     assert fs1.serialise_config(output_dir)
-    assert fs2.connect()
-    assert fs2.serialise_config(output_dir)
-    assert fs3.connect()
-    assert fs3.serialise_config(output_dir)
+#   assert fs2.connect()
+#   assert fs2.serialise_config(output_dir)
+#   assert fs3.connect()
+#   assert fs3.serialise_config(output_dir)
     assert serial_system.connect()
     assert serial_system.serialise_config(output_dir)
     assert timer_system.connect()

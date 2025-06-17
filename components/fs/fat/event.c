@@ -126,9 +126,9 @@ void init(void) {
     assert(blk_config.virt.num_buffers >= FAT_WORKER_THREAD_NUM);
 
     max_cluster_size = blk_config.data.size / FAT_WORKER_THREAD_NUM;
-    fs_command_queue = fs_config.client.command_queue.vaddr;
-    fs_completion_queue = fs_config.client.completion_queue.vaddr;
-    fs_share = fs_config.client.share.vaddr;
+    fs_command_queue = fs_config.virt.command_queue.vaddr;
+    fs_completion_queue = fs_config.virt.completion_queue.vaddr;
+    fs_share = fs_config.virt.share.vaddr;
 
     blk_data = blk_config.data.vaddr;
 
@@ -166,7 +166,7 @@ void init(void) {
 */
 void notified(microkit_channel ch) {
     LOG_FATFS("Notification received on channel:: %d\n", ch);
-    if (ch != fs_config.client.id && ch != blk_config.virt.id) {
+    if (ch != fs_config.virt.id && ch != blk_config.virt.id) {
         LOG_FATFS("Unknown channel:%d\n", ch);
         return;
     }
@@ -274,7 +274,7 @@ void notified(microkit_channel ch) {
     if (fs_response_enqueued) {
         LOG_FATFS("FS notify client\n");
         fs_queue_publish_production(fs_completion_queue, fs_response_enqueued);
-        microkit_notify(fs_config.client.id);
+        microkit_notify(fs_config.virt.id);
     }
     if (blk_request_pushed) {
         LOG_FATFS("FS notify block virt\n");

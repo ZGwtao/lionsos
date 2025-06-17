@@ -155,22 +155,20 @@ $(SYSTEM_FILE): $(METAPROGRAM) $(IMAGES) $(DTB)
 	$(OBJCOPY) --update-section .timer_client_config=timer_client_c1_micropython.data c1_mpy.elf
 	$(OBJCOPY) --update-section .serial_client_config=serial_client_c1_micropython.data c1_mpy.elf
 	$(OBJCOPY) --update-section .fs_excl_client_config=fs_client_c1_micropythonfatfs1.data c1_mpy.elf
-	$(OBJCOPY) --update-section .fs_shrd_client_config=fs_client_c1_micropythonfatfs2.data c1_mpy.elf
-
-	$(OBJCOPY) --update-section .timer_client_config=timer_client_c2_micropython.data c2_mpy.elf
-	$(OBJCOPY) --update-section .serial_client_config=serial_client_c2_micropython.data c2_mpy.elf
-	$(OBJCOPY) --update-section .fs_excl_client_config=fs_client_c2_micropythonfatfs3.data c2_mpy.elf
+#	$(OBJCOPY) --update-section .fs_shrd_client_config=fs_client_c1_micropythonfatfs2.data c1_mpy.elf
+#	$(OBJCOPY) --update-section .timer_client_config=timer_client_c2_micropython.data c2_mpy.elf
+#	$(OBJCOPY) --update-section .serial_client_config=serial_client_c2_micropython.data c2_mpy.elf
+#	$(OBJCOPY) --update-section .fs_excl_client_config=fs_client_c2_micropythonfatfs3.data c2_mpy.elf
 #	$(OBJCOPY) --update-section .fs_shrd_client_config=fs_client_micropythonfatfs2.data c2_mpy.elf
-
 	$(OBJCOPY) --update-section .device_resources=blk_driver_device_resources.data blk_driver.elf
 	$(OBJCOPY) --update-section .blk_driver_config=blk_driver.data blk_driver.elf
 	$(OBJCOPY) --update-section .blk_virt_config=blk_virt.data blk_virt.elf
 	$(OBJCOPY) --update-section .blk_client_config=blk_client_fatfs1.data fat1.elf
-	$(OBJCOPY) --update-section .blk_client_config=blk_client_fatfs2.data fat2.elf
-	$(OBJCOPY) --update-section .blk_client_config=blk_client_fatfs3.data fat3.elf
+#	$(OBJCOPY) --update-section .blk_client_config=blk_client_fatfs2.data fat2.elf
+#	$(OBJCOPY) --update-section .blk_client_config=blk_client_fatfs3.data fat3.elf
 	$(OBJCOPY) --update-section .fs_server_config=fs_server_fatfs1.data fat1.elf
-	$(OBJCOPY) --update-section .fs_server_config=fs_server_fatfs2.data fat2.elf
-	$(OBJCOPY) --update-section .fs_server_config=fs_server_fatfs3.data fat3.elf
+#	$(OBJCOPY) --update-section .fs_server_config=fs_server_fatfs2.data fat2.elf
+#	$(OBJCOPY) --update-section .fs_server_config=fs_server_fatfs3.data fat3.elf
 
 $(IMAGE_FILE) $(REPORT_FILE): $(IMAGES) $(SYSTEM_FILE)
 	$(MICROKIT_TOOL) $(SYSTEM_FILE) --search-path $(BUILD_DIR) --board $(MICROKIT_BOARD) --config $(MICROKIT_CONFIG) -o $(IMAGE_FILE) -r $(REPORT_FILE)

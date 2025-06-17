@@ -128,15 +128,15 @@ void init(void) {
     }
     serial_queue_init(&serial_tx_queue_handle, serial_config.tx.queue.vaddr, serial_config.tx.data.size, serial_config.tx.data.vaddr);
 
-    fs_chann_table[0].fs_command_queue      = fs_excl_config.server.command_queue.vaddr;
-    fs_chann_table[0].fs_completion_queue   = fs_excl_config.server.completion_queue.vaddr;
-    fs_chann_table[0].fs_server_id          = fs_excl_config.server.id;
-    fs_chann_table[0].fs_share              = fs_excl_config.server.share.vaddr;
+    fs_chann_table[0].fs_command_queue      = fs_excl_config.virt.command_queue.vaddr;
+    fs_chann_table[0].fs_completion_queue   = fs_excl_config.virt.completion_queue.vaddr;
+    fs_chann_table[0].fs_server_id          = fs_excl_config.virt.id;
+    fs_chann_table[0].fs_share              = fs_excl_config.virt.share.vaddr;
 #if 0
-    fs_chann_table[1].fs_command_queue      = fs_shrd_config.server.command_queue.vaddr;
-    fs_chann_table[1].fs_completion_queue   = fs_shrd_config.server.completion_queue.vaddr;
-    fs_chann_table[1].fs_server_id          = fs_shrd_config.server.id;
-    fs_chann_table[1].fs_share              = fs_shrd_config.server.share.vaddr;
+    fs_chann_table[1].fs_command_queue      = fs_shrd_config.virt.command_queue.vaddr;
+    fs_chann_table[1].fs_completion_queue   = fs_shrd_config.virt.completion_queue.vaddr;
+    fs_chann_table[1].fs_server_id          = fs_shrd_config.virt.id;
+    fs_chann_table[1].fs_share              = fs_shrd_config.virt.share.vaddr;
 #endif
     curr_fs_chann = fs_chann_table;
 
