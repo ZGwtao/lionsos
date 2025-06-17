@@ -48,6 +48,10 @@ METAPROGRAM := $(FILEIO_DIR)/meta.py
 DTS := $(SDDF)/dts/$(MICROKIT_BOARD).dts
 DTB := $(MICROKIT_BOARD).dtb
 
+SDFGEN_HELPER := $(FILEIO_DIR)/sdfgen_helper.py
+FS_CONFIG_HEADERS := $(SDDF)/include/sddf/resources/common.h \
+						$(LIONSOS)/include/lions/fs/config.h
+
 FAT := $(LIONSOS)/components/fs/fat
 MUSL_SRC := $(LIONSOS)/dep/musllibc
 MUSL := musllibc
@@ -140,6 +144,7 @@ $(SYSTEM_FILE): $(METAPROGRAM) $(IMAGES) $(DTB)
 	mv fat.elf fat2.elf
 	cp micropython.elf c1_mpy.elf
 	mv micropython.elf c2_mpy.elf
+	$(PYTHON) $(SDFGEN_HELPER) --configs "$(FS_CONFIG_HEADERS)" --output $(FILEIO_DIR)/config_structs.py
 	$(PYTHON) $(METAPROGRAM) --sddf $(SDDF) --board $(MICROKIT_BOARD) --dtb $(DTB) --output . --sdf $(SYSTEM_FILE)
 	$(OBJCOPY) --update-section .device_resources=serial_driver_device_resources.data serial_driver.elf
 	$(OBJCOPY) --update-section .serial_driver_config=serial_driver_config.data serial_driver.elf
