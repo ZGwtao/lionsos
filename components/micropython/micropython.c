@@ -22,7 +22,7 @@
 #include <sddf/i2c/queue.h>
 #include <sddf/timer/config.h>
 #include <sddf/network/config.h>
-#include <lions/fs/config.h>
+#include <lions/fs/common.h>
 #include "lwip/init.h"
 #include "mpconfigport.h"
 #include "fs_helpers.h"

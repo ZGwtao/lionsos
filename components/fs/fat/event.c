@@ -13,7 +13,7 @@
 #include <sddf/blk/storage_info.h>
 #include <sddf/blk/config.h>
 #include <lions/fs/protocol.h>
-#include <lions/fs/config.h>
+#include <lions/fs/common.h>
 #include "decl.h"
 #include "ff.h"
 #include "diskio.h"
