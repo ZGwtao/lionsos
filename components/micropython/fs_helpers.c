@@ -103,7 +103,7 @@ void fs_command_issue(fs_cmd_t cmd) {
     assert(fs_queue_length_producer(curr_fs_chann->fs_command_queue) != FS_QUEUE_CAPACITY);
     *fs_queue_idx_empty(curr_fs_chann->fs_command_queue, 0) = message;
     fs_queue_publish_production(curr_fs_chann->fs_command_queue, 1);
-    microkit_notify(curr_fs_chann->fs_server_id);
+    microkit_notify(curr_fs_chann->fs_signal_id);
     request_metadata[cmd.id].command = cmd;
 }
 
@@ -127,7 +127,7 @@ int fs_command_blocking(fs_cmpl_t *completion, fs_cmd_t cmd) {
 
     fs_command_issue(cmd);
     while (!request_metadata[request_id].complete) {
-        microkit_cothread_wait_on_channel(curr_fs_chann->fs_server_id);
+        microkit_cothread_wait_on_channel(curr_fs_chann->fs_signal_id);
     }
 
     fs_command_complete(request_id, NULL, completion);

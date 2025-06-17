@@ -292,6 +292,14 @@ typedef struct fs_queue {
     fs_msg_t buffer[FS_QUEUE_CAPACITY];
 } fs_queue_t;
 
+/* signalling channels for fs instances */
+typedef struct fs_signal_rt {
+    fs_queue_t *fs_command_queue;
+    fs_queue_t *fs_completion_queue;
+    microkit_channel fs_signal_id;
+    char *fs_share;
+} fs_signal_rt_t;
+
 static inline uint64_t fs_queue_length_consumer(fs_queue_t *queue) {
     return __atomic_load_n(&queue->tail, __ATOMIC_ACQUIRE) - queue->head;
 }

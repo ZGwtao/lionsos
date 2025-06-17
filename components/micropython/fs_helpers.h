@@ -16,14 +16,6 @@
 /* partition ID (max 256) */
 typedef uint8_t part_id_t;
 
-/* signalling channels for fs instances */
-typedef struct fs_signal_rt {
-    fs_queue_t *fs_command_queue;
-    fs_queue_t *fs_completion_queue;
-    microkit_channel fs_server_id;
-    char *fs_share;
-} fs_signal_rt_t;
-
 int fs_request_allocate(uint64_t *request_id);
 void fs_request_free(uint64_t request_id);
 void fs_request_flag_set(uint64_t request_id);

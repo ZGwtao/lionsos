@@ -130,12 +130,12 @@ void init(void) {
 
     fs_chann_table[0].fs_command_queue      = fs_excl_config.virt.command_queue.vaddr;
     fs_chann_table[0].fs_completion_queue   = fs_excl_config.virt.completion_queue.vaddr;
-    fs_chann_table[0].fs_server_id          = fs_excl_config.virt.id;
+    fs_chann_table[0].fs_signal_id          = fs_excl_config.virt.id;
     fs_chann_table[0].fs_share              = fs_excl_config.virt.share.vaddr;
 #if 0
     fs_chann_table[1].fs_command_queue      = fs_shrd_config.virt.command_queue.vaddr;
     fs_chann_table[1].fs_completion_queue   = fs_shrd_config.virt.completion_queue.vaddr;
-    fs_chann_table[1].fs_server_id          = fs_shrd_config.virt.id;
+    fs_chann_table[1].fs_signal_id          = fs_shrd_config.virt.id;
     fs_chann_table[1].fs_share              = fs_shrd_config.virt.share.vaddr;
 #endif
     curr_fs_chann = fs_chann_table;
