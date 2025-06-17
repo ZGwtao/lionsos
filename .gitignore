@@ -4,3 +4,5 @@ docs/book/
 *~
 \#*#
 .#*
+config_structs.py
+qemu_disk
