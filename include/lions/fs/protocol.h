@@ -362,3 +362,44 @@ static inline char *fs_status_to_str(uint64_t status) {
         return "invalid status code";
     }
 }
+
+/* fetch the cid from the high 32 bits of msg->id */
+#define FS_MESSAGE_GET_CID(name) \
+    static int fs_##name##_get_cid(fs_##name##_t *msg, uint32_t *cid) { \
+        if (msg == NULL || cid == NULL) { \
+            return 1; \
+        } \
+        uint64_t id = msg->id; \
+        *cid = (uint32_t)(id >> 32); \
+        return 0; \
+    }
+
+/* use the high 32 bits of msg->id to store cid */
+#define FS_MESSAGE_SET_CID(name) \
+    static int fs_##name##_set_cid(fs_##name##_t *msg, uint32_t cid) \
+    { \
+        if (msg == NULL) { \
+            return 1; \
+        } \
+        msg->id &= 0x00000000FFFFFFFFULL; \
+        msg->id |= ((uint64_t)cid << 32); \
+        return 0; \
+    } \
+
+/* unset cid from msg->cid */
+#define FS_MESSAGE_UNSET_CID(name) \
+    static int fs_##name##_unset_cid(fs_##name##_t *msg) { \
+        if (msg == NULL) { \
+            return 1; \
+        } \
+        msg->id &= 0x00000000FFFFFFFFULL; \
+        return 0; \
+    }
+
+FS_MESSAGE_GET_CID(cmpl)
+FS_MESSAGE_SET_CID(cmpl)
+FS_MESSAGE_UNSET_CID(cmpl)
+
+FS_MESSAGE_GET_CID(cmd)
+FS_MESSAGE_SET_CID(cmd)
+FS_MESSAGE_UNSET_CID(cmd)
