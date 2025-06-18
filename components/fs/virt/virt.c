@@ -20,8 +20,8 @@
 
 __attribute__((__section__(".fs_virt_config"))) fs_virt_config_t fs_config;
 
-fs_signal_rt_t fs_server_chann;
-fs_signal_rt_t fs_client_chann_list[LIONS_FS_MAX_CLIENTS];
+fs_channel_t fs_server_chann;
+fs_channel_t fs_client_chann_list[LIONS_FS_MAX_CLIENTS];
 
 /* 
  * If a request is going to be consumed by a client[i], increase client[i] by 1. 
@@ -81,6 +81,10 @@ static void handle_server()
     }
 }
 
+//
+// TODO
+//  -> should we handle file path as well?
+//
 static bool handle_clients()
 {
     ;

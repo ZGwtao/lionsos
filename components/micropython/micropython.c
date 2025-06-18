@@ -46,8 +46,8 @@ static char heap[MICROPY_HEAP_SIZE];
 static char mp_stack[MICROPY_STACK_SIZE];
 static co_control_t co_controller_mem;
 
-fs_signal_rt_t fs_chann_table[FS_PARTITION_NUM];
-fs_signal_rt_t *curr_fs_chann;
+fs_channel_t fs_chann_table[FS_PARTITION_NUM];
+fs_channel_t *curr_fs_chann;
 
 serial_queue_handle_t serial_rx_queue_handle;
 serial_queue_handle_t serial_tx_queue_handle;

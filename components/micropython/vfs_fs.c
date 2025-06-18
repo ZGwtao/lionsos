@@ -23,8 +23,8 @@ typedef struct _mp_obj_vfs_fs_t {
     bool readonly;
 } mp_obj_vfs_fs_t;
 
-extern fs_signal_rt_t *curr_fs_chann;
-extern fs_signal_rt_t fs_chann_table[];
+extern fs_channel_t *curr_fs_chann;
+extern fs_channel_t fs_chann_table[];
 
 static const char *vfs_fs_get_path_str(mp_obj_vfs_fs_t *self, mp_obj_t path) {
     if (self->root_len == 0) {
