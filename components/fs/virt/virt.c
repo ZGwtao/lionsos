@@ -23,6 +23,12 @@ __attribute__((__section__(".fs_virt_config"))) fs_virt_config_t fs_config;
 fs_signal_rt_t fs_server_chann;
 fs_signal_rt_t fs_client_chann_list[LIONS_FS_MAX_CLIENTS];
 
+/* 
+ * If a request is going to be consumed by a client[i], increase client[i] by 1. 
+ * At the end of the loop, populate the request for all client whose client[i] > 0
+ */
+uint64_t client_response[LIONS_FS_MAX_CLIENTS];
+
 /*
  * Receive request from the file system server, which means there should be a cmd
  * to respond. So the operation of handling server is checking the response queue,
@@ -33,12 +39,7 @@ static void handle_server()
     fs_cmpl_t *cmpl;
     fs_queue_t *response_queue;
     fs_queue_t *client_queue;
-    /* 
-     * If a request is going to be consumed by a client[i], increase client[i] by 1. 
-     * At the end of the loop, populate the request for all client whose client[i] > 0
-     */
-    uint64_t client_response[LIONS_FS_MAX_CLIENTS] = {0};
-    
+
     response_queue = fs_server_chann.fs_completion_queue;
     uint64_t to_consume = fs_queue_length_consumer(response_queue);
 
@@ -80,13 +81,29 @@ static void handle_server()
     }
 }
 
-static void handle_clients()
+static bool handle_clients()
 {
     ;
 }
 
-void notified(microkit_channel ch)
-{
+static inline void signal_server() {
+    /* signal the server if and only if there are requests ready */
+    microkit_notify(fs_server_chann.fs_signal_id);
+}
+
+static void signal_clients() {
+    /* signal clients who should receive response */
+    for (uint64_t i = 0; i < LIONS_FS_MAX_CLIENTS; ++i) {
+        if (client_response[i] > 0) {
+            microkit_notify(fs_client_chann_list[i].fs_signal_id);
+        }
+    }
+}
+
+void notified(microkit_channel ch) {
+    for (uint64_t i = 0; i < LIONS_FS_MAX_CLIENTS; ++i) {
+        client_response[i] = 0;
+    }
 #if 1
     LOG_FATFS("Notification received on channel:: %d\n", ch);
 #endif
@@ -94,7 +111,12 @@ void notified(microkit_channel ch)
         handle_server();
     }
     /* find which client has request that ready to be handled */
-    handle_clients();
+    if (handle_clients()) {
+        /* if there are requests from the clients to publish */
+        signal_server();
+    }
+    /* if there are response for clients to consume */
+    signal_clients();
 }
 
 void init(void)
