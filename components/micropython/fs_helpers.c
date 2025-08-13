@@ -199,7 +199,7 @@ void fs_sanitize_pathname(const char path[], size_t len, char *path_plocal[], pa
         /* still not found */
         return;
     }
-#if 0
+#if 1
     /* debug */
     printf("partition ID retrieved: %s", part_id);
 #endif
@@ -215,12 +215,13 @@ void fs_sanitize_pathname(const char path[], size_t len, char *path_plocal[], pa
     }
     /* assign possible partition ID */
     _p_id = atoi(part_id);
-#if 0
+#if 1
     printf("retrieved ID: %d\n", _p_id);
 #endif
-    if (_p_id >= 256 || _p_id < 1) {
+    if (_p_id >= 256 || _p_id > FS_PARTITION_NUM || _p_id < 1) {
         /* still invalid (1~255) */
         *valid = false;
+        printf("Invalid partition ID given, switch to default parID\n");
         return;
     }
     /* assign valid partition ID */
