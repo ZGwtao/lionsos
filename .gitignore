@@ -1,5 +1,7 @@
 build/
 docs/book/
+config_structs.py
+fs_config.h
 .DS_Store
 *~
 \#*#

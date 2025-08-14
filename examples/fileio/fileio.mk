@@ -48,6 +48,12 @@ METAPROGRAM := $(FILEIO_DIR)/meta.py
 DTS := $(SDDF)/dts/$(MICROKIT_BOARD).dts
 DTB := $(MICROKIT_BOARD).dtb
 
+SDFGEN_HELPER := $(FILEIO_DIR)/_sdfgen_helper.py
+SDFGEN_UNKOWN_MACROS := 
+FS_CONFIG_HEADERS := $(SDDF)/include/sddf/resources/common.h \
+					 	$(SDDF)/include/sddf/resources/device.h \
+						$(LIONSOS)/include/lions/fs/config.h
+
 FAT := $(LIONSOS)/components/fs/fat
 MUSL_SRC := $(LIONSOS)/dep/musllibc
 MUSL := musllibc
@@ -137,6 +143,7 @@ $(DTB): $(DTS)
 $(SYSTEM_FILE): $(METAPROGRAM) $(IMAGES) $(DTB)
 	cp fat.elf fat1.elf
 	mv fat.elf fat2.elf
+# 	$(PYTHON) $(SDFGEN_HELPER) --macros "$(SDFGEN_UNKOWN_MACROS)" --configs "$(FS_CONFIG_HEADERS)" --output $(FILEIO_DIR)/config_structs.py
 	$(PYTHON) $(METAPROGRAM) --sddf $(SDDF) --board $(MICROKIT_BOARD) --dtb $(DTB) --output . --sdf $(SYSTEM_FILE) --objcopy $(OBJCOPY)
 	$(OBJCOPY) --update-section .device_resources=serial_driver_device_resources.data serial_driver.elf
 	$(OBJCOPY) --update-section .serial_driver_config=serial_driver_config.data serial_driver.elf
@@ -145,14 +152,14 @@ $(SYSTEM_FILE): $(METAPROGRAM) $(IMAGES) $(DTB)
 	$(OBJCOPY) --update-section .device_resources=timer_driver_device_resources.data timer_driver.elf
 	$(OBJCOPY) --update-section .timer_client_config=timer_client_micropython.data micropython.elf
 	$(OBJCOPY) --update-section .serial_client_config=serial_client_micropython.data micropython.elf
-	$(OBJCOPY) --update-section .fs_excl_client_config=fs_client_micropythonfatfs1.data micropython.elf
-	$(OBJCOPY) --update-section .fs_shrd_client_config=fs_client_micropythonfatfs2.data micropython.elf
+#	$(OBJCOPY) --update-section .fs_excl_client_config=fs_client_micropython_fatfs1.data micropython.elf
+	$(OBJCOPY) --update-section .fs_shrd_client_config=fs_client_micropython.data micropython.elf
 	$(OBJCOPY) --update-section .device_resources=blk_driver_device_resources.data blk_driver.elf
 	$(OBJCOPY) --update-section .blk_driver_config=blk_driver.data blk_driver.elf
 	$(OBJCOPY) --update-section .blk_virt_config=blk_virt.data blk_virt.elf
 	$(OBJCOPY) --update-section .blk_client_config=blk_client_fatfs1.data fat1.elf
 	$(OBJCOPY) --update-section .blk_client_config=blk_client_fatfs2.data fat2.elf
-	$(OBJCOPY) --update-section .fs_server_config=fs_server_fatfs1.data fat1.elf
+#	$(OBJCOPY) --update-section .fs_server_config=fs_server_fatfs1.data fat1.elf
 	$(OBJCOPY) --update-section .fs_server_config=fs_server_fatfs2.data fat2.elf
 
 $(IMAGE_FILE) $(REPORT_FILE): $(IMAGES) $(SYSTEM_FILE)

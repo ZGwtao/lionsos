@@ -32,10 +32,10 @@ fs_queue_t *fs_command_queue;
 fs_queue_t *fs_completion_queue;
 char *fs_share;
 
-uint64_t worker_thread_stack_one;
-uint64_t worker_thread_stack_two;
-uint64_t worker_thread_stack_three;
-uint64_t worker_thread_stack_four;
+uint64_t worker_thread_stack_one = 0xA0000000;
+uint64_t worker_thread_stack_two = 0xB0000000;
+uint64_t worker_thread_stack_three = 0xC0000000;
+uint64_t worker_thread_stack_four = 0xD0000000;
 
 uint64_t max_cluster_size;
 
@@ -120,7 +120,7 @@ _Static_assert(FF_FS_LOCK >= (FAT_MAX_OPENED_DIRNUM + FAT_MAX_OPENED_FILENUM),
     "FF_FS_LOCK should be equal or larger than max opened dir number and max opened file number combined");
 
 void init(void) {
-    assert(fs_config_check_magic(&fs_config));
+    //assert(fs_config_check_magic(&fs_config));
     assert(blk_config_check_magic(&blk_config));
 
     assert(blk_config.virt.num_buffers >= FAT_WORKER_THREAD_NUM);

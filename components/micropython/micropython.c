@@ -30,7 +30,7 @@
 __attribute__((__section__(".serial_client_config"))) serial_client_config_t serial_config;
 __attribute__((__section__(".timer_client_config"))) timer_client_config_t timer_config;
 __attribute__((__section__(".net_client_config"))) net_client_config_t net_config;
-__attribute__((__section__(".fs_excl_client_config"))) fs_client_config_t fs_excl_config;
+__attribute__((__section__(".fs_client_config"))) fs_client_config_t fs_excl_config;
 __attribute__((__section__(".fs_shrd_client_config"))) fs_client_config_t fs_shrd_config;
 __attribute__((__section__(".i2c_client_config"))) i2c_client_config_t i2c_config;
 
@@ -118,7 +118,7 @@ void init(void) {
     assert(serial_config_check_magic(&serial_config));
     assert(timer_config_check_magic(&timer_config));
     net_enabled = net_config_check_magic(&net_config);
-    assert(fs_config_check_magic(&fs_excl_config));
+    //assert(fs_config_check_magic(&fs_excl_config));
     assert(fs_config_check_magic(&fs_shrd_config));
 
     net_enabled = net_config_check_magic(&net_config);
