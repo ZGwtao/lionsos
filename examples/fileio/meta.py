@@ -76,20 +76,20 @@ def generate(sdf_path: str, output_dir: str, dtb: DeviceTree):
     fatfs1 = ProtectionDomain("fatfs1", "fat1.elf", priority=96)
     fatfs2 = ProtectionDomain("fatfs2", "fat2.elf", priority=96)
 
-    fs1 = LionsOs.FileSystem.Fat(
-        sdf,
-        fatfs1,
-        micropython,
-        blk=blk_system,
-        partition=0
-    )
-    fs2 = LionsOs.FileSystem.Fat(
-        sdf,
-        fatfs2,
-        micropython,
-        blk=blk_system,
-        partition=1
-    )
+    # fs1 = LionsOs.FileSystem.Fat(
+    #     sdf,
+    #     fatfs1,
+    #     micropython,
+    #     blk=blk_system,
+    #     partition=0
+    # )
+    # fs2 = LionsOs.FileSystem.Fat(
+    #     sdf,
+    #     fatfs2,
+    #     micropython,
+    #     blk=blk_system,
+    #     partition=1
+    # )
 
     if board.name == "maaxboard":
         timer_system.add_client(blk_driver)
@@ -108,10 +108,10 @@ def generate(sdf_path: str, output_dir: str, dtb: DeviceTree):
     for pd in pds:
         sdf.add_pd(pd)
 
-    assert fs1.connect()
-    assert fs1.serialise_config(output_dir)
-    assert fs2.connect()
-    assert fs2.serialise_config(output_dir)
+    # assert fs1.connect()
+    # assert fs1.serialise_config(output_dir)
+    # assert fs2.connect()
+    # assert fs2.serialise_config(output_dir)
     assert serial_system.connect()
     assert serial_system.serialise_config(output_dir)
     assert timer_system.connect()
@@ -130,6 +130,7 @@ if __name__ == '__main__':
     parser.add_argument("--board", required=True, choices=[b.name for b in BOARDS])
     parser.add_argument("--output", required=True)
     parser.add_argument("--sdf", required=True)
+    parser.add_argument("--objcopy", required=True)
 
     args = parser.parse_args()
 
@@ -137,6 +138,9 @@ if __name__ == '__main__':
 
     sdf = SystemDescription(board.arch, board.paddr_top)
     sddf = Sddf(args.sddf)
+
+    global obj_copy
+    obj_copy = args.obj_copy
 
     with open(args.dtb, "rb") as f:
         dtb = DeviceTree(f.read())
