@@ -153,7 +153,7 @@ $(SYSTEM_FILE): $(METAPROGRAM) $(IMAGES) $(DTB)
 	$(OBJCOPY) --update-section .timer_client_config=timer_client_micropython.data micropython.elf
 	$(OBJCOPY) --update-section .serial_client_config=serial_client_micropython.data micropython.elf
 #	$(OBJCOPY) --update-section .fs_excl_client_config=fs_client_micropython_fatfs1.data micropython.elf
-	$(OBJCOPY) --update-section .fs_shrd_client_config=fs_client_micropython.data micropython.elf
+	$(OBJCOPY) --update-section .fs_shrd_client_config=fs_client_micropython_fatfs2.data micropython.elf
 	$(OBJCOPY) --update-section .device_resources=blk_driver_device_resources.data blk_driver.elf
 	$(OBJCOPY) --update-section .blk_driver_config=blk_driver.data blk_driver.elf
 	$(OBJCOPY) --update-section .blk_virt_config=blk_virt.data blk_virt.elf
