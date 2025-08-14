@@ -139,30 +139,30 @@ def generate(sdf_path: str, output_dir: str, dtb: DeviceTree):
     # )
 
     # queue len = 512 as per lionsos.zig
-    fs_client_server_chann = fs_connection(micropython, fatfs1, 512)
+    fs1_client_server_chann = fs_connection(micropython, fatfs1, 512)
     # pd1 is client, pd2 is server
-    fs1_excl_client_config = FsClientConfig(
+    fs1_client_config = FsClientConfig(
         [],
-        fs_client_server_chann[0]
+        fs1_client_server_chann[0]
     )
     fs1_server_config = FsServerConfig(
         [],
-        fs_client_server_chann[1]
+        fs1_client_server_chann[1]
     )
     blk_system.add_client(fatfs1, partition=0)
 
-    stack1 = MemoryRegion(sdf, "fat1_stack1", 0x40_000)
-    stack2 = MemoryRegion(sdf, "fat1_stack2", 0x40_000)
-    stack3 = MemoryRegion(sdf, "fat1_stack3", 0x40_000)
-    stack4 = MemoryRegion(sdf, "fat1_stack4", 0x40_000)
-    sdf.add_mr(stack1)
-    sdf.add_mr(stack2)
-    sdf.add_mr(stack3)
-    sdf.add_mr(stack4)
-    fatfs1.add_map(Map(stack1, 0xA0_000_000, perms="rw")) #, setvar_vaddr="worker_thread_stack_one"))
-    fatfs1.add_map(Map(stack2, 0xB0_000_000, perms="rw")) #, setvar_vaddr="worker_thread_stack_two"))
-    fatfs1.add_map(Map(stack3, 0xC0_000_000, perms="rw")) #, setvar_vaddr="worker_thread_stack_three"))
-    fatfs1.add_map(Map(stack4, 0xD0_000_000, perms="rw")) #, setvar_vaddr="worker_thread_stack_four"))
+    fs1_stack1 = MemoryRegion(sdf, "fat1_stack1", 0x40_000)
+    fs1_stack2 = MemoryRegion(sdf, "fat1_stack2", 0x40_000)
+    fs1_stack3 = MemoryRegion(sdf, "fat1_stack3", 0x40_000)
+    fs1_stack4 = MemoryRegion(sdf, "fat1_stack4", 0x40_000)
+    sdf.add_mr(fs1_stack1)
+    sdf.add_mr(fs1_stack2)
+    sdf.add_mr(fs1_stack3)
+    sdf.add_mr(fs1_stack4)
+    fatfs1.add_map(Map(fs1_stack1, 0xA0_000_000, perms="rw"))
+    fatfs1.add_map(Map(fs1_stack2, 0xB0_000_000, perms="rw"))
+    fatfs1.add_map(Map(fs1_stack3, 0xC0_000_000, perms="rw"))
+    fatfs1.add_map(Map(fs1_stack4, 0xD0_000_000, perms="rw"))
 
     # fs2 = LionsOs.FileSystem.Fat(
     #      sdf,
@@ -172,29 +172,29 @@ def generate(sdf_path: str, output_dir: str, dtb: DeviceTree):
     #      partition=1
     # )
 
-    fs_client_server_chann = fs_connection(micropython, fatfs2, 512)
-    fs2_excl_client_config = FsClientConfig(
+    fs2_client_server_chann = fs_connection(micropython, fatfs2, 512)
+    fs2_client_config = FsClientConfig(
         [],
-        fs_client_server_chann[0]
+        fs2_client_server_chann[0]
     )
     fs2_server_config = FsServerConfig(
         [],
-        fs_client_server_chann[1]
+        fs2_client_server_chann[1]
     )
     blk_system.add_client(fatfs2, partition=1)
 
-    stack1 = MemoryRegion(sdf, "fat2_stack1", 0x40_000)
-    stack2 = MemoryRegion(sdf, "fat2_stack2", 0x40_000)
-    stack3 = MemoryRegion(sdf, "fat2_stack3", 0x40_000)
-    stack4 = MemoryRegion(sdf, "fat2_stack4", 0x40_000)
-    sdf.add_mr(stack1)
-    sdf.add_mr(stack2)
-    sdf.add_mr(stack3)
-    sdf.add_mr(stack4)
-    fatfs2.add_map(Map(stack1, 0xA0_000_000, perms="rw"))
-    fatfs2.add_map(Map(stack2, 0xB0_000_000, perms="rw"))
-    fatfs2.add_map(Map(stack3, 0xC0_000_000, perms="rw"))
-    fatfs2.add_map(Map(stack4, 0xD0_000_000, perms="rw"))
+    fs2_stack1 = MemoryRegion(sdf, "fat2_stack1", 0x40_000)
+    fs2_stack2 = MemoryRegion(sdf, "fat2_stack2", 0x40_000)
+    fs2_stack3 = MemoryRegion(sdf, "fat2_stack3", 0x40_000)
+    fs2_stack4 = MemoryRegion(sdf, "fat2_stack4", 0x40_000)
+    sdf.add_mr(fs2_stack1)
+    sdf.add_mr(fs2_stack2)
+    sdf.add_mr(fs2_stack3)
+    sdf.add_mr(fs2_stack4)
+    fatfs2.add_map(Map(fs2_stack1, 0xA0_000_000, perms="rw"))
+    fatfs2.add_map(Map(fs2_stack2, 0xB0_000_000, perms="rw"))
+    fatfs2.add_map(Map(fs2_stack3, 0xC0_000_000, perms="rw"))
+    fatfs2.add_map(Map(fs2_stack4, 0xD0_000_000, perms="rw"))
 
     if board.name == "maaxboard":
         timer_system.add_client(blk_driver)
@@ -226,23 +226,23 @@ def generate(sdf_path: str, output_dir: str, dtb: DeviceTree):
 
     data_path = output_dir + "/fs_client_micropython_fatfs1.data"
     with open(data_path, "wb+") as f:
-        f.write(fs1_excl_client_config.serialise())
-    update_elf_section(obj_copy, micropython.elf, fs1_excl_client_config.section_name, data_path)
+        f.write(fs1_client_config.serialise())
+    update_elf_section(obj_copy, micropython.elf, "fs1_client_config", data_path)
 
     data_path = output_dir + "/fs_server_fatfs1.data"
     with open(data_path, "wb+") as f:
         f.write(fs1_server_config.serialise())
-    update_elf_section(obj_copy, fatfs1.elf, fs1_server_config.section_name, data_path)
+    update_elf_section(obj_copy, fatfs1.elf, "fs_server_config", data_path)
 
     data_path = output_dir + "/fs_client_micropython_fatfs2.data"
     with open(data_path, "wb+") as f:
-        f.write(fs2_excl_client_config.serialise())
-    # update_elf_section(obj_copy, micropython.elf, fs2_excl_client_config.section_name, data_path)
+        f.write(fs2_client_config.serialise())
+    update_elf_section(obj_copy, micropython.elf, "fs2_client_config", data_path)
 
     data_path = output_dir + "/fs_server_fatfs2.data"
     with open(data_path, "wb+") as f:
         f.write(fs2_server_config.serialise())
-    # update_elf_section(obj_copy, fatfs2.elf, fs2_server_config.section_name, data_path)
+    update_elf_section(obj_copy, fatfs2.elf, "fs_server_config", data_path)
 
     with open(f"{output_dir}/{sdf_path}", "w+") as f:
         f.write(sdf.render())
