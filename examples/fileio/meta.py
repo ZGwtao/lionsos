@@ -114,6 +114,42 @@ def fs_connection(pd1: SystemDescription.ProtectionDomain , pd2: SystemDescripti
 
     return [pd1_conn, pd2_conn]
 
+def mul_server_conn(pd1: SystemDescription.ProtectionDomain , pd2: SystemDescription.ProtectionDomain, queue_len: int):
+    queue_name = "fs_command_queue_" + pd1.name + "_" + pd2.name
+    #
+    # sdf is cmdline arg
+    # specify a memory region name "queue_name"
+    #
+    queue = MemoryRegion(sdf, queue_name, 0x8000)
+    sdf.add_mr(queue)
+
+    pd1_map = Map(queue, pd1.get_map_vaddr(queue), perms="rw")
+    pd1.add_map(pd1_map)
+    pd1_command_region = RegionResource(pd1_map.vaddr, 0x8000)
+
+    pd2_map = Map(queue, pd2.get_map_vaddr(queue), perms="rw")
+    pd2.add_map(pd2_map)
+    pd2_command_region = RegionResource(pd2_map.vaddr, 0x8000)
+
+    # ---- 0x8000 as fixed queue size from sdfgen lionsos.zig
+    queue_name = "fs_completion_queue_" + pd1.name + "_" + pd2.name
+    queue = MemoryRegion(sdf, queue_name, 0x8000)
+    sdf.add_mr(queue)
+
+    pd1_map = Map(queue, pd1.get_map_vaddr(queue), perms="rw")
+    pd1.add_map(pd1_map)
+    pd1_completion_region = RegionResource(pd1_map.vaddr, 0x8000)
+
+    pd2_map = Map(queue, pd2.get_map_vaddr(queue), perms="rw")
+    pd2.add_map(pd2_map)
+    pd2_completion_region = RegionResource(pd2_map.vaddr, 0x8000)
+
+    ch = Channel(pd1, pd2)
+    sdf.add_channel(ch)
+
+    multiplexer_conn = FsMulServerConfig(pd1_command_region, pd1_completion_region, queue_len, ch.pd_a_id)
+    server_conn = FsMulServerConfig(pd2_command_region, pd2_completion_region, queue_len, ch.pd_b_id)
+    return [multiplexer_conn, server_conn]
 
 def generate(sdf_path: str, output_dir: str, dtb: DeviceTree):
     serial_node = dtb.node(board.serial)
@@ -155,11 +191,11 @@ def generate(sdf_path: str, output_dir: str, dtb: DeviceTree):
     fs1_client_server_chann = fs_connection(micropython, fatfs1, 512)
     # pd1 is client, pd2 is server
     fs1_client_config = FsClientConfig(
-        [],
+        [0x4C, 0x69, 0x6F, 0x6E, 0x73, 0x4F, 0x53, 0x01],
         fs1_client_server_chann[0]
     )
     fs1_server_config = FsServerConfig(
-        [],
+        [0x4C, 0x69, 0x6F, 0x6E, 0x73, 0x4F, 0x53, 0x01],
         fs1_client_server_chann[1]
     )
     blk_system.add_client(fatfs1, partition=0)
@@ -209,6 +245,8 @@ def generate(sdf_path: str, output_dir: str, dtb: DeviceTree):
     fatfs2.add_map(Map(fs2_stack3, 0xC0_000_000, perms="rw"))
     fatfs2.add_map(Map(fs2_stack4, 0xD0_000_000, perms="rw"))
 
+    # fs1_mul_server_config = mul_server_conn()
+
     if board.name == "maaxboard":
         timer_system.add_client(blk_driver)
 
@@ -256,6 +294,12 @@ def generate(sdf_path: str, output_dir: str, dtb: DeviceTree):
     with open(data_path, "wb+") as f:
         f.write(fs2_server_config.serialise())
     update_elf_section(obj_copy, fatfs2.elf, "fs_server_config", data_path)
+
+    # multiplexer connections
+    # data_path = output_dir + "/fs_mul_server_fatfs1.data"
+    # with open(data_path, "wb+") as f:
+    #     f.write(fs1_mul_server_config.serialise())
+    # update_elf_section(obj_copy, multiplexer.elf, "fs_mul_server_config", data_path)
 
     with open(f"{output_dir}/{sdf_path}", "w+") as f:
         f.write(sdf.render())

@@ -118,8 +118,8 @@ void init(void) {
     assert(serial_config_check_magic(&serial_config));
     assert(timer_config_check_magic(&timer_config));
     net_enabled = net_config_check_magic(&net_config);
-    //assert(fs_config_check_magic(&fs_excl_config));
-    //assert(fs_config_check_magic(&fs_shrd_config));
+    assert(fs_config_check_magic(&fs_excl_config));
+    assert(fs_config_check_magic(&fs_shrd_config));
 
     net_enabled = net_config_check_magic(&net_config);
 
