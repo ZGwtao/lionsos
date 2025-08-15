@@ -131,11 +131,13 @@ void init(void) {
     fs_chann_table[0].fs_command_queue      = fs_excl_config.server.command_queue.vaddr;
     fs_chann_table[0].fs_completion_queue   = fs_excl_config.server.completion_queue.vaddr;
     fs_chann_table[0].fs_server_id          = fs_excl_config.server.id;
+    fs_chann_table[0].fs_pathname_share     = fs_excl_config.server.pathname_share.vaddr;
     fs_chann_table[0].fs_share              = fs_excl_config.server.share.vaddr;
 
     fs_chann_table[1].fs_command_queue      = fs_shrd_config.server.command_queue.vaddr;
     fs_chann_table[1].fs_completion_queue   = fs_shrd_config.server.completion_queue.vaddr;
     fs_chann_table[1].fs_server_id          = fs_shrd_config.server.id;
+    fs_chann_table[1].fs_pathname_share     = fs_shrd_config.server.pathname_share.vaddr;
     fs_chann_table[1].fs_share              = fs_shrd_config.server.share.vaddr;
 
     curr_fs_chann = fs_chann_table;

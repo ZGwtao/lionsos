@@ -62,7 +62,7 @@ static mp_import_stat_t mp_vfs_fs_import_stat(void *self_in, const char *path) {
     printf("> %s\n", path_plocal);
 
     ptrdiff_t path_buffer;
-    int err = fs_buffer_allocate(&path_buffer);
+    int err = fs_pbuf_allocate(&path_buffer);
     assert(!err);
 
     ptrdiff_t output_buffer;
@@ -70,7 +70,7 @@ static mp_import_stat_t mp_vfs_fs_import_stat(void *self_in, const char *path) {
     assert(!err);
 
     uint64_t path_len = strlen(path_plocal);
-    memcpy(fs_buffer_ptr(path_buffer), path_plocal, path_len);
+    memcpy(fs_pbuf_ptr(path_buffer), path_plocal, path_len);
 
     fs_cmpl_t completion;
     fs_command_blocking(&completion, (fs_cmd_t){
@@ -87,7 +87,7 @@ static mp_import_stat_t mp_vfs_fs_import_stat(void *self_in, const char *path) {
     memcpy(&stat, fs_buffer_ptr(output_buffer), sizeof stat);
 
     fs_buffer_free(output_buffer);
-    fs_buffer_free(path_buffer);
+    fs_pbuf_free(path_buffer);
 
     if (completion.status != FS_STATUS_SUCCESS) {
         fs_switch_partition(c_id);
@@ -178,7 +178,7 @@ static mp_obj_t vfs_fs_ilistdir_it_iternext(mp_obj_t self_in) {
 
     for (;;) {
         ptrdiff_t name_buffer;
-        int err = fs_buffer_allocate(&name_buffer);
+        int err = fs_pbuf_allocate(&name_buffer);
         assert(!err);
 
         fs_cmpl_t completion;
@@ -193,16 +193,16 @@ static mp_obj_t vfs_fs_ilistdir_it_iternext(mp_obj_t self_in) {
         });
 
         if (completion.status != FS_STATUS_SUCCESS) {
-            fs_buffer_free(name_buffer);
+            fs_pbuf_free(name_buffer);
             fs_switch_partition(c_id);
             break;
         }
 
-        const char *fn = fs_buffer_ptr(name_buffer);
+        const char *fn = fs_pbuf_ptr(name_buffer);
 
         if (fn[0] == '.' && (fn[1] == 0 || fn[1] == '.')) {
             // skip . and ..
-            fs_buffer_free(name_buffer);
+            fs_pbuf_free(name_buffer);
             fs_switch_partition(c_id);
             continue;
         }
@@ -219,7 +219,7 @@ static mp_obj_t vfs_fs_ilistdir_it_iternext(mp_obj_t self_in) {
         t->items[1] = MP_OBJ_NEW_SMALL_INT(0);
         t->items[2] = MP_OBJ_NEW_SMALL_INT(0);
 
-        fs_buffer_free(name_buffer);
+        fs_pbuf_free(name_buffer);
         fs_switch_partition(c_id);
         return MP_OBJ_FROM_PTR(t);
     }
@@ -252,7 +252,7 @@ static mp_obj_t vfs_fs_ilistdir(mp_obj_t self_in, mp_obj_t path_in) {
     iter->p_id = fs_retrieve_partition();
 
     ptrdiff_t path_buffer;
-    int err = fs_buffer_allocate(&path_buffer);
+    int err = fs_pbuf_allocate(&path_buffer);
     if (err) {
         fs_switch_partition(c_id);
         mp_raise_OSError(err);
@@ -260,7 +260,7 @@ static mp_obj_t vfs_fs_ilistdir(mp_obj_t self_in, mp_obj_t path_in) {
     }
 
     uint64_t path_len = strlen(path_plocal);
-    memcpy(fs_buffer_ptr(path_buffer), path_plocal, path_len);
+    memcpy(fs_pbuf_ptr(path_buffer), path_plocal, path_len);
 
     fs_cmpl_t completion;
     err = fs_command_blocking(&completion, (fs_cmd_t){
@@ -270,7 +270,7 @@ static mp_obj_t vfs_fs_ilistdir(mp_obj_t self_in, mp_obj_t path_in) {
             .path.size = path_len,
         }
     });
-    fs_buffer_free(path_buffer);
+    fs_pbuf_free(path_buffer);
     fs_switch_partition(c_id);
     if (err) {
         mp_raise_OSError(err);
@@ -303,7 +303,7 @@ static mp_obj_t vfs_fs_mkdir(mp_obj_t self_in, mp_obj_t path_in) {
     }
 
     ptrdiff_t path_buffer;
-    int err = fs_buffer_allocate(&path_buffer);
+    int err = fs_pbuf_allocate(&path_buffer);
     if (err) {
         fs_switch_partition(c_id);
         mp_raise_OSError(err);
@@ -311,7 +311,7 @@ static mp_obj_t vfs_fs_mkdir(mp_obj_t self_in, mp_obj_t path_in) {
     }
 
     uint64_t path_len = strlen(path_plocal);
-    memcpy(fs_buffer_ptr(path_buffer), path_plocal, path_len);
+    memcpy(fs_pbuf_ptr(path_buffer), path_plocal, path_len);
 
     fs_cmpl_t completion;
     err = fs_command_blocking(&completion, (fs_cmd_t){
@@ -322,12 +322,12 @@ static mp_obj_t vfs_fs_mkdir(mp_obj_t self_in, mp_obj_t path_in) {
         }
     });
     if (err) {
-        fs_buffer_free(path_buffer);
+        fs_pbuf_free(path_buffer);
         fs_switch_partition(c_id);
         mp_raise_OSError(err);
     }
 
-    fs_buffer_free(path_buffer);
+    fs_pbuf_free(path_buffer);
 
     if (completion.status != FS_STATUS_SUCCESS) {
         fs_switch_partition(c_id);
@@ -349,7 +349,7 @@ static mp_obj_t vfs_fs_remove(mp_obj_t self_in, mp_obj_t path_in) {
     }
 
     ptrdiff_t path_buffer;
-    int err = fs_buffer_allocate(&path_buffer);
+    int err = fs_pbuf_allocate(&path_buffer);
     if (err) {
         fs_switch_partition(c_id);
         mp_raise_OSError(err);
@@ -357,7 +357,7 @@ static mp_obj_t vfs_fs_remove(mp_obj_t self_in, mp_obj_t path_in) {
     }
 
     uint64_t path_len = strlen(path_plocal);
-    memcpy(fs_buffer_ptr(path_buffer), path_plocal, path_len);
+    memcpy(fs_pbuf_ptr(path_buffer), path_plocal, path_len);
 
     fs_cmpl_t completion;
     err = fs_command_blocking(&completion, (fs_cmd_t){
@@ -368,7 +368,7 @@ static mp_obj_t vfs_fs_remove(mp_obj_t self_in, mp_obj_t path_in) {
         }
     });
 
-    fs_buffer_free(path_buffer);
+    fs_pbuf_free(path_buffer);
 
     if (completion.status != FS_STATUS_SUCCESS) {
         fs_switch_partition(c_id);
@@ -397,16 +397,16 @@ static mp_obj_t vfs_fs_rename(mp_obj_t self_in, mp_obj_t old_path_in, mp_obj_t n
     }
 
     ptrdiff_t old_path_buffer;
-    err = fs_buffer_allocate(&old_path_buffer);
+    err = fs_pbuf_allocate(&old_path_buffer);
     if (err) {
         fs_switch_partition(c_id);
         mp_raise_OSError(err);
     }
 
     ptrdiff_t new_path_buffer;
-    err = fs_buffer_allocate(&new_path_buffer);
+    err = fs_pbuf_allocate(&new_path_buffer);
     if (err) {
-        fs_buffer_free(old_path_buffer);
+        fs_pbuf_free(old_path_buffer);
         fs_switch_partition(c_id);
         mp_raise_OSError(err);
     }
@@ -414,8 +414,8 @@ static mp_obj_t vfs_fs_rename(mp_obj_t self_in, mp_obj_t old_path_in, mp_obj_t n
     uint64_t old_path_len = strlen(old_path_plocal);
     uint64_t new_path_len = strlen(new_path_plocal);
 
-    memcpy(fs_buffer_ptr(old_path_buffer), old_path_plocal, old_path_len);
-    memcpy(fs_buffer_ptr(new_path_buffer), new_path_plocal, new_path_len);
+    memcpy(fs_pbuf_ptr(old_path_buffer), old_path_plocal, old_path_len);
+    memcpy(fs_pbuf_ptr(new_path_buffer), new_path_plocal, new_path_len);
 
     fs_cmpl_t completion;
     fs_command_blocking(&completion, (fs_cmd_t){
@@ -428,8 +428,8 @@ static mp_obj_t vfs_fs_rename(mp_obj_t self_in, mp_obj_t old_path_in, mp_obj_t n
         }
     });
 
-    fs_buffer_free(old_path_buffer);
-    fs_buffer_free(new_path_buffer);
+    fs_pbuf_free(old_path_buffer);
+    fs_pbuf_free(new_path_buffer);
 
     if (completion.status != FS_STATUS_SUCCESS) {
         fs_switch_partition(c_id);
@@ -451,7 +451,7 @@ static mp_obj_t vfs_fs_rmdir(mp_obj_t self_in, mp_obj_t path_in) {
     }
 
     ptrdiff_t path_buffer;
-    int err = fs_buffer_allocate(&path_buffer);
+    int err = fs_pbuf_allocate(&path_buffer);
     if (err) {
         fs_switch_partition(c_id);
         mp_raise_OSError(err);
@@ -459,7 +459,7 @@ static mp_obj_t vfs_fs_rmdir(mp_obj_t self_in, mp_obj_t path_in) {
     }
 
     uint64_t path_len = strlen(path_plocal);
-    memcpy(fs_buffer_ptr(path_buffer), path_plocal, path_len);
+    memcpy(fs_pbuf_ptr(path_buffer), path_plocal, path_len);
 
     fs_cmpl_t completion;
     fs_command_blocking(&completion, (fs_cmd_t){
@@ -470,7 +470,7 @@ static mp_obj_t vfs_fs_rmdir(mp_obj_t self_in, mp_obj_t path_in) {
         }
     });
 
-    fs_buffer_free(path_buffer);
+    fs_pbuf_free(path_buffer);
 
     if (completion.status != FS_STATUS_SUCCESS) {
         fs_switch_partition(c_id);
@@ -494,7 +494,7 @@ static mp_obj_t vfs_fs_stat(mp_obj_t self_in, mp_obj_t path_in) {
     printf("%s-%s\n", path, path_plocal);
 
     ptrdiff_t path_buffer;
-    int err = fs_buffer_allocate(&path_buffer);
+    int err = fs_pbuf_allocate(&path_buffer);
     assert(!err);
 
     ptrdiff_t output_buffer;
@@ -502,7 +502,7 @@ static mp_obj_t vfs_fs_stat(mp_obj_t self_in, mp_obj_t path_in) {
     assert(!err);
 
     uint64_t path_len = strlen(path_plocal);
-    memcpy(fs_buffer_ptr(path_buffer), path_plocal, path_len);
+    memcpy(fs_pbuf_ptr(path_buffer), path_plocal, path_len);
 
     fs_cmpl_t completion;
     fs_command_blocking(&completion, (fs_cmd_t){
@@ -519,7 +519,7 @@ static mp_obj_t vfs_fs_stat(mp_obj_t self_in, mp_obj_t path_in) {
     memcpy(&sb, fs_buffer_ptr(output_buffer), sizeof sb);
 
     fs_buffer_free(output_buffer);
-    fs_buffer_free(path_buffer);
+    fs_pbuf_free(path_buffer);
 
     if (completion.status != FS_STATUS_SUCCESS) {
         fs_switch_partition(c_id);

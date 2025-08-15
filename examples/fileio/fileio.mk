@@ -48,7 +48,7 @@ METAPROGRAM := $(FILEIO_DIR)/meta.py
 DTS := $(SDDF)/dts/$(MICROKIT_BOARD).dts
 DTB := $(MICROKIT_BOARD).dtb
 
-SDFGEN_HELPER := $(FILEIO_DIR)/_sdfgen_helper.py
+SDFGEN_HELPER := $(FILEIO_DIR)/sdfgen_helper.py
 SDFGEN_UNKOWN_MACROS := 
 FS_CONFIG_HEADERS := $(SDDF)/include/sddf/resources/common.h \
 					 	$(SDDF)/include/sddf/resources/device.h \
@@ -143,7 +143,7 @@ $(DTB): $(DTS)
 $(SYSTEM_FILE): $(METAPROGRAM) $(IMAGES) $(DTB)
 	cp fat.elf fat1.elf
 	mv fat.elf fat2.elf
-# 	$(PYTHON) $(SDFGEN_HELPER) --macros "$(SDFGEN_UNKOWN_MACROS)" --configs "$(FS_CONFIG_HEADERS)" --output $(FILEIO_DIR)/config_structs.py
+#	$(PYTHON) $(SDFGEN_HELPER) --macros "$(SDFGEN_UNKOWN_MACROS)" --configs "$(FS_CONFIG_HEADERS)" --output $(FILEIO_DIR)/config_structs.py
 	$(PYTHON) $(METAPROGRAM) --sddf $(SDDF) --board $(MICROKIT_BOARD) --dtb $(DTB) --output . --sdf $(SYSTEM_FILE) --objcopy $(OBJCOPY)
 	$(OBJCOPY) --update-section .device_resources=serial_driver_device_resources.data serial_driver.elf
 	$(OBJCOPY) --update-section .serial_driver_config=serial_driver_config.data serial_driver.elf

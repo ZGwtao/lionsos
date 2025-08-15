@@ -81,6 +81,19 @@ def fs_connection(pd1: SystemDescription.ProtectionDomain , pd2: SystemDescripti
     pd2_completion_region = RegionResource(pd2_map.vaddr, 0x8000)
 
     # ---- hardcoded for now
+    queue_name = "fs_pathname_share_" + pd1.name + "_" + pd2.name
+    queue = MemoryRegion(sdf, queue_name, 0x100 * 512 * 4)
+    sdf.add_mr(queue)
+
+    pd1_map = Map(queue, pd1.get_map_vaddr(queue), perms="rw")
+    pd1.add_map(pd1_map)
+    pd1_pathname_share_region = RegionResource(pd1_map.vaddr, 0x100 * 512 * 4)
+
+    pd2_map = Map(queue, pd2.get_map_vaddr(queue), perms="rw")
+    pd2.add_map(pd2_map)
+    pd2_pathname_share_region = RegionResource(pd2_map.vaddr, 0x100 * 512 * 4)
+
+    # ---- hardcoded for now
     queue_name = "fs_share_queue_" + pd1.name + "_" + pd2.name
     queue = MemoryRegion(sdf, queue_name, 1024 * 1024 * 64)
     sdf.add_mr(queue)
@@ -96,8 +109,8 @@ def fs_connection(pd1: SystemDescription.ProtectionDomain , pd2: SystemDescripti
     ch = Channel(pd1, pd2)
     sdf.add_channel(ch)
 
-    pd1_conn = FsConnectionResource(pd1_command_region, pd1_completion_region, pd1_share_region, queue_len, ch.pd_a_id)
-    pd2_conn = FsConnectionResource(pd2_command_region, pd2_completion_region, pd2_share_region, queue_len, ch.pd_b_id)
+    pd1_conn = FsConnectionResource(pd1_command_region, pd1_completion_region, pd1_pathname_share_region, pd1_share_region, queue_len, ch.pd_a_id)
+    pd2_conn = FsConnectionResource(pd2_command_region, pd2_completion_region, pd2_pathname_share_region, pd2_share_region, queue_len, ch.pd_b_id)
 
     return [pd1_conn, pd2_conn]
 

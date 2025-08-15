@@ -21,6 +21,7 @@ typedef struct fs_signal_rt {
     fs_queue_t *fs_command_queue;
     fs_queue_t *fs_completion_queue;
     microkit_channel fs_server_id;
+    char *fs_pathname_share;
     char *fs_share;
 } fs_signal_rt_t;
 
@@ -31,6 +32,10 @@ void fs_request_flag_set(uint64_t request_id);
 int fs_buffer_allocate(ptrdiff_t *buffer);
 void fs_buffer_free(ptrdiff_t buffer);
 void *fs_buffer_ptr(ptrdiff_t buffer);
+
+int fs_pbuf_allocate(ptrdiff_t *buffer);
+void fs_pbuf_free(ptrdiff_t buffer);
+void *fs_pbuf_ptr(ptrdiff_t buffer);
 
 void fs_process_completions(void);
 

@@ -13,6 +13,7 @@ static char LIONS_FS_MAGIC[LIONS_FS_MAGIC_LEN] = { 'L', 'i', 'o', 'n', 's', 'O',
 typedef struct fs_connection_resource {
     region_resource_t command_queue;
     region_resource_t completion_queue;
+    region_resource_t pathname_share;
     region_resource_t share;
     uint16_t queue_len;
     uint8_t id;

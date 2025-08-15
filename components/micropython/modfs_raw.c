@@ -33,7 +33,7 @@ static mp_obj_t request_open(mp_obj_t path_in, mp_obj_t flag_in) {
     }
 
     ptrdiff_t path_buffer;
-    err = fs_buffer_allocate(&path_buffer);
+    err = fs_pbuf_allocate(&path_buffer);
     if (err) {
         fs_request_free(request_id);
         mp_raise_OSError(err);
@@ -41,7 +41,7 @@ static mp_obj_t request_open(mp_obj_t path_in, mp_obj_t flag_in) {
     }
 
     uint64_t path_len = strlen(path);
-    memcpy(fs_buffer_ptr(path_buffer), path, path_len);
+    memcpy(fs_pbuf_ptr(path_buffer), path, path_len);
 
     request_flags[request_id] = flag_in;
     fs_command_issue((fs_cmd_t){
@@ -65,7 +65,7 @@ static mp_obj_t complete_open(mp_obj_t request_id_in) {
     fs_cmpl_t completion;
     fs_command_complete(request_id, &command, &completion);
 
-    fs_buffer_free(command.params.file_open.path.offset);
+    fs_pbuf_free(command.params.file_open.path.offset);
     fs_request_free(request_id);
 
     if (completion.status != FS_STATUS_SUCCESS) {
@@ -153,7 +153,7 @@ static mp_obj_t complete_pread(mp_obj_t request_id_in) {
     fs_request_free(request_id);
 
     mp_obj_t ret = mp_obj_new_bytes(fs_buffer_ptr(command.params.file_read.buf.offset), completion.data.file_read.len_read);
-    fs_buffer_free(command.params.file_read.buf.offset);
+    fs_pbuf_free(command.params.file_read.buf.offset);
     return ret;
 }
 static MP_DEFINE_CONST_FUN_OBJ_1(complete_pread_obj, complete_pread);
@@ -169,7 +169,7 @@ static mp_obj_t request_stat(mp_obj_t path_in, mp_obj_t flag_in) {
     }
 
     ptrdiff_t path_buffer;
-    err = fs_buffer_allocate(&path_buffer);
+    err = fs_pbuf_allocate(&path_buffer);
     if (err) {
         fs_request_free(request_id);
         mp_raise_OSError(err);
@@ -180,13 +180,13 @@ static mp_obj_t request_stat(mp_obj_t path_in, mp_obj_t flag_in) {
     err = fs_buffer_allocate(&output_buffer);
     if (err) {
         fs_request_free(request_id);
-        fs_buffer_free(path_buffer);
+        fs_pbuf_free(path_buffer);
         mp_raise_OSError(err);
         return mp_const_none;
     }
 
     uint64_t path_len = strlen(path);
-    memcpy(fs_buffer_ptr(path_buffer), path, path_len);
+    memcpy(fs_pbuf_ptr(path_buffer), path, path_len);
 
     request_flags[request_id] = flag_in;
     fs_command_issue((fs_cmd_t){
@@ -210,7 +210,7 @@ static mp_obj_t complete_stat(mp_obj_t request_id_in) {
     fs_cmpl_t completion;
     fs_command_complete(request_id, &command, &completion);
     fs_request_free(request_id);
-    fs_buffer_free(command.params.stat.path.offset);
+    fs_pbuf_free(command.params.stat.path.offset);
 
     if (completion.status != FS_STATUS_SUCCESS) {
         fs_buffer_free(command.params.stat.buf.offset);

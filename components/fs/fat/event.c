@@ -30,6 +30,7 @@ char *blk_data;
 
 fs_queue_t *fs_command_queue;
 fs_queue_t *fs_completion_queue;
+char *fs_pathname_share;
 char *fs_share;
 
 uint64_t worker_thread_stack_one = 0xA0000000;
@@ -128,6 +129,7 @@ void init(void) {
     max_cluster_size = blk_config.data.size / FAT_WORKER_THREAD_NUM;
     fs_command_queue = fs_config.client.command_queue.vaddr;
     fs_completion_queue = fs_config.client.completion_queue.vaddr;
+    fs_pathname_share = fs_config.client.pathname_share.vaddr;
     fs_share = fs_config.client.share.vaddr;
 
     blk_data = blk_config.data.vaddr;

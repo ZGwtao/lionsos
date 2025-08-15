@@ -77,6 +77,35 @@ void *fs_buffer_ptr(ptrdiff_t buffer) {
     return curr_fs_chann->fs_share + buffer;
 }
 
+#define FS_PATH_BUF_SIZE 0x100
+typedef struct {
+    bool used;
+} pbuf_t;
+/* 512 * 4 buffers for pathnames */
+pbuf_t pbuf_metadata[FS_QUEUE_CAPACITY];
+
+int fs_pbuf_allocate(ptrdiff_t *buffer) {
+    for (int i = 0; i < NUM_BUFFERS; i++) {
+        if (!pbuf_metadata[i].used) {
+            pbuf_metadata[i].used = true;
+            *buffer = i * FS_PATH_BUF_SIZE;
+            return 0;
+        }
+    }
+    return 1;
+}
+
+void fs_pbuf_free(ptrdiff_t buffer) {
+    uint64_t i = buffer / FS_PATH_BUF_SIZE;
+    assert(i < NUM_BUFFERS);
+    assert(pbuf_metadata[i].used);
+    pbuf_metadata[i].used = false;
+}
+
+void *fs_pbuf_ptr(ptrdiff_t buffer) {
+    return curr_fs_chann->fs_pathname_share + buffer;
+}
+
 void fs_process_completions(void) {
     fs_msg_t message;
     uint64_t to_consume = fs_queue_length_consumer(curr_fs_chann->fs_completion_queue);
