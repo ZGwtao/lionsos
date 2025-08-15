@@ -252,6 +252,13 @@ def generate(sdf_path: str, output_dir: str, dtb: DeviceTree):
     fs1_mul_server_config = fs1_mul_chann[0]
     fs1_server_mul_config = fs1_mul_chann[1]
 
+    fs1_mul_stack1 = MemoryRegion(sdf, "fs1_mul_stack1", 0x40_000)
+    fs1_mul_stack2 = MemoryRegion(sdf, "fs1_mul_stack2", 0x40_000)
+    sdf.add_mr(fs1_mul_stack1)
+    sdf.add_mr(fs1_mul_stack2)
+    mulfs1.add_map(Map(fs1_mul_stack1, 0xA0_000_000, perms="rw"))
+    mulfs1.add_map(Map(fs1_mul_stack2, 0xB0_000_000, perms="rw"))
+
     if board.name == "maaxboard":
         timer_system.add_client(blk_driver)
 
