@@ -114,7 +114,8 @@ def fs_connection(pd1: SystemDescription.ProtectionDomain , pd2: SystemDescripti
 
     return [pd1_conn, pd2_conn]
 
-def mul_client_conn(pd1: SystemDescription.ProtectionDomain , pd2: SystemDescription.ProtectionDomain, queue_len: int):
+def mul_client_server_conn(pd1: SystemDescription.ProtectionDomain, pd2: SystemDescription.ProtectionDomain,
+                            pd3: SystemDescription.ProtectionDomain, queue_len: int):
     queue_name = "fs_command_queue_" + pd1.name + "_" + pd2.name
     #
     # sdf is cmdline arg
@@ -157,12 +158,31 @@ def mul_client_conn(pd1: SystemDescription.ProtectionDomain , pd2: SystemDescrip
     pd2.add_map(pd2_map)
     pd2_pathname_share_region = RegionResource(pd2_map.vaddr, 0x100 * 512 * 4)
 
+    pd3_map = Map(queue, pd3.get_map_vaddr(queue), perms="rw")
+    pd3.add_map(pd3_map)
+    pd3_pathname_share_region = RegionResource(pd3_map.vaddr, 0x100 * 512 * 4)
+
+    # ---- hardcoded for now
+    queue_name = "fs_share_queue_" + pd1.name + "_" + pd2.name + "_" + pd3.name
+    queue = MemoryRegion(sdf, queue_name, 1024 * 1024 * 64)
+    sdf.add_mr(queue)
+
+    pd2_map = Map(queue, pd2.get_map_vaddr(queue), perms="rw")
+    pd2.add_map(pd2_map)
+    pd2_share_region = RegionResource(pd2_map.vaddr, 1024 * 1024 * 64)
+
+    pd3_map = Map(queue, pd3.get_map_vaddr(queue), perms="rw")
+    pd3.add_map(pd3_map)
+    pd3_share_region = RegionResource(pd3_map.vaddr, 1024 * 1024 * 64)
+
     ch = Channel(pd1, pd2)
     sdf.add_channel(ch)
 
-    multiplexer_conn = FsMulClientConfig(pd1_command_region, pd1_completion_region, pd1_pathname_share_region, queue_len, ch.pd_a_id)
-    client_conn = FsMulClientConfig(pd2_command_region, pd2_completion_region, pd2_pathname_share_region, queue_len, ch.pd_b_id)
-    return [multiplexer_conn, client_conn]
+    mul2client = FsMulClientConfig(pd1_command_region, pd1_completion_region, pd1_pathname_share_region, queue_len, ch.pd_a_id)
+    client2mul = FsMulClientConfig(pd2_command_region, pd2_completion_region, pd2_pathname_share_region, queue_len, ch.pd_b_id)
+    client2server = FsMulClientChanns(client2mul, FsServerClientConfig(pd2_pathname_share_region, pd2_share_region, queue_len))
+    server2client = FsServerClientConfig(pd3_pathname_share_region, pd3_share_region, queue_len)
+    return [mul2client, client2server, server2client]
 
 def mul_server_conn(pd1: SystemDescription.ProtectionDomain , pd2: SystemDescription.ProtectionDomain, queue_len: int):
     queue_name = "fs_command_queue_" + pd1.name + "_" + pd2.name
@@ -302,9 +322,10 @@ def generate(sdf_path: str, output_dir: str, dtb: DeviceTree):
     fs1_mul_server_config = fs1_mul_chann[0]
     fs1_server_mul_config = fs1_mul_chann[1]
 
-    fs1_mul_client1_chann = mul_client_conn(mulfs1, micropython, 512)
+    fs1_mul_client1_chann = mul_client_server_conn(mulfs1, micropython, fatfs1, 512)
     fs1_mul_client_config = fs1_mul_client1_chann[0]
-    fs1_client_mul_config = fs1_mul_client1_chann[1]
+    fs1_client_all_config = fs1_mul_client1_chann[1]
+    fs1_server_client_config = fs1_mul_client1_chann[2]
 
     fs1_mul_stack1 = MemoryRegion(sdf, "fs1_mul_stack1", 0x40_000)
     fs1_mul_stack2 = MemoryRegion(sdf, "fs1_mul_stack2", 0x40_000)
@@ -381,8 +402,13 @@ def generate(sdf_path: str, output_dir: str, dtb: DeviceTree):
 
     data_path = output_dir + "/fs_micropython_mul1.data"
     with open(data_path, "wb+") as f:
-        f.write(fs1_client_mul_config.serialise())
-    update_elf_section(obj_copy, micropython.elf, "fs1_mul_client_config", data_path)
+        f.write(fs1_client_all_config.serialise())
+    update_elf_section(obj_copy, micropython.elf, "fs_mul_client_channs", data_path)
+
+    data_path = output_dir + "/fs_server_client1.data"
+    with open(data_path, "wb+") as f:
+        f.write(fs1_server_client_config.serialise())
+    update_elf_section(obj_copy, fatfs1.elf, "fs_server_client_config", data_path)
 
     with open(f"{output_dir}/{sdf_path}", "w+") as f:
         f.write(sdf.render())

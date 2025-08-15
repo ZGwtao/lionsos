@@ -20,3 +20,14 @@ typedef struct fs_mul_client_config {
     uint16_t queue_len;
     uint8_t id;
 } fs_mul_client_config_t;
+
+typedef struct fs_server_client_config {
+    region_resource_t pathname_share;
+    region_resource_t share;
+    uint16_t queue_len;
+} fs_server_client_config_t;
+
+typedef struct fs_mul_client_channs {
+    fs_mul_client_config_t multiplexer;
+    fs_server_client_config_t server;
+} fs_mul_client_channs_t;

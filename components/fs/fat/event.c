@@ -22,6 +22,7 @@
 __attribute__((__section__(".fs_server_config"))) fs_server_config_t fs_config;
 __attribute__((__section__(".blk_client_config"))) blk_client_config_t blk_config;
 __attribute__((__section__(".fs_mul_server_config"))) fs_mul_server_config_t fs_mul_config;
+__attribute__((__section__(".fs_server_client_config"))) fs_server_client_config_t fs_client_config;
 
 co_control_t co_controller_mem;
 microkit_cothread_sem_t sem[FAT_WORKER_THREAD_NUM + 1];
