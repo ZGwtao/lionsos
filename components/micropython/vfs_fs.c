@@ -178,7 +178,7 @@ static mp_obj_t vfs_fs_ilistdir_it_iternext(mp_obj_t self_in) {
 
     for (;;) {
         ptrdiff_t name_buffer;
-        int err = fs_pbuf_allocate(&name_buffer);
+        int err = fs_buffer_allocate(&name_buffer);
         assert(!err);
 
         fs_cmpl_t completion;
@@ -193,16 +193,16 @@ static mp_obj_t vfs_fs_ilistdir_it_iternext(mp_obj_t self_in) {
         });
 
         if (completion.status != FS_STATUS_SUCCESS) {
-            fs_pbuf_free(name_buffer);
+            fs_buffer_free(name_buffer);
             fs_switch_partition(c_id);
             break;
         }
 
-        const char *fn = fs_pbuf_ptr(name_buffer);
+        const char *fn = fs_buffer_ptr(name_buffer);
 
         if (fn[0] == '.' && (fn[1] == 0 || fn[1] == '.')) {
             // skip . and ..
-            fs_pbuf_free(name_buffer);
+            fs_buffer_free(name_buffer);
             fs_switch_partition(c_id);
             continue;
         }
@@ -219,7 +219,7 @@ static mp_obj_t vfs_fs_ilistdir_it_iternext(mp_obj_t self_in) {
         t->items[1] = MP_OBJ_NEW_SMALL_INT(0);
         t->items[2] = MP_OBJ_NEW_SMALL_INT(0);
 
-        fs_pbuf_free(name_buffer);
+        fs_buffer_free(name_buffer);
         fs_switch_partition(c_id);
         return MP_OBJ_FROM_PTR(t);
     }

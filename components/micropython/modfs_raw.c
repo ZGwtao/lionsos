@@ -153,7 +153,7 @@ static mp_obj_t complete_pread(mp_obj_t request_id_in) {
     fs_request_free(request_id);
 
     mp_obj_t ret = mp_obj_new_bytes(fs_buffer_ptr(command.params.file_read.buf.offset), completion.data.file_read.len_read);
-    fs_pbuf_free(command.params.file_read.buf.offset);
+    fs_buffer_free(command.params.file_read.buf.offset);
     return ret;
 }
 static MP_DEFINE_CONST_FUN_OBJ_1(complete_pread_obj, complete_pread);
