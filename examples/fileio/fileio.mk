@@ -7,6 +7,7 @@ IMAGES := \
 	timer_driver.elf \
 	eth_driver.elf \
 	micropython.elf \
+	multiplexer.elf \
 	fat.elf \
 	serial_driver.elf \
 	serial_virt_rx.elf \
@@ -52,7 +53,8 @@ SDFGEN_HELPER := $(FILEIO_DIR)/sdfgen_helper.py
 SDFGEN_UNKOWN_MACROS := 
 FS_CONFIG_HEADERS := $(SDDF)/include/sddf/resources/common.h \
 					 	$(SDDF)/include/sddf/resources/device.h \
-						$(LIONSOS)/include/lions/fs/config.h
+						$(LIONSOS)/include/lions/fs/config.h \
+						$(LIONSOS)/include/lions/fs/mul.h
 
 FAT := $(LIONSOS)/components/fs/fat
 MUSL_SRC := $(LIONSOS)/dep/musllibc
@@ -116,6 +118,7 @@ manifest.py: fs_test.py bench.py
 FAT_LIBC_LIB := musllibc/lib/libc.a
 FAT_LIBC_INCLUDE := musllibc/include
 include $(LIONSOS)/components/fs/fat/fat.mk
+include $(LIONSOS)/components/fs/multiplexer/mul.mk
 
 $(MUSL):
 	mkdir -p $@
@@ -143,7 +146,7 @@ $(DTB): $(DTS)
 $(SYSTEM_FILE): $(METAPROGRAM) $(IMAGES) $(DTB)
 	cp fat.elf fat1.elf
 	mv fat.elf fat2.elf
-#	$(PYTHON) $(SDFGEN_HELPER) --macros "$(SDFGEN_UNKOWN_MACROS)" --configs "$(FS_CONFIG_HEADERS)" --output $(FILEIO_DIR)/config_structs.py
+	$(PYTHON) $(SDFGEN_HELPER) --macros "$(SDFGEN_UNKOWN_MACROS)" --configs "$(FS_CONFIG_HEADERS)" --output $(FILEIO_DIR)/config_structs.py
 	$(PYTHON) $(METAPROGRAM) --sddf $(SDDF) --board $(MICROKIT_BOARD) --dtb $(DTB) --output . --sdf $(SYSTEM_FILE) --objcopy $(OBJCOPY)
 	$(OBJCOPY) --update-section .device_resources=serial_driver_device_resources.data serial_driver.elf
 	$(OBJCOPY) --update-section .serial_driver_config=serial_driver_config.data serial_driver.elf
