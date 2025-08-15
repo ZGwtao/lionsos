@@ -23,6 +23,7 @@
 #include <sddf/timer/config.h>
 #include <sddf/network/config.h>
 #include <lions/fs/config.h>
+#include <lions/fs/mul.h>
 #include "lwip/init.h"
 #include "mpconfigport.h"
 #include "fs_helpers.h"
@@ -32,7 +33,7 @@ __attribute__((__section__(".timer_client_config"))) timer_client_config_t timer
 __attribute__((__section__(".net_client_config"))) net_client_config_t net_config;
 __attribute__((__section__(".fs1_client_config"))) fs_client_config_t fs_excl_config;
 __attribute__((__section__(".fs2_client_config"))) fs_client_config_t fs_shrd_config;
-__attribute__((__section__(".fs1_mul_client_config"))) fs_client_config_t fs1_mul_config;
+__attribute__((__section__(".fs1_mul_client_config"))) fs_mul_client_config_t fs1_mul_config;
 __attribute__((__section__(".i2c_client_config"))) i2c_client_config_t i2c_config;
 
 /* MicroPython is always built with networking and I2C support, but whether we
@@ -177,6 +178,7 @@ void notified(microkit_channel ch) {
     if (net_enabled) {
         mpnet_handle_notify();
     }
+    microkit_notify(fs1_mul_config.id);
 }
 
 // Handle uncaught exceptions (should never be reached in a correct C implementation).

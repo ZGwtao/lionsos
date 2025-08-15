@@ -1,4 +1,5 @@
 
+#include <assert.h>
 #include <microkit.h>
 #include <libmicrokitco.h>
 #include <lions/fs/protocol.h>
