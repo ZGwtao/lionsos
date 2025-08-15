@@ -245,7 +245,12 @@ def generate(sdf_path: str, output_dir: str, dtb: DeviceTree):
     fatfs2.add_map(Map(fs2_stack3, 0xC0_000_000, perms="rw"))
     fatfs2.add_map(Map(fs2_stack4, 0xD0_000_000, perms="rw"))
 
-    # fs1_mul_server_config = mul_server_conn()
+
+    mulfs1 = ProtectionDomain("mulfs1", "multiplexer.elf", priority=90)
+
+    fs1_mul_chann = mul_server_conn(mulfs1, fatfs1, 512)
+    fs1_mul_server_config = fs1_mul_chann[0]
+    fs1_server_mul_config = fs1_mul_chann[1]
 
     if board.name == "maaxboard":
         timer_system.add_client(blk_driver)
@@ -255,6 +260,7 @@ def generate(sdf_path: str, output_dir: str, dtb: DeviceTree):
         serial_virt_tx,
         serial_virt_rx,
         micropython,
+        mulfs1,
         fatfs1,
         fatfs2,
         timer_driver,
@@ -295,11 +301,16 @@ def generate(sdf_path: str, output_dir: str, dtb: DeviceTree):
         f.write(fs2_server_config.serialise())
     update_elf_section(obj_copy, fatfs2.elf, "fs_server_config", data_path)
 
-    # multiplexer connections
-    # data_path = output_dir + "/fs_mul_server_fatfs1.data"
-    # with open(data_path, "wb+") as f:
-    #     f.write(fs1_mul_server_config.serialise())
-    # update_elf_section(obj_copy, multiplexer.elf, "fs_mul_server_config", data_path)
+    data_path = output_dir + "/fs_mul_server_fatfs1.data"
+    with open(data_path, "wb+") as f:
+        f.write(fs1_mul_server_config.serialise())
+    update_elf_section(obj_copy, mulfs1.elf, "fs_mul_server_config", data_path)
+
+    data_path = output_dir + "/fs_server_mul_fatfs1.data"
+    with open(data_path, "wb+") as f:
+        f.write(fs1_server_mul_config.serialise())
+    update_elf_section(obj_copy, fatfs1.elf, "fs_mul_server_config", data_path)
+
 
     with open(f"{output_dir}/{sdf_path}", "w+") as f:
         f.write(sdf.render())
