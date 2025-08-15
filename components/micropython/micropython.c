@@ -32,6 +32,7 @@ __attribute__((__section__(".timer_client_config"))) timer_client_config_t timer
 __attribute__((__section__(".net_client_config"))) net_client_config_t net_config;
 __attribute__((__section__(".fs1_client_config"))) fs_client_config_t fs_excl_config;
 __attribute__((__section__(".fs2_client_config"))) fs_client_config_t fs_shrd_config;
+__attribute__((__section__(".fs1_mul_client_config"))) fs_client_config_t fs1_mul_config;
 __attribute__((__section__(".i2c_client_config"))) i2c_client_config_t i2c_config;
 
 /* MicroPython is always built with networking and I2C support, but whether we

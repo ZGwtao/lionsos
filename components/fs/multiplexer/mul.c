@@ -6,6 +6,7 @@
 #include <lions/fs/mul.h>
 
 __attribute__((__section__(".fs_mul_server_config"))) fs_mul_server_config_t server_config;
+__attribute__((__section__(".fs1_mul_client_config"))) fs_mul_client_config_t fs1_config;
 
 
 co_control_t co_controller_mem;
@@ -14,6 +15,9 @@ microkit_cothread_sem_t sem[MULTIPLEXER_WORKER_TRHEAD_NUM + 1];
 uint64_t worker_thread_stack_one = 0xA0000000;
 uint64_t worker_thread_stack_two = 0xB0000000;
 
+fs_queue_t *fs_client1_command_queue;
+fs_queue_t *fs_client1_completion_queue;
+char *fs_client1_pathname_share;
 
 fs_queue_t *fs_server_command_queue;
 fs_queue_t *fs_server_completion_queue;
@@ -22,6 +26,10 @@ void init(void)
 {
     fs_server_command_queue = server_config.command_queue.vaddr;
     fs_server_completion_queue = server_config.completion_queue.vaddr;
+
+    fs_client1_command_queue = fs1_config.command_queue.vaddr;
+    fs_client1_completion_queue = fs1_config.completion_queue.vaddr;
+    fs_client1_pathname_share = fs1_config.pathname_share.vaddr;
 
     stack_ptrs_arg_array_t costacks = {
         worker_thread_stack_one,

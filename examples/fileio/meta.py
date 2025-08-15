@@ -114,6 +114,56 @@ def fs_connection(pd1: SystemDescription.ProtectionDomain , pd2: SystemDescripti
 
     return [pd1_conn, pd2_conn]
 
+def mul_client_conn(pd1: SystemDescription.ProtectionDomain , pd2: SystemDescription.ProtectionDomain, queue_len: int):
+    queue_name = "fs_command_queue_" + pd1.name + "_" + pd2.name
+    #
+    # sdf is cmdline arg
+    # specify a memory region name "queue_name"
+    #
+    queue = MemoryRegion(sdf, queue_name, 0x8000)
+    sdf.add_mr(queue)
+
+    pd1_map = Map(queue, pd1.get_map_vaddr(queue), perms="rw")
+    pd1.add_map(pd1_map)
+    pd1_command_region = RegionResource(pd1_map.vaddr, 0x8000)
+
+    pd2_map = Map(queue, pd2.get_map_vaddr(queue), perms="rw")
+    pd2.add_map(pd2_map)
+    pd2_command_region = RegionResource(pd2_map.vaddr, 0x8000)
+
+    # ---- 0x8000 as fixed queue size from sdfgen lionsos.zig
+    queue_name = "fs_completion_queue_" + pd1.name + "_" + pd2.name
+    queue = MemoryRegion(sdf, queue_name, 0x8000)
+    sdf.add_mr(queue)
+
+    pd1_map = Map(queue, pd1.get_map_vaddr(queue), perms="rw")
+    pd1.add_map(pd1_map)
+    pd1_completion_region = RegionResource(pd1_map.vaddr, 0x8000)
+
+    pd2_map = Map(queue, pd2.get_map_vaddr(queue), perms="rw")
+    pd2.add_map(pd2_map)
+    pd2_completion_region = RegionResource(pd2_map.vaddr, 0x8000)
+
+    # ---- hardcoded for now
+    queue_name = "fs_pathname_share_" + pd1.name + "_" + pd2.name
+    queue = MemoryRegion(sdf, queue_name, 0x100 * 512 * 4)
+    sdf.add_mr(queue)
+
+    pd1_map = Map(queue, pd1.get_map_vaddr(queue), perms="rw")
+    pd1.add_map(pd1_map)
+    pd1_pathname_share_region = RegionResource(pd1_map.vaddr, 0x100 * 512 * 4)
+
+    pd2_map = Map(queue, pd2.get_map_vaddr(queue), perms="rw")
+    pd2.add_map(pd2_map)
+    pd2_pathname_share_region = RegionResource(pd2_map.vaddr, 0x100 * 512 * 4)
+
+    ch = Channel(pd1, pd2)
+    sdf.add_channel(ch)
+
+    multiplexer_conn = FsMulClientConfig(pd1_command_region, pd1_completion_region, pd1_pathname_share_region, queue_len, ch.pd_a_id)
+    client_conn = FsMulClientConfig(pd2_command_region, pd2_completion_region, pd2_pathname_share_region, queue_len, ch.pd_b_id)
+    return [multiplexer_conn, client_conn]
+
 def mul_server_conn(pd1: SystemDescription.ProtectionDomain , pd2: SystemDescription.ProtectionDomain, queue_len: int):
     queue_name = "fs_command_queue_" + pd1.name + "_" + pd2.name
     #
@@ -252,6 +302,10 @@ def generate(sdf_path: str, output_dir: str, dtb: DeviceTree):
     fs1_mul_server_config = fs1_mul_chann[0]
     fs1_server_mul_config = fs1_mul_chann[1]
 
+    fs1_mul_client1_chann = mul_client_conn(mulfs1, micropython, 512)
+    fs1_mul_client_config = fs1_mul_client1_chann[0]
+    fs1_client_mul_config = fs1_mul_client1_chann[1]
+
     fs1_mul_stack1 = MemoryRegion(sdf, "fs1_mul_stack1", 0x40_000)
     fs1_mul_stack2 = MemoryRegion(sdf, "fs1_mul_stack2", 0x40_000)
     sdf.add_mr(fs1_mul_stack1)
@@ -308,6 +362,7 @@ def generate(sdf_path: str, output_dir: str, dtb: DeviceTree):
         f.write(fs2_server_config.serialise())
     update_elf_section(obj_copy, fatfs2.elf, "fs_server_config", data_path)
 
+    # multiplexer - fs server
     data_path = output_dir + "/fs_mul_server_fatfs1.data"
     with open(data_path, "wb+") as f:
         f.write(fs1_mul_server_config.serialise())
@@ -318,6 +373,16 @@ def generate(sdf_path: str, output_dir: str, dtb: DeviceTree):
         f.write(fs1_server_mul_config.serialise())
     update_elf_section(obj_copy, fatfs1.elf, "fs_mul_server_config", data_path)
 
+    # multiplexer - fs client
+    data_path = output_dir + "/fs_mul_client1.data"
+    with open(data_path, "wb+") as f:
+        f.write(fs1_mul_client_config.serialise())
+    update_elf_section(obj_copy, mulfs1.elf, "fs1_mul_client_config", data_path)
+
+    data_path = output_dir + "/fs_micropython_mul1.data"
+    with open(data_path, "wb+") as f:
+        f.write(fs1_client_mul_config.serialise())
+    update_elf_section(obj_copy, micropython.elf, "fs1_mul_client_config", data_path)
 
     with open(f"{output_dir}/{sdf_path}", "w+") as f:
         f.write(sdf.render())
