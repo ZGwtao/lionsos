@@ -187,11 +187,11 @@ def generate(sdf_path: str, output_dir: str, dtb: DeviceTree):
 
     fs2_client_server_chann = fs_connection(micropython, fatfs2, 512)
     fs2_client_config = FsClientConfig(
-        [],
+        [0x4C, 0x69, 0x6F, 0x6E, 0x73, 0x4F, 0x53, 0x01],
         fs2_client_server_chann[0]
     )
     fs2_server_config = FsServerConfig(
-        [],
+        [0x4C, 0x69, 0x6F, 0x6E, 0x73, 0x4F, 0x53, 0x01],
         fs2_client_server_chann[1]
     )
     blk_system.add_client(fatfs2, partition=1)
