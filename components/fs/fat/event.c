@@ -15,6 +15,7 @@
 #include <lions/fs/protocol.h>
 #include <lions/fs/config.h>
 #include <lions/fs/mulconf.h>
+#include <lions/fs/multiplexer.h>
 #include "decl.h"
 #include "ff.h"
 #include "diskio.h"
@@ -32,8 +33,9 @@ blk_queue_handle_t blk_queue;
 blk_storage_info_t *blk_storage_info;
 char *blk_data;
 
-fs_queue_t *fs_command_queue;
-fs_queue_t *fs_completion_queue;
+/* the fs server talks to the multiplexer only */
+mul_queue_t *fs_command_queue;
+mul_queue_t *fs_completion_queue;
 
 #define CLIENT_NUM 2
 /* each client has a region for sharing data */
@@ -98,18 +100,20 @@ void (*operation_functions[])(void) = {
 
 static fs_request request_pool[FAT_THREAD_NUM];
 
-void fill_client_response(fs_msg_t* message, const fs_request* finished_request) {
+static void fill_client_response(mul_msg_t* message, const fs_request* finished_request)
+{
+    message->cmpl.client = finished_request->shared_data.cid;
     message->cmpl.id = finished_request->request_id;
     message->cmpl.status = finished_request->shared_data.status;
     message->cmpl.data = finished_request->shared_data.result;
 }
 
-// Setting up the request in the request_pool and push the request to the thread pool
-void setup_request(int32_t index, fs_msg_t* message) {
+static void setup_request(int32_t index, mul_msg_t* message)
+{
     request_pool[index].request_id = message->cmd.id;
     request_pool[index].cmd = message->cmd.type;
     request_pool[index].shared_data.params = message->cmd.params;
-    request_pool[index].shared_data.cid = 0;
+    request_pool[index].shared_data.cid = message->cmd.client;
     void (*func)(void) = operation_functions[request_pool[index].cmd];
     void *shared_data = &request_pool[index].shared_data;
     request_pool[index].handle = microkit_cothread_spawn(func, shared_data);
@@ -241,7 +245,7 @@ void notified(microkit_channel ch) {
         for (uint16_t i = 1; i < FAT_THREAD_NUM; i++) {
             co_state_t state = microkit_cothread_query_state(request_pool[i].handle);
             if (state == cothread_not_active && request_pool[i].stat == INUSE) {
-                fill_client_response(fs_queue_idx_empty(fs_completion_queue, fs_response_enqueued), &(request_pool[i]));
+                fill_client_response(mul_queue_idx_empty(fs_completion_queue, fs_response_enqueued), &(request_pool[i]));
                 fs_response_enqueued++;
                 LOG_FATFS("FS enqueue response:status: %lu\n", request_pool[i].shared_data.status);
                 request_pool[i].stat= FREE;
@@ -269,7 +273,7 @@ void notified(microkit_channel ch) {
             }
 
             // Copy the request to local buffer first to avoid modification from client side
-            fs_msg_t client_req = *fs_queue_idx_filled(fs_command_queue, fs_request_dequeued);
+            mul_msg_t client_req = *mul_queue_idx_filled(fs_command_queue, fs_request_dequeued);
 
             fs_request_dequeued++;
             command_queue_size--;

@@ -31,8 +31,3 @@ typedef struct fs_mul_client_channs {
     fs_mul_client_config_t multiplexer;
     fs_server_client_config_t server;
 } fs_mul_client_channs_t;
-
-typedef struct {
-    char *pathname_share;
-    char *share;
-} cd_region_t;

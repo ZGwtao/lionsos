@@ -5,6 +5,7 @@
 #include <lions/fs/protocol.h>
 #include <lions/fs/config.h>
 #include <lions/fs/mulconf.h>
+#include <lions/fs/multiplexer.h>
 
 __attribute__((__section__(".fs_mul_server_config"))) fs_mul_server_config_t server_config;
 __attribute__((__section__(".fs1_mul_client1_config"))) fs_mul_client_config_t fs_c1_config;
@@ -24,8 +25,8 @@ typedef struct {
 /* client stubs for channels */
 cstub_t cstubs[MULTIPLEXER_CLIENT_NUM];
 
-fs_queue_t *fs_server_command_queue;
-fs_queue_t *fs_server_completion_queue;
+mul_queue_t *fs_server_command_queue;
+mul_queue_t *fs_server_completion_queue;
 
 void init(void)
 {
@@ -85,7 +86,7 @@ void notified(microkit_channel ch)
             }
 
             /* forward a request to the server */
-            *fs_queue_idx_empty(fs_server_command_queue, fs_request_forwarded) = client_req;
+            msg_fs2mul_cmd(&client_req, mul_queue_idx_empty(fs_server_command_queue, fs_request_forwarded), 0);
             /* increase available index for forwarding requests */
             fs_request_forwarded++;
 
@@ -96,7 +97,7 @@ void notified(microkit_channel ch)
         }
         if (fs_request_forwarded) {
             /* produced new command and forward them to the server */
-            fs_queue_publish_production(fs_server_command_queue, fs_request_forwarded);
+            mul_queue_publish_production(fs_server_command_queue, fs_request_forwarded);
             microkit_notify(server_config.id);
         }
 
@@ -110,16 +111,16 @@ void notified(microkit_channel ch)
          * the only thing to ensure is reserving enough slot for completition 
          * when forwarding the requests
          */
-        server_completion_queue_size = fs_queue_length_producer(fs_server_completion_queue);
+        server_completion_queue_size = mul_queue_length_producer(fs_server_completion_queue);
         /* forward to responses to the fs client */
         for (uint64_t i = 0; i < server_completion_queue_size; ++i) {
-            fs_msg_t server_resp = *fs_queue_idx_filled(fs_server_completion_queue, i);
+            mul_msg_t server_resp = *mul_queue_idx_filled(fs_server_completion_queue, i);
             /* forward to request to client's completion queue */
-            *fs_queue_idx_empty(cstubs[0].completion_queue, fs_response_forwarded) = server_resp;
+            msg_mul2fs_cmpl(&server_resp, fs_queue_idx_empty(cstubs[0].completion_queue, fs_response_forwarded));
             fs_response_forwarded++;
         }
         if (fs_response_forwarded) {
-            fs_queue_publish_consumption(fs_server_completion_queue, fs_response_forwarded);
+            mul_queue_publish_consumption(fs_server_completion_queue, fs_response_forwarded);
         }
         if (server_completion_queue_size) {
             fs_queue_publish_production(cstubs[0].completion_queue, server_completion_queue_size);
