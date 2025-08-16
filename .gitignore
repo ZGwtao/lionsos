@@ -2,6 +2,8 @@ build/
 docs/book/
 config_structs.py
 fs_config.h
+__pycache__
+qemu_disk
 .DS_Store
 *~
 \#*#
