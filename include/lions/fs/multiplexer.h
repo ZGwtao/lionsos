@@ -61,7 +61,7 @@ static inline void mul_queue_publish_production(mul_queue_t *queue, uint64_t amo
 }
 
 /* worker funtion for forwarding responses */
-void msg_mul2fs_cmpl(mul_msg_t *src, fs_msg_t *tar)
+static void msg_mul2fs_cmpl(mul_msg_t *src, fs_msg_t *tar)
 {
     tar->cmpl.status = src->cmpl.status;
     tar->cmpl.data = src->cmpl.data;
@@ -69,7 +69,7 @@ void msg_mul2fs_cmpl(mul_msg_t *src, fs_msg_t *tar)
 }
 
 /* worker function for forwarding requests */
-void msg_fs2mul_cmd(fs_msg_t *src, mul_msg_t *tar, uint32_t cid)
+static void msg_fs2mul_cmd(fs_msg_t *src, mul_msg_t *tar, uint32_t cid)
 {
     tar->cmd.id = (uint32_t)src->cmd.id;
     tar->cmd.params = src->cmd.params;

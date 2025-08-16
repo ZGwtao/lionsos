@@ -13,6 +13,7 @@
 #include <lions/fs/protocol.h>
 #include <lions/fs/server.h>
 #include <lions/fs/mulconf.h>
+#include <lions/fs/multiplexer.h>
 #include <fat_config.h>
 
 /*
@@ -97,7 +98,7 @@ void handle_initialise(void) {
     LOG_FATFS("Mounting file system!\n");
     co_data_t *args = microkit_cothread_my_arg();
     if (fs_initialised) {
-        args->status = FS_STATUS_ERROR;
+        args->status = FS_STATUS_SUCCESS;
         return;
     }
     fs_initialised = true;
