@@ -247,7 +247,7 @@ def generate(sdf_path: str, output_dir: str, dtb: DeviceTree):
     timer_system.add_client(micropython)
 
     fatfs1 = ProtectionDomain("fatfs1", "fat1.elf", priority=96)
-    fatfs2 = ProtectionDomain("fatfs2", "fat2.elf", priority=96)
+    # fatfs2 = ProtectionDomain("fatfs2", "fat2.elf", priority=96)
 
     # fs1 = LionsOs.FileSystem.Fat(
     #     sdf,
@@ -291,29 +291,29 @@ def generate(sdf_path: str, output_dir: str, dtb: DeviceTree):
     #      partition=1
     # )
 
-    fs2_client_server_chann = fs_connection(micropython, fatfs2, 512)
-    fs2_client_config = FsClientConfig(
-        [0x4C, 0x69, 0x6F, 0x6E, 0x73, 0x4F, 0x53, 0x01],
-        fs2_client_server_chann[0]
-    )
-    fs2_server_config = FsServerConfig(
-        [0x4C, 0x69, 0x6F, 0x6E, 0x73, 0x4F, 0x53, 0x01],
-        fs2_client_server_chann[1]
-    )
-    blk_system.add_client(fatfs2, partition=1)
+    # fs2_client_server_chann = fs_connection(micropython, fatfs2, 512)
+    # fs2_client_config = FsClientConfig(
+    #     [0x4C, 0x69, 0x6F, 0x6E, 0x73, 0x4F, 0x53, 0x01],
+    #     fs2_client_server_chann[0]
+    # )
+    # fs2_server_config = FsServerConfig(
+    #     [0x4C, 0x69, 0x6F, 0x6E, 0x73, 0x4F, 0x53, 0x01],
+    #     fs2_client_server_chann[1]
+    # )
+    # blk_system.add_client(fatfs2, partition=1)
 
-    fs2_stack1 = MemoryRegion(sdf, "fat2_stack1", 0x40_000)
-    fs2_stack2 = MemoryRegion(sdf, "fat2_stack2", 0x40_000)
-    fs2_stack3 = MemoryRegion(sdf, "fat2_stack3", 0x40_000)
-    fs2_stack4 = MemoryRegion(sdf, "fat2_stack4", 0x40_000)
-    sdf.add_mr(fs2_stack1)
-    sdf.add_mr(fs2_stack2)
-    sdf.add_mr(fs2_stack3)
-    sdf.add_mr(fs2_stack4)
-    fatfs2.add_map(Map(fs2_stack1, 0xA0_000_000, perms="rw"))
-    fatfs2.add_map(Map(fs2_stack2, 0xB0_000_000, perms="rw"))
-    fatfs2.add_map(Map(fs2_stack3, 0xC0_000_000, perms="rw"))
-    fatfs2.add_map(Map(fs2_stack4, 0xD0_000_000, perms="rw"))
+    # fs2_stack1 = MemoryRegion(sdf, "fat2_stack1", 0x40_000)
+    # fs2_stack2 = MemoryRegion(sdf, "fat2_stack2", 0x40_000)
+    # fs2_stack3 = MemoryRegion(sdf, "fat2_stack3", 0x40_000)
+    # fs2_stack4 = MemoryRegion(sdf, "fat2_stack4", 0x40_000)
+    # sdf.add_mr(fs2_stack1)
+    # sdf.add_mr(fs2_stack2)
+    # sdf.add_mr(fs2_stack3)
+    # sdf.add_mr(fs2_stack4)
+    # fatfs2.add_map(Map(fs2_stack1, 0xA0_000_000, perms="rw"))
+    # fatfs2.add_map(Map(fs2_stack2, 0xB0_000_000, perms="rw"))
+    # fatfs2.add_map(Map(fs2_stack3, 0xC0_000_000, perms="rw"))
+    # fatfs2.add_map(Map(fs2_stack4, 0xD0_000_000, perms="rw"))
 
 
     mulfs1 = ProtectionDomain("mulfs1", "multiplexer.elf", priority=90)
@@ -344,7 +344,7 @@ def generate(sdf_path: str, output_dir: str, dtb: DeviceTree):
         micropython,
         mulfs1,
         fatfs1,
-        fatfs2,
+        # fatfs2,
         timer_driver,
         blk_driver,
         blk_virt,
@@ -373,15 +373,15 @@ def generate(sdf_path: str, output_dir: str, dtb: DeviceTree):
         f.write(fs1_server_config.serialise())
     update_elf_section(obj_copy, fatfs1.elf, "fs_server_config", data_path)
 
-    data_path = output_dir + "/fs_client_micropython_fatfs2.data"
-    with open(data_path, "wb+") as f:
-        f.write(fs2_client_config.serialise())
-    update_elf_section(obj_copy, micropython.elf, "fs2_client_config", data_path)
+    # data_path = output_dir + "/fs_client_micropython_fatfs2.data"
+    # with open(data_path, "wb+") as f:
+    #     f.write(fs2_client_config.serialise())
+    # update_elf_section(obj_copy, micropython.elf, "fs2_client_config", data_path)
 
-    data_path = output_dir + "/fs_server_fatfs2.data"
-    with open(data_path, "wb+") as f:
-        f.write(fs2_server_config.serialise())
-    update_elf_section(obj_copy, fatfs2.elf, "fs_server_config", data_path)
+    # data_path = output_dir + "/fs_server_fatfs2.data"
+    # with open(data_path, "wb+") as f:
+    #     f.write(fs2_server_config.serialise())
+    # update_elf_section(obj_copy, fatfs2.elf, "fs_server_config", data_path)
 
     # multiplexer - fs server
     data_path = output_dir + "/fs_mul_server_fatfs1.data"
