@@ -241,13 +241,13 @@ def generate(sdf_path: str, output_dir: str, dtb: DeviceTree):
     blk_virt = ProtectionDomain("blk_virt", "blk_virt.elf", priority=199, stack_size=0x2000)
     blk_system = Sddf.Blk(sdf, blk_node, blk_driver, blk_virt)
 
-    micropython1 = ProtectionDomain("micropython1", "micropython.elf", priority=1)
-    # micropython2 = ProtectionDomain("micropython2", "micropython.elf", priority=1)
+    micropython1 = ProtectionDomain("micropython1", "micropython1.elf", priority=1)
+    micropython2 = ProtectionDomain("micropython2", "micropython2.elf", priority=1)
 
     serial_system.add_client(micropython1)
-    # serial_system.add_client(micropython2)
+    serial_system.add_client(micropython2)
     timer_system.add_client(micropython1)
-    # timer_system.add_client(micropython2)
+    timer_system.add_client(micropython2)
 
     fatfs1 = ProtectionDomain("fatfs1", "fat1.elf", priority=96)
     # fatfs2 = ProtectionDomain("fatfs2", "fat2.elf", priority=96)
@@ -338,10 +338,10 @@ def generate(sdf_path: str, output_dir: str, dtb: DeviceTree):
     fs1_client1_all_config = fs1_mul_client1_chann[1]
     fs1_server_client1_config = fs1_mul_client1_chann[2]
 
-    # fs1_mul_client2_chann = mul_client_server_conn(mulfs1, micropython2, fatfs1, 512)
-    # fs1_mul_client2_config = fs1_mul_client2_chann[0]
-    # fs1_client2_all_config = fs1_mul_client2_chann[1]
-    # fs1_server_client2_config = fs1_mul_client2_chann[2]
+    fs1_mul_client2_chann = mul_client_server_conn(mulfs1, micropython2, fatfs1, 512)
+    fs1_mul_client2_config = fs1_mul_client2_chann[0]
+    fs1_client2_all_config = fs1_mul_client2_chann[1]
+    fs1_server_client2_config = fs1_mul_client2_chann[2]
 
     if board.name == "maaxboard":
         timer_system.add_client(blk_driver)
@@ -351,7 +351,7 @@ def generate(sdf_path: str, output_dir: str, dtb: DeviceTree):
         serial_virt_tx,
         serial_virt_rx,
         micropython1,
-        # micropython2,
+        micropython2,
         mulfs1,
         fatfs1,
         # fatfs2,
@@ -421,20 +421,20 @@ def generate(sdf_path: str, output_dir: str, dtb: DeviceTree):
     update_elf_section(obj_copy, fatfs1.elf, "fs_server_client1_config", data_path)
 
 
-    #data_path = output_dir + "/fs_mul_client2.data"
-    #with open(data_path, "wb+") as f:
-    #    f.write(fs1_mul_client2_config.serialise())
-    #update_elf_section(obj_copy, mulfs1.elf, "fs1_mul_client2_config", data_path)
+    data_path = output_dir + "/fs_mul_client2.data"
+    with open(data_path, "wb+") as f:
+        f.write(fs1_mul_client2_config.serialise())
+    update_elf_section(obj_copy, mulfs1.elf, "fs1_mul_client2_config", data_path)
 
-    #data_path = output_dir + "/fs_micropython2_mul1.data"
-    #with open(data_path, "wb+") as f:
-    #    f.write(fs1_client2_all_config.serialise())
-    #update_elf_section(obj_copy, micropython2.elf, "fs_mul_client_channs", data_path)
+    data_path = output_dir + "/fs_micropython2_mul1.data"
+    with open(data_path, "wb+") as f:
+        f.write(fs1_client2_all_config.serialise())
+    update_elf_section(obj_copy, micropython2.elf, "fs_mul_client_channs", data_path)
 
-    #data_path = output_dir + "/fs_server1_client2.data"
-    #with open(data_path, "wb+") as f:
-    #    f.write(fs1_server_client2_config.serialise())
-    #update_elf_section(obj_copy, fatfs1.elf, "fs_server_client2_config", data_path)
+    data_path = output_dir + "/fs_server1_client2.data"
+    with open(data_path, "wb+") as f:
+        f.write(fs1_server_client2_config.serialise())
+    update_elf_section(obj_copy, fatfs1.elf, "fs_server_client2_config", data_path)
 
 
     with open(f"{output_dir}/{sdf_path}", "w+") as f:
