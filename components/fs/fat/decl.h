@@ -11,6 +11,7 @@
 
 // Use struct instead of union
 typedef struct {
+    uint32_t cid;
     fs_cmd_params_t params;
     uint64_t status;
     fs_cmpl_data_t result;

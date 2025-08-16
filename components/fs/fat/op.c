@@ -30,7 +30,7 @@ DIR dirs[MAX_OPEN_FILES];
 bool dir_used[MAX_OPEN_FILES];
 
 /* Data shared with client */
-extern cd_region_t *curr_regs;
+extern cd_region_t *cd_base_reg;
 
 FIL *file_alloc(void) {
     for (int i = 0; i < MAX_OPEN_FILES; i++) {
@@ -125,13 +125,14 @@ void handle_deinitialise(void) {
 void handle_file_open(void) {
     co_data_t *args = microkit_cothread_my_arg();
 
-    fs_buffer_t buffer = args->params.file_open.path;
+    fs_buffer_t path = args->params.file_open.path;
     uint64_t openflag = args->params.file_open.flags;
+    uint32_t cid = args->cid;
 
     // Copy the name to our name buffer
     char filepath[FS_MAX_NAME_LENGTH + 1];
 
-    int err = fs_copy_client_path(filepath, curr_regs->pathname_share, FAT_FS_DATA_REGION_SIZE, buffer);
+    int err = fs_copy_client_path(filepath, cd_base_reg[cid].pathname_share, FAT_FS_DATA_REGION_SIZE, path);
     if (err) {
         args->status = FS_STATUS_ERROR;
         return;
@@ -177,10 +178,11 @@ void handle_file_write(void) {
     fs_buffer_t buffer = args->params.file_write.buf;
     uint64_t btw = args->params.file_write.buf.size;
     uint64_t offset = args->params.file_write.offset;
+    uint32_t cid = args->cid;
 
     LOG_FATFS("fat_write: bytes to be write: %lu, write offset: %lu\n", btw, offset);
 
-    char *data = fs_get_client_buffer(curr_regs->share, FAT_FS_DATA_REGION_SIZE, buffer);
+    char *data = fs_get_client_buffer(cd_base_reg[cid].share, FAT_FS_DATA_REGION_SIZE, buffer);
     if (data == NULL) {
         LOG_FATFS("fat_write: invalid buffer\n");
         args->result.file_write.len_written = 0;
@@ -227,8 +229,9 @@ void handle_file_read(void) {
     fs_buffer_t buffer = args->params.file_read.buf;
     uint64_t btr = args->params.file_read.buf.size;
     uint64_t offset = args->params.file_read.offset;
+    uint32_t cid = args->cid;
 
-    char *data = fs_get_client_buffer(curr_regs->share, FAT_FS_DATA_REGION_SIZE, buffer);
+    char *data = fs_get_client_buffer(cd_base_reg[cid].share, FAT_FS_DATA_REGION_SIZE, buffer);
     if (data == NULL) {
         LOG_FATFS("fat_read: invalid buffer provided\n");
         args->status = FS_STATUS_INVALID_BUFFER;
@@ -309,17 +312,18 @@ void handle_stat(void) {
     fs_buffer_t path = args->params.stat.path;
     fs_buffer_t output_buffer = args->params.stat.buf;
     uint64_t size = args->params.stat.buf.size;
+    uint32_t cid = args->cid;
 
     char filepath[FS_MAX_PATH_LENGTH + 1];
 
-    fs_stat_t *file_stat = fs_get_client_buffer(curr_regs->share, FAT_FS_DATA_REGION_SIZE, output_buffer);
+    fs_stat_t *file_stat = fs_get_client_buffer(cd_base_reg[cid].share, FAT_FS_DATA_REGION_SIZE, output_buffer);
     if (file_stat == NULL || size < sizeof (fs_stat_t)) {
         LOG_FATFS("invalid output buffer provided\n");
         args->status = FS_STATUS_INVALID_BUFFER;
         return;
     }
 
-    int err = fs_copy_client_path(filepath, curr_regs->pathname_share, FAT_FS_DATA_REGION_SIZE, path);
+    int err = fs_copy_client_path(filepath, cd_base_reg[cid].pathname_share, FAT_FS_DATA_REGION_SIZE, path);
     if (err) {
         args->status = FS_STATUS_INVALID_PATH;
         return;
@@ -386,6 +390,7 @@ void handle_file_size(void) {
 
 void handle_rename(void) {
     co_data_t *args = microkit_cothread_my_arg();
+    uint32_t cid = args->cid;
 
     fs_buffer_t oldpath_buffer = args->params.rename.old_path;
     fs_buffer_t newpath_buffer = args->params.rename.new_path;
@@ -393,12 +398,12 @@ void handle_rename(void) {
     char oldpath[FS_MAX_PATH_LENGTH + 1];
     char newpath[FS_MAX_PATH_LENGTH + 1];
 
-    int err = fs_copy_client_path(oldpath, curr_regs->pathname_share, FAT_FS_DATA_REGION_SIZE, oldpath_buffer);
+    int err = fs_copy_client_path(oldpath, cd_base_reg[cid].pathname_share, FAT_FS_DATA_REGION_SIZE, oldpath_buffer);
     if (err) {
         args->status = FS_STATUS_INVALID_PATH;
         return;
     }
-    err = fs_copy_client_path(newpath, curr_regs->pathname_share, FAT_FS_DATA_REGION_SIZE, newpath_buffer);
+    err = fs_copy_client_path(newpath, cd_base_reg[cid].pathname_share, FAT_FS_DATA_REGION_SIZE, newpath_buffer);
     if (err) {
         args->status = FS_STATUS_INVALID_PATH;
         return;
@@ -411,11 +416,12 @@ void handle_rename(void) {
 
 void handle_file_remove(void) {
     co_data_t *args = microkit_cothread_my_arg();
+    uint32_t cid = args->cid;
 
-    fs_buffer_t buffer = args->params.file_remove.path;
+    fs_buffer_t path = args->params.file_remove.path;
 
     char dirpath[FS_MAX_PATH_LENGTH + 1];
-    int err = fs_copy_client_path(dirpath, curr_regs->pathname_share, FAT_FS_DATA_REGION_SIZE, buffer);
+    int err = fs_copy_client_path(dirpath, cd_base_reg[cid].pathname_share, FAT_FS_DATA_REGION_SIZE, path);
     if (err) {
         LOG_FATFS("fat_unlink: invalid path buffer\n");
         args->status = FS_STATUS_INVALID_PATH;
@@ -459,10 +465,11 @@ void handle_file_truncate(void) {
 void handle_dir_create(void) {
     co_data_t *args = microkit_cothread_my_arg();
 
-    fs_buffer_t buffer = args->params.dir_create.path;
+    fs_buffer_t path = args->params.dir_create.path;
+    uint32_t cid = args->cid;
 
     char dirpath[FS_MAX_PATH_LENGTH + 1];
-    int err = fs_copy_client_path(dirpath, curr_regs->pathname_share, FAT_FS_DATA_REGION_SIZE, buffer);
+    int err = fs_copy_client_path(dirpath, cd_base_reg[cid].pathname_share, FAT_FS_DATA_REGION_SIZE, path);
     if (err) {
         LOG_FATFS("fat_mkdir: Invalid path buffer\n");
         args->status = FS_STATUS_INVALID_PATH;
@@ -477,11 +484,12 @@ void handle_dir_create(void) {
 void handle_dir_remove(void) {
     co_data_t *args = microkit_cothread_my_arg();
 
-    fs_buffer_t buffer = args->params.dir_remove.path;
+    fs_buffer_t path = args->params.dir_remove.path;
+    uint32_t cid = args->cid;
 
     char dirpath[FS_MAX_PATH_LENGTH + 1];
 
-    int err = fs_copy_client_path(dirpath, curr_regs->pathname_share, FAT_FS_DATA_REGION_SIZE, buffer);
+    int err = fs_copy_client_path(dirpath, cd_base_reg[cid].pathname_share, FAT_FS_DATA_REGION_SIZE, path);
     if (err) {
         LOG_FATFS("fat_mkdir: Invalid path buffer\n");
         args->status = FS_STATUS_INVALID_PATH;
@@ -496,10 +504,11 @@ void handle_dir_remove(void) {
 void handle_dir_open(void) {
     co_data_t *args = microkit_cothread_my_arg();
 
-    fs_buffer_t buffer = args->params.dir_open.path;
+    fs_buffer_t path = args->params.dir_open.path;
+    uint32_t cid = args->cid;
 
     char dirpath[FS_MAX_PATH_LENGTH + 1];
-    int err = fs_copy_client_path(dirpath, curr_regs->pathname_share, FAT_FS_DATA_REGION_SIZE, buffer);
+    int err = fs_copy_client_path(dirpath, cd_base_reg[cid].pathname_share, FAT_FS_DATA_REGION_SIZE, path);
     if (err) {
         LOG_FATFS("fat_readdir: Invalid buffer\n");
         args->status = FS_STATUS_INVALID_PATH;
@@ -540,10 +549,11 @@ void handle_dir_read(void) {
     fd_t fd = args->params.dir_read.fd;
     fs_buffer_t buffer = args->params.dir_read.buf;
     uint64_t size = args->params.dir_read.buf.size;
+    uint32_t cid = args->cid;
 
     LOG_FATFS("FAT readdir file descriptor: %lu\n", fd);
 
-    char *name = fs_get_client_buffer(curr_regs->share, FAT_FS_DATA_REGION_SIZE, buffer);
+    char *name = fs_get_client_buffer(cd_base_reg[cid].share, FAT_FS_DATA_REGION_SIZE, buffer);
     if (name == NULL) {
         LOG_FATFS("fat_readdir: invalid buffer\n");
         args->status = FS_STATUS_INVALID_BUFFER;

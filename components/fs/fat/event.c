@@ -39,8 +39,8 @@ fs_queue_t *fs_completion_queue;
 /* each client has a region for sharing data */
 cd_region_t cd_regs[CLIENT_NUM];
 
-/* current data region channels */
-cd_region_t *curr_regs;
+/* base data region channels */
+cd_region_t *cd_base_reg;
 
 
 uint64_t worker_thread_stack_one = 0xA0000000;
@@ -109,15 +109,10 @@ void setup_request(int32_t index, fs_msg_t* message) {
     request_pool[index].request_id = message->cmd.id;
     request_pool[index].cmd = message->cmd.type;
     request_pool[index].shared_data.params = message->cmd.params;
+    request_pool[index].shared_data.cid = 0;
     void (*func)(void) = operation_functions[request_pool[index].cmd];
     void *shared_data = &request_pool[index].shared_data;
     request_pool[index].handle = microkit_cothread_spawn(func, shared_data);
-}
-
-// for switching client channel
-void fs_switch_client(uint16_t cid) {
-    assert(cid >= 0 && cid < CLIENT_NUM);
-    curr_regs = cd_regs + cid;
 }
 
 // For debug
@@ -155,8 +150,8 @@ void init(void) {
     cd_regs[0].share = fs_client1_config.share.vaddr;
     cd_regs[1].pathname_share = fs_client2_config.pathname_share.vaddr;
     cd_regs[1].share = fs_client2_config.share.vaddr;
-    /* set default channel to client 0 */
-    fs_switch_client(0);
+
+    cd_base_reg = cd_regs;
 #endif
     blk_data = blk_config.data.vaddr;
 
