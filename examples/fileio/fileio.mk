@@ -54,7 +54,7 @@ SDFGEN_UNKOWN_MACROS :=
 FS_CONFIG_HEADERS := $(SDDF)/include/sddf/resources/common.h \
 					 	$(SDDF)/include/sddf/resources/device.h \
 						$(LIONSOS)/include/lions/fs/config.h \
-						$(LIONSOS)/include/lions/fs/mul.h
+						$(LIONSOS)/include/lions/fs/mulconf.h
 
 FAT := $(LIONSOS)/components/fs/fat
 MUSL_SRC := $(LIONSOS)/dep/musllibc

@@ -4,7 +4,7 @@
 #include <libmicrokitco.h>
 #include <lions/fs/protocol.h>
 #include <lions/fs/config.h>
-#include <lions/fs/mul.h>
+#include <lions/fs/mulconf.h>
 
 __attribute__((__section__(".fs_mul_server_config"))) fs_mul_server_config_t server_config;
 __attribute__((__section__(".fs1_mul_client1_config"))) fs_mul_client_config_t fs_c1_config;

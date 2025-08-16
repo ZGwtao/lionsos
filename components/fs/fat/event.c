@@ -14,7 +14,7 @@
 #include <sddf/blk/config.h>
 #include <lions/fs/protocol.h>
 #include <lions/fs/config.h>
-#include <lions/fs/mul.h>
+#include <lions/fs/mulconf.h>
 #include "decl.h"
 #include "ff.h"
 #include "diskio.h"

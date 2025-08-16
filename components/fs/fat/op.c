@@ -12,7 +12,7 @@
 #include <assert.h>
 #include <lions/fs/protocol.h>
 #include <lions/fs/server.h>
-#include <lions/fs/mul.h>
+#include <lions/fs/mulconf.h>
 #include <fat_config.h>
 
 /*

@@ -23,7 +23,7 @@
 #include <sddf/timer/config.h>
 #include <sddf/network/config.h>
 #include <lions/fs/config.h>
-#include <lions/fs/mul.h>
+#include <lions/fs/mulconf.h>
 #include "lwip/init.h"
 #include "mpconfigport.h"
 #include "fs_helpers.h"
