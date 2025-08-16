@@ -130,11 +130,17 @@ void init(void) {
     assert(blk_config.virt.num_buffers >= FAT_WORKER_THREAD_NUM);
 
     max_cluster_size = blk_config.data.size / FAT_WORKER_THREAD_NUM;
+#if 0
     fs_command_queue = fs_config.client.command_queue.vaddr;
     fs_completion_queue = fs_config.client.completion_queue.vaddr;
     fs_pathname_share = fs_config.client.pathname_share.vaddr;
     fs_share = fs_config.client.share.vaddr;
-
+#else
+    fs_command_queue = fs_mul_config.command_queue.vaddr;
+    fs_completion_queue = fs_mul_config.completion_queue.vaddr;
+    fs_pathname_share = fs_client_config.pathname_share.vaddr;
+    fs_share = fs_client_config.share.vaddr;
+#endif
     blk_data = blk_config.data.vaddr;
 
     blk_queue_init(&blk_queue, blk_config.virt.req_queue.vaddr, blk_config.virt.resp_queue.vaddr, blk_config.virt.num_buffers);
