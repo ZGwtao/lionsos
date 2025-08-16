@@ -48,8 +48,6 @@ struct fs_request;
 
 void notified(microkit_channel ch)
 {
-    bool new_request_popped = true;
-
     uint64_t command_queue_size;
     uint64_t completion_queue_size;
 
@@ -64,9 +62,8 @@ void notified(microkit_channel ch)
     
         command_queue_size = fs_queue_length_consumer(fs_client1_command_queue);
         completion_queue_size = fs_queue_length_producer(fs_client1_completion_queue);
-        new_request_popped = false;
 
-        while (command_queue_size == 0 || completion_queue_size == FS_QUEUE_CAPACITY) {
+        while (command_queue_size && completion_queue_size < FS_QUEUE_CAPACITY) {
             /* get a request to forward to the server */
             fs_msg_t client_req = *fs_queue_idx_filled(fs_client1_command_queue, fs_request_dequeued);
 
@@ -82,7 +79,6 @@ void notified(microkit_channel ch)
             /* increase available index for forwarding requests */
             fs_request_forwarded++;
 
-            new_request_popped = true;
             completion_queue_size++;
         }
         if (fs_request_dequeued) {

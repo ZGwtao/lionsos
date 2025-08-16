@@ -177,7 +177,7 @@ void init(void) {
 */
 void notified(microkit_channel ch) {
     LOG_FATFS("Notification received on channel:: %d\n", ch);
-    if (ch != fs_config.client.id && ch != blk_config.virt.id) {
+    if (ch != fs_mul_config.id && ch != blk_config.virt.id) {
         LOG_FATFS("Unknown channel:%d\n", ch);
         return;
     }
@@ -285,7 +285,7 @@ void notified(microkit_channel ch) {
     if (fs_response_enqueued) {
         LOG_FATFS("FS notify client\n");
         fs_queue_publish_production(fs_completion_queue, fs_response_enqueued);
-        microkit_notify(fs_config.client.id);
+        microkit_notify(fs_mul_config.id);
     }
     if (blk_request_pushed) {
         LOG_FATFS("FS notify block virt\n");
