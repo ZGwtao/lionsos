@@ -63,6 +63,9 @@ void notified(microkit_channel ch)
         command_queue_size = fs_queue_length_consumer(fs_client1_command_queue);
         completion_queue_size = fs_queue_length_producer(fs_client1_completion_queue);
 
+        // FIXME
+        //  how to deal with the unmanaged file system requests?
+        //  (should we throw the requests away?)
         while (command_queue_size && completion_queue_size < FS_QUEUE_CAPACITY) {
             /* get a request to forward to the server */
             fs_msg_t client_req = *fs_queue_idx_filled(fs_client1_command_queue, fs_request_dequeued);
