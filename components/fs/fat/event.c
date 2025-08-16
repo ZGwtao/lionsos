@@ -22,7 +22,8 @@
 __attribute__((__section__(".fs_server_config"))) fs_server_config_t fs_config;
 __attribute__((__section__(".blk_client_config"))) blk_client_config_t blk_config;
 __attribute__((__section__(".fs_mul_server_config"))) fs_mul_server_config_t fs_mul_config;
-__attribute__((__section__(".fs_server_client_config"))) fs_server_client_config_t fs_client_config;
+__attribute__((__section__(".fs_server_client1_config"))) fs_server_client_config_t fs_client1_config;
+__attribute__((__section__(".fs_server_client2_config"))) fs_server_client_config_t fs_client2_config;
 
 co_control_t co_controller_mem;
 microkit_cothread_sem_t sem[FAT_WORKER_THREAD_NUM + 1];
@@ -33,8 +34,14 @@ char *blk_data;
 
 fs_queue_t *fs_command_queue;
 fs_queue_t *fs_completion_queue;
-char *fs_pathname_share;
-char *fs_share;
+
+#define CLIENT_NUM 2
+/* each client has a region for sharing data */
+cd_region_t cd_regs[CLIENT_NUM];
+
+/* current data region channels */
+cd_region_t *curr_regs;
+
 
 uint64_t worker_thread_stack_one = 0xA0000000;
 uint64_t worker_thread_stack_two = 0xB0000000;
@@ -107,6 +114,12 @@ void setup_request(int32_t index, fs_msg_t* message) {
     request_pool[index].handle = microkit_cothread_spawn(func, shared_data);
 }
 
+// for switching client channel
+void fs_switch_client(uint16_t cid) {
+    assert(cid >= 0 && cid < CLIENT_NUM);
+    curr_regs = cd_regs + cid;
+}
+
 // For debug
 void print_sector_data(uint8_t *buffer, unsigned long size) {
     for (unsigned long i = 0; i < size; i++) {
@@ -138,8 +151,12 @@ void init(void) {
 #else
     fs_command_queue = fs_mul_config.command_queue.vaddr;
     fs_completion_queue = fs_mul_config.completion_queue.vaddr;
-    fs_pathname_share = fs_client_config.pathname_share.vaddr;
-    fs_share = fs_client_config.share.vaddr;
+    cd_regs[0].pathname_share = fs_client1_config.pathname_share.vaddr;
+    cd_regs[0].share = fs_client1_config.share.vaddr;
+    cd_regs[1].pathname_share = fs_client2_config.pathname_share.vaddr;
+    cd_regs[1].share = fs_client2_config.share.vaddr;
+    /* set default channel to client 0 */
+    fs_switch_client(0);
 #endif
     blk_data = blk_config.data.vaddr;
 

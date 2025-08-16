@@ -12,6 +12,7 @@
 #include <assert.h>
 #include <lions/fs/protocol.h>
 #include <lions/fs/server.h>
+#include <lions/fs/mul.h>
 #include <fat_config.h>
 
 /*
@@ -29,8 +30,7 @@ DIR dirs[MAX_OPEN_FILES];
 bool dir_used[MAX_OPEN_FILES];
 
 /* Data shared with client */
-extern char *fs_share;
-extern char *fs_pathname_share;
+extern cd_region_t *curr_regs;
 
 FIL *file_alloc(void) {
     for (int i = 0; i < MAX_OPEN_FILES; i++) {
@@ -131,7 +131,7 @@ void handle_file_open(void) {
     // Copy the name to our name buffer
     char filepath[FS_MAX_NAME_LENGTH + 1];
 
-    int err = fs_copy_client_path(filepath, fs_pathname_share, FAT_FS_DATA_REGION_SIZE, buffer);
+    int err = fs_copy_client_path(filepath, curr_regs->pathname_share, FAT_FS_DATA_REGION_SIZE, buffer);
     if (err) {
         args->status = FS_STATUS_ERROR;
         return;
@@ -180,7 +180,7 @@ void handle_file_write(void) {
 
     LOG_FATFS("fat_write: bytes to be write: %lu, write offset: %lu\n", btw, offset);
 
-    char *data = fs_get_client_buffer(fs_share, FAT_FS_DATA_REGION_SIZE, buffer);
+    char *data = fs_get_client_buffer(curr_regs->share, FAT_FS_DATA_REGION_SIZE, buffer);
     if (data == NULL) {
         LOG_FATFS("fat_write: invalid buffer\n");
         args->result.file_write.len_written = 0;
@@ -228,7 +228,7 @@ void handle_file_read(void) {
     uint64_t btr = args->params.file_read.buf.size;
     uint64_t offset = args->params.file_read.offset;
 
-    char *data = fs_get_client_buffer(fs_share, FAT_FS_DATA_REGION_SIZE, buffer);
+    char *data = fs_get_client_buffer(curr_regs->share, FAT_FS_DATA_REGION_SIZE, buffer);
     if (data == NULL) {
         LOG_FATFS("fat_read: invalid buffer provided\n");
         args->status = FS_STATUS_INVALID_BUFFER;
@@ -312,14 +312,14 @@ void handle_stat(void) {
 
     char filepath[FS_MAX_PATH_LENGTH + 1];
 
-    fs_stat_t *file_stat = fs_get_client_buffer(fs_share, FAT_FS_DATA_REGION_SIZE, output_buffer);
+    fs_stat_t *file_stat = fs_get_client_buffer(curr_regs->share, FAT_FS_DATA_REGION_SIZE, output_buffer);
     if (file_stat == NULL || size < sizeof (fs_stat_t)) {
         LOG_FATFS("invalid output buffer provided\n");
         args->status = FS_STATUS_INVALID_BUFFER;
         return;
     }
 
-    int err = fs_copy_client_path(filepath, fs_pathname_share, FAT_FS_DATA_REGION_SIZE, path);
+    int err = fs_copy_client_path(filepath, curr_regs->pathname_share, FAT_FS_DATA_REGION_SIZE, path);
     if (err) {
         args->status = FS_STATUS_INVALID_PATH;
         return;
@@ -393,12 +393,12 @@ void handle_rename(void) {
     char oldpath[FS_MAX_PATH_LENGTH + 1];
     char newpath[FS_MAX_PATH_LENGTH + 1];
 
-    int err = fs_copy_client_path(oldpath, fs_pathname_share, FAT_FS_DATA_REGION_SIZE, oldpath_buffer);
+    int err = fs_copy_client_path(oldpath, curr_regs->pathname_share, FAT_FS_DATA_REGION_SIZE, oldpath_buffer);
     if (err) {
         args->status = FS_STATUS_INVALID_PATH;
         return;
     }
-    err = fs_copy_client_path(newpath, fs_pathname_share, FAT_FS_DATA_REGION_SIZE, newpath_buffer);
+    err = fs_copy_client_path(newpath, curr_regs->pathname_share, FAT_FS_DATA_REGION_SIZE, newpath_buffer);
     if (err) {
         args->status = FS_STATUS_INVALID_PATH;
         return;
@@ -415,7 +415,7 @@ void handle_file_remove(void) {
     fs_buffer_t buffer = args->params.file_remove.path;
 
     char dirpath[FS_MAX_PATH_LENGTH + 1];
-    int err = fs_copy_client_path(dirpath, fs_pathname_share, FAT_FS_DATA_REGION_SIZE, buffer);
+    int err = fs_copy_client_path(dirpath, curr_regs->pathname_share, FAT_FS_DATA_REGION_SIZE, buffer);
     if (err) {
         LOG_FATFS("fat_unlink: invalid path buffer\n");
         args->status = FS_STATUS_INVALID_PATH;
@@ -462,7 +462,7 @@ void handle_dir_create(void) {
     fs_buffer_t buffer = args->params.dir_create.path;
 
     char dirpath[FS_MAX_PATH_LENGTH + 1];
-    int err = fs_copy_client_path(dirpath, fs_pathname_share, FAT_FS_DATA_REGION_SIZE, buffer);
+    int err = fs_copy_client_path(dirpath, curr_regs->pathname_share, FAT_FS_DATA_REGION_SIZE, buffer);
     if (err) {
         LOG_FATFS("fat_mkdir: Invalid path buffer\n");
         args->status = FS_STATUS_INVALID_PATH;
@@ -481,7 +481,7 @@ void handle_dir_remove(void) {
 
     char dirpath[FS_MAX_PATH_LENGTH + 1];
 
-    int err = fs_copy_client_path(dirpath, fs_pathname_share, FAT_FS_DATA_REGION_SIZE, buffer);
+    int err = fs_copy_client_path(dirpath, curr_regs->pathname_share, FAT_FS_DATA_REGION_SIZE, buffer);
     if (err) {
         LOG_FATFS("fat_mkdir: Invalid path buffer\n");
         args->status = FS_STATUS_INVALID_PATH;
@@ -499,7 +499,7 @@ void handle_dir_open(void) {
     fs_buffer_t buffer = args->params.dir_open.path;
 
     char dirpath[FS_MAX_PATH_LENGTH + 1];
-    int err = fs_copy_client_path(dirpath, fs_pathname_share, FAT_FS_DATA_REGION_SIZE, buffer);
+    int err = fs_copy_client_path(dirpath, curr_regs->pathname_share, FAT_FS_DATA_REGION_SIZE, buffer);
     if (err) {
         LOG_FATFS("fat_readdir: Invalid buffer\n");
         args->status = FS_STATUS_INVALID_PATH;
@@ -543,7 +543,7 @@ void handle_dir_read(void) {
 
     LOG_FATFS("FAT readdir file descriptor: %lu\n", fd);
 
-    char *name = fs_get_client_buffer(fs_share, FAT_FS_DATA_REGION_SIZE, buffer);
+    char *name = fs_get_client_buffer(curr_regs->share, FAT_FS_DATA_REGION_SIZE, buffer);
     if (name == NULL) {
         LOG_FATFS("fat_readdir: invalid buffer\n");
         args->status = FS_STATUS_INVALID_BUFFER;

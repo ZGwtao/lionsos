@@ -241,10 +241,13 @@ def generate(sdf_path: str, output_dir: str, dtb: DeviceTree):
     blk_virt = ProtectionDomain("blk_virt", "blk_virt.elf", priority=199, stack_size=0x2000)
     blk_system = Sddf.Blk(sdf, blk_node, blk_driver, blk_virt)
 
-    micropython = ProtectionDomain("micropython", "micropython.elf", priority=1)
+    micropython1 = ProtectionDomain("micropython1", "micropython.elf", priority=1)
+    # micropython2 = ProtectionDomain("micropython2", "micropython.elf", priority=1)
 
-    serial_system.add_client(micropython)
-    timer_system.add_client(micropython)
+    serial_system.add_client(micropython1)
+    # serial_system.add_client(micropython2)
+    timer_system.add_client(micropython1)
+    # timer_system.add_client(micropython2)
 
     fatfs1 = ProtectionDomain("fatfs1", "fat1.elf", priority=96)
     # fatfs2 = ProtectionDomain("fatfs2", "fat2.elf", priority=96)
@@ -258,7 +261,7 @@ def generate(sdf_path: str, output_dir: str, dtb: DeviceTree):
     # )
 
     # queue len = 512 as per lionsos.zig
-    fs1_client_server_chann = fs_connection(micropython, fatfs1, 512)
+    fs1_client_server_chann = fs_connection(micropython1, fatfs1, 512)
     # pd1 is client, pd2 is server
     fs1_client_config = FsClientConfig(
         [0x4C, 0x69, 0x6F, 0x6E, 0x73, 0x4F, 0x53, 0x01],
@@ -322,17 +325,23 @@ def generate(sdf_path: str, output_dir: str, dtb: DeviceTree):
     fs1_mul_server_config = fs1_mul_chann[0]
     fs1_server_mul_config = fs1_mul_chann[1]
 
-    fs1_mul_client1_chann = mul_client_server_conn(mulfs1, micropython, fatfs1, 512)
-    fs1_mul_client_config = fs1_mul_client1_chann[0]
-    fs1_client_all_config = fs1_mul_client1_chann[1]
-    fs1_server_client_config = fs1_mul_client1_chann[2]
-
     fs1_mul_stack1 = MemoryRegion(sdf, "fs1_mul_stack1", 0x40_000)
     fs1_mul_stack2 = MemoryRegion(sdf, "fs1_mul_stack2", 0x40_000)
     sdf.add_mr(fs1_mul_stack1)
     sdf.add_mr(fs1_mul_stack2)
     mulfs1.add_map(Map(fs1_mul_stack1, 0xA0_000_000, perms="rw"))
     mulfs1.add_map(Map(fs1_mul_stack2, 0xB0_000_000, perms="rw"))
+
+    # clients
+    fs1_mul_client1_chann = mul_client_server_conn(mulfs1, micropython1, fatfs1, 512)
+    fs1_mul_client1_config = fs1_mul_client1_chann[0]
+    fs1_client1_all_config = fs1_mul_client1_chann[1]
+    fs1_server_client1_config = fs1_mul_client1_chann[2]
+
+    # fs1_mul_client2_chann = mul_client_server_conn(mulfs1, micropython2, fatfs1, 512)
+    # fs1_mul_client2_config = fs1_mul_client2_chann[0]
+    # fs1_client2_all_config = fs1_mul_client2_chann[1]
+    # fs1_server_client2_config = fs1_mul_client2_chann[2]
 
     if board.name == "maaxboard":
         timer_system.add_client(blk_driver)
@@ -341,7 +350,8 @@ def generate(sdf_path: str, output_dir: str, dtb: DeviceTree):
         serial_driver,
         serial_virt_tx,
         serial_virt_rx,
-        micropython,
+        micropython1,
+        # micropython2,
         mulfs1,
         fatfs1,
         # fatfs2,
@@ -363,10 +373,10 @@ def generate(sdf_path: str, output_dir: str, dtb: DeviceTree):
     assert blk_system.connect()
     assert blk_system.serialise_config(output_dir)
 
-    data_path = output_dir + "/fs_client_micropython_fatfs1.data"
+    data_path = output_dir + "/fs_client_micropython1_fatfs1.data"
     with open(data_path, "wb+") as f:
         f.write(fs1_client_config.serialise())
-    update_elf_section(obj_copy, micropython.elf, "fs1_client_config", data_path)
+    update_elf_section(obj_copy, micropython1.elf, "fs1_client_config", data_path)
 
     data_path = output_dir + "/fs_server_fatfs1.data"
     with open(data_path, "wb+") as f:
@@ -397,18 +407,35 @@ def generate(sdf_path: str, output_dir: str, dtb: DeviceTree):
     # multiplexer - fs client
     data_path = output_dir + "/fs_mul_client1.data"
     with open(data_path, "wb+") as f:
-        f.write(fs1_mul_client_config.serialise())
-    update_elf_section(obj_copy, mulfs1.elf, "fs1_mul_client_config", data_path)
+        f.write(fs1_mul_client1_config.serialise())
+    update_elf_section(obj_copy, mulfs1.elf, "fs1_mul_client1_config", data_path)
 
-    data_path = output_dir + "/fs_micropython_mul1.data"
+    data_path = output_dir + "/fs_micropython1_mul1.data"
     with open(data_path, "wb+") as f:
-        f.write(fs1_client_all_config.serialise())
-    update_elf_section(obj_copy, micropython.elf, "fs_mul_client_channs", data_path)
+        f.write(fs1_client1_all_config.serialise())
+    update_elf_section(obj_copy, micropython1.elf, "fs_mul_client_channs", data_path)
 
-    data_path = output_dir + "/fs_server_client1.data"
+    data_path = output_dir + "/fs_server1_client1.data"
     with open(data_path, "wb+") as f:
-        f.write(fs1_server_client_config.serialise())
-    update_elf_section(obj_copy, fatfs1.elf, "fs_server_client_config", data_path)
+        f.write(fs1_server_client1_config.serialise())
+    update_elf_section(obj_copy, fatfs1.elf, "fs_server_client1_config", data_path)
+
+
+    #data_path = output_dir + "/fs_mul_client2.data"
+    #with open(data_path, "wb+") as f:
+    #    f.write(fs1_mul_client2_config.serialise())
+    #update_elf_section(obj_copy, mulfs1.elf, "fs1_mul_client2_config", data_path)
+
+    #data_path = output_dir + "/fs_micropython2_mul1.data"
+    #with open(data_path, "wb+") as f:
+    #    f.write(fs1_client2_all_config.serialise())
+    #update_elf_section(obj_copy, micropython2.elf, "fs_mul_client_channs", data_path)
+
+    #data_path = output_dir + "/fs_server1_client2.data"
+    #with open(data_path, "wb+") as f:
+    #    f.write(fs1_server_client2_config.serialise())
+    #update_elf_section(obj_copy, fatfs1.elf, "fs_server_client2_config", data_path)
+
 
     with open(f"{output_dir}/{sdf_path}", "w+") as f:
         f.write(sdf.render())
