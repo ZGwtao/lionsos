@@ -4,3 +4,7 @@ docs/book/
 *~
 \#*#
 .#*
+__pycache__
+qemu_disk
+fs_config.h
+config_structs.py
