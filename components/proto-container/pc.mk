@@ -3,7 +3,10 @@
 PC_SRC_DIR := $(realpath $(dir $(lastword $(MAKEFILE_LIST))))
 PC_LIBMICROKITCO_DIR := $(LIONSOS)/dep/libmicrokitco
 
+LIBGCC := $(shell aarch64-none-elf-gcc -print-libgcc-file-name)
+
 PC_CLAGS := \
+	-I$(CONTAINER_LIBC_INCLUDE) \
 	-I$(PC_LIBMICROKITCO_DIR) \
 	-I$(PC_SRC_DIR)/config
 
@@ -30,9 +33,10 @@ pc/$(PC_LIBMICROKITCO_OBJ): pc
 			LIBMICROKITCO_OPT_PATH=$(PC_LIBMICROKITCO_OPT_PATH)
 
 pc/%.o: CFLAGS += $(PC_CLAGS)
-pc/%.o: $(PC_SRC_DIR)/%.c $(PC_LIBC_INCLUDE) | pc
+pc/%.o: $(PC_SRC_DIR)/%.c $(CONTAINER_LIBC_INCLUDE) | pc
 	$(CC) -c $(CFLAGS) $< -o $@
 
+monitor.elf: LIBS += $(LIBGCC)
 monitor.elf: $(PC_OBJS) pc/$(PC_LIBMICROKITCO_OBJ) $(CONTAINER_LIBC_LIB)
 	$(LD) $(LDFLAGS) $^ $(LIBS) -o $@
 

@@ -97,11 +97,6 @@ include ${SDDF}/libco/libco.mk
 include ${BLK_DRIVER}/blk_driver.mk
 include ${BLK_COMPONENTS}/blk_components.mk
 
-CONTAINER_CONFIG_INCLUDE := ${CONFIG_INCLUDE}
-include $(LIONSOS)/components/proto-container/pc.mk
-
-manifest.py: fs_test.py bench.py
-
 %.py: ${CONTAINER_DIR}/%.py
 	cp $< $@
 
@@ -110,20 +105,23 @@ FAT_LIBC_INCLUDE := $(MUSL)/include
 CONTAINER_LIBC_LIB := $(FAT_LIBC_LIB)
 CONTAINER_LIBC_INCLUDE := $(FAT_LIBC_INCLUDE)
 include $(LIONSOS)/components/fs/fat/fat.mk
+include $(LIONSOS)/components/proto-container/pc.mk
 
 $(MUSL):
 	mkdir -p $@
 
 $(CONTAINER_LIBC_LIB) $(CONTAINER_LIBC_INCLUDE): ${MUSL}
-	cd ${MUSL} && CC=aarch64-none-elf-gcc CROSS_COMPILE=aarch64-none-elf- \
-		${MUSL_SRC}/configure \
-			--srcdir=${MUSL_SRC} 		\
-			--prefix=${abspath ${MUSL}} \
-			--with-malloc=oldmalloc 	\
-			--target=aarch64 			\
-			--enable-warnings 			\
-			--disable-shared 			\
-			--enable-static
+	cd ${MUSL} && \
+	CC=aarch64-none-elf-gcc \
+	CROSS_COMPILE=aarch64-none-elf- \
+	${MUSL_SRC}/configure \
+		--srcdir=${MUSL_SRC} \
+		--prefix=${abspath ${MUSL}} \
+		--with-malloc=oldmalloc \
+		--target=aarch64 \
+		--enable-warnings \
+		--disable-shared \
+		--enable-static
 	${MAKE} -C ${MUSL} install
 
 ${IMAGES}: libsddf_util_debug.a
@@ -146,8 +144,8 @@ $(SYSTEM_FILE): $(METAPROGRAM) $(IMAGES) $(DTB)
 	$(OBJCOPY) --update-section .serial_virt_tx_config=serial_virt_tx.data serial_virt_tx.elf
 	$(OBJCOPY) --update-section .serial_virt_rx_config=serial_virt_rx.data serial_virt_rx.elf
 	$(OBJCOPY) --update-section .device_resources=timer_driver_device_resources.data timer_driver.elf
-#	$(OBJCOPY) --update-section .timer_client_config=timer_client_micropython.data micropython.elf
-#	$(OBJCOPY) --update-section .serial_client_config=serial_client_micropython.data micropython.elf
+	$(OBJCOPY) --update-section .timer_client_config=timer_client_monitor.data monitor.elf
+	$(OBJCOPY) --update-section .serial_client_config=serial_client_monitor.data monitor.elf
 #	$(OBJCOPY) --update-section .fs_client_config=fs_client_micropython.data micropython.elf
 	$(OBJCOPY) --update-section .device_resources=blk_driver_device_resources.data blk_driver.elf
 	$(OBJCOPY) --update-section .blk_driver_config=blk_driver.data blk_driver.elf
