@@ -47,6 +47,43 @@ BOARDS: List[Board] = [
     ),
 ]
 
+def container_connect(mpd: SystemDescription.ProtectionDomain, cpd: SystemDescription.ProtectionDomain):
+
+    name_prefix = mpd.name + "/" + cpd.name + "/"
+
+    container_elf = MemoryRegion(name_prefix + "container/elf", 0x800000)
+    trampoline_elf = MemoryRegion(name_prefix + "trampoline/elf", 0x800000)
+    trampoline_exec = MemoryRegion(name_prefix + "trampoline/exec", 0x800000)
+    tsldr_exec = MemoryRegion(name_prefix + "tsldr/exec", 0x800000)
+    tsldr_data = MemoryRegion(name_prefix + "tsldr/data", 0x800000)
+
+    sdf.add_mr(container_elf)
+    sdf.add_mr(trampoline_elf)
+    sdf.add_mr(trampoline_exec)
+    sdf.add_mr(tsldr_exec)
+    sdf.add_mr(tsldr_data)
+
+    mpd.add_map(Map(container_elf, 0xA00000000, perms="rw", cached="true"))
+    mpd.add_map(Map(trampoline_exec, 0xD000000, perms="rwx", cached="true"))
+    mpd.add_map(Map(trampoline_elf,  0xD800000, perms="rwx", cached="true"))
+    mpd.add_map(Map(tsldr_exec, 0x4000000, perms="rw", cached="true"))
+    mpd.add_map(Map(tsldr_data, 0x1000000, perms="rw", cached="true"))
+
+    cpd.add_map(Map(container_elf, 0x2000000, perms="rw", cached="true"))
+    cpd.add_map(Map(trampoline_exec, 0x1800000, perms="rwx", cached="true"))
+    cpd.add_map(Map(trampoline_elf,  0x1000000, perms="rwx", cached="true"))
+    cpd.add_map(Map(tsldr_exec, 0x200000, perms="rwx", cached="true"))
+    cpd.add_map(Map(tsldr_data, 0xA00000, perms="rw", cached="true"))
+
+    trampoline_stack = MemoryRegion(name_prefix + "trampoline/stack", 0x1000)
+    container_stack = MemoryRegion(name_prefix + "container/stack", 0x1000)
+
+    sdf.add_mr(trampoline_stack)
+    sdf.add_mr(container_stack)
+
+    cpd.add_map(Map(trampoline_stack, 0x0FFFFDFF000, perms="rw", cached="true"))
+    cpd.add_map(Map(container_stack, 0x0FFFFBFF000, perms="rw", cached="true"))
+
 
 def generate(sdf_path: str, output_dir: str, dtb: DeviceTree):
     serial_node = dtb.node(board.serial)
@@ -68,7 +105,10 @@ def generate(sdf_path: str, output_dir: str, dtb: DeviceTree):
     blk_virt = ProtectionDomain("blk_virt", "blk_virt.elf", priority=199, stack_size=0x2000)
     blk_system = Sddf.Blk(sdf, blk_node, blk_driver, blk_virt)
 
-    monitor = ProtectionDomain("monitor", "monitor.elf", priority=1)
+    container = ProtectionDomain("container", priority=1)
+    monitor = ProtectionDomain("monitor", "monitor.elf", priority=2, template=True)
+    _ = monitor.add_child_pd(container)
+    container_connect(monitor, container)
 
     serial_system.add_client(monitor)
     timer_system.add_client(monitor)
