@@ -77,12 +77,15 @@ def container_connect(mpd: SystemDescription.ProtectionDomain, cpd: SystemDescri
 
     trampoline_stack = MemoryRegion(name_prefix + "trampoline/stack", 0x1000)
     container_stack = MemoryRegion(name_prefix + "container/stack", 0x1000)
+    container_exec = MemoryRegion(name_prefix + "container/exec", 0x800000)
 
     sdf.add_mr(trampoline_stack)
     sdf.add_mr(container_stack)
+    sdf.add_mr(container_exec)
 
     cpd.add_map(Map(trampoline_stack, 0x0FFFFDFF000, perms="rw", cached="true"))
     cpd.add_map(Map(container_stack, 0x0FFFFBFF000, perms="rw", cached="true"))
+    cpd.add_map(Map(container_exec, 0x2800000, perms="rwx", cached="true"))
 
 
 def generate(sdf_path: str, output_dir: str, dtb: DeviceTree):
