@@ -4,8 +4,13 @@
  * SPDX-License-Identifier: BSD-2-Clause
  */
 #include <elf_utils.h>
+#include <stdarg.h>
 #include <stdint.h>
 #include <microkit.h>
+#include <sddf/timer/config.h>
+#include <sddf/serial/queue.h>
+#include <sddf/serial/config.h>
+#include <sddf/util/printf.h>
 
 #define PROGNAME "[@frontend] "
 
@@ -13,9 +18,24 @@ uintptr_t shared1 = 0x4000000;
 uintptr_t shared2 = 0xb000000;
 uintptr_t shared3 = 0x6000000;
 
+__attribute__((__section__(".serial_client_config"))) serial_client_config_t serial_config;
+__attribute__((__section__(".timer_client_config"))) timer_client_config_t timer_config;
+
+serial_queue_handle_t serial_rx_queue_handle;
+serial_queue_handle_t serial_tx_queue_handle;
+
+
 void init(void)
 {
     microkit_dbg_printf(PROGNAME "Entered init\n");
+
+    assert(serial_config_check_magic(&serial_config));
+    assert(timer_config_check_magic(&timer_config));
+
+    if (serial_config.rx.queue.vaddr != NULL) {
+        serial_queue_init(&serial_rx_queue_handle, serial_config.rx.queue.vaddr, serial_config.rx.data.size, serial_config.rx.data.vaddr);
+    }
+    serial_queue_init(&serial_tx_queue_handle, serial_config.tx.queue.vaddr, serial_config.tx.data.size, serial_config.tx.data.vaddr);
 
     //custom_memcpy((void *)shared1, _proto_container, _proto_container_end - _proto_container);
     microkit_dbg_printf(PROGNAME "Wrote proto-container's ELF file into memory\n");
