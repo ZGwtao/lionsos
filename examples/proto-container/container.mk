@@ -30,12 +30,16 @@ else
 $(error Unsupported MICROKIT_BOARD given)
 endif
 
-TOOLCHAIN := clang
-CC := clang
-LD := ld.lld
-RANLIB := llvm-ranlib
-AR := llvm-ar
-OBJCOPY := llvm-objcopy
+# Toolchain and compiler settings
+TOOLCHAIN := aarch64-none-elf
+CPU := cortex-a53
+
+CC := $(TOOLCHAIN)-gcc
+LD := $(TOOLCHAIN)-ld
+AS := $(TOOLCHAIN)-as
+AR := $(TOOLCHAIN)-ar
+RANLIB := $(TOOLCHAIN)-ranlib
+OBJCOPY := $(TOOLCHAIN)-objcopy
 TARGET := aarch64-none-elf
 MICROKIT_TOOL ?= $(MICROKIT_SDK)/bin/microkit
 DTC := dtc
@@ -61,7 +65,6 @@ CFLAGS := \
 	-Wall \
 	-Wno-unused-function \
 	-I$(BOARD_DIR)/include \
-	-target $(TARGET) \
 	-DBOARD_$(MICROKIT_BOARD) \
 	-I$(LIONSOS)/include \
 	-I$(SDDF)/include \

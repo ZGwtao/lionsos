@@ -5,10 +5,26 @@
 #include <sddf/serial/queue.h>
 #include <sddf/serial/config.h>
 #include <sddf/util/printf.h>
+#include <elf_utils.h>
+#include <libtrustedlo.h>
 
 __attribute__((__section__(".serial_client_config"))) serial_client_config_t serial_config;
 __attribute__((__section__(".timer_client_config"))) timer_client_config_t timer_config;
 
+uintptr_t trusted_loader_exec = 0x4000000;
+uintptr_t trampoline_elf = 0xD800000;
+uintptr_t container_elf = 0xA00000000;
+
+/* 4KB in size */
+tsldr_md_t tsldr_metadata_patched;
+/*
+ * A shared memory region with container, containing content from tsldr_metadata_patched
+ * Will be init each time the container restarts by copying the data from above
+ */
+uintptr_t tsldr_metadata = 0x1000000;
+
+seL4_Word system_hash;
+unsigned char public_key[PUBLIC_KEY_BYTES];
 
 serial_queue_handle_t serial_rx_queue_handle;
 serial_queue_handle_t serial_tx_queue_handle;
