@@ -55,7 +55,7 @@ def container_connect(mpd: SystemDescription.ProtectionDomain, cpd: SystemDescri
     trampoline_elf = MemoryRegion(name_prefix + "trampoline/elf", 0x800000)
     trampoline_exec = MemoryRegion(name_prefix + "trampoline/exec", 0x800000)
     tsldr_exec = MemoryRegion(name_prefix + "tsldr/exec", 0x800000)
-    tsldr_data = MemoryRegion(name_prefix + "tsldr/data", 0x800000)
+    tsldr_data = MemoryRegion(name_prefix + "tsldr/data", 0x1000)
 
     sdf.add_mr(container_elf)
     sdf.add_mr(trampoline_elf)
@@ -107,7 +107,7 @@ def generate(sdf_path: str, output_dir: str, dtb: DeviceTree):
 
     container = ProtectionDomain("container", priority=1)
     monitor = ProtectionDomain("monitor", "monitor.elf", priority=2, template=True)
-    _ = monitor.add_child_pd(container)
+    _ = monitor.add_child_pd(container, child_id=1)
     container_connect(monitor, container)
 
     serial_system.add_client(monitor)
