@@ -108,6 +108,8 @@ def frontend_connect(mpd: SystemDescription.ProtectionDomain, fpd: SystemDescrip
     fpd.add_map(Map(ext_monitor_elf, 0x4000000, perms="rw", cached="true"))
     fpd.add_map(Map(ext_client_elf, 0xB000000, perms="rw", cached="true"))
 
+    sdf.add_channel(Channel(a=mpd, b=fpd, a_id=2, b_id=1, pp_b=True))
+
 
 def generate(sdf_path: str, output_dir: str, dtb: DeviceTree):
     serial_node = dtb.node(board.serial)
@@ -129,12 +131,12 @@ def generate(sdf_path: str, output_dir: str, dtb: DeviceTree):
     blk_virt = ProtectionDomain("blk_virt", "blk_virt.elf", priority=199, stack_size=0x2000)
     blk_system = Sddf.Blk(sdf, blk_node, blk_driver, blk_virt)
 
-    container = ProtectionDomain("container", priority=1)
-    monitor = ProtectionDomain("monitor", "monitor.elf", priority=2, template=True)
+    container = ProtectionDomain("container", priority=253)
+    monitor = ProtectionDomain("monitor", "monitor.elf", priority=254, template=True)
     _ = monitor.add_child_pd(container, child_id=1)
     container_connect(monitor, container)
 
-    frontend = ProtectionDomain("frontend", "frontend.elf", priority=3)
+    frontend = ProtectionDomain("frontend", "frontend.elf", priority=250)
     frontend_connect(monitor, frontend)
 
     serial_system.add_client(frontend)

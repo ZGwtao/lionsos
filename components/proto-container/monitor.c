@@ -8,7 +8,7 @@
 #include <elf_utils.h>
 #include <libtrustedlo.h>
 
-#define PROGNAME "[container monitor] "
+#define PROGNAME "[@monitor] "
 
 __attribute__((__section__(".serial_client_config"))) serial_client_config_t serial_config;
 __attribute__((__section__(".timer_client_config"))) timer_client_config_t timer_config;
@@ -94,4 +94,32 @@ seL4_Bool fault(microkit_child child, microkit_msginfo msginfo, microkit_msginfo
 
     // Stop the thread explicitly; no need to reply to the fault
     return seL4_False;
+}
+
+seL4_MessageInfo_t protected(microkit_channel ch, microkit_msginfo msginfo)
+{
+    microkit_dbg_printf(PROGNAME "Received protected message on channel: %d\n", ch);
+
+    /* get the first word of the message */
+    seL4_Word monitorcall_number = microkit_mr_get(0);
+
+    seL4_MessageInfo_t ret;
+
+    /* call for the container monitor */
+    switch (monitorcall_number) {
+    case 1:
+        microkit_dbg_printf(PROGNAME "Loading trusted loader and the first client\n");
+        //ret = monitor_call_debute();
+        break;
+    case 2:
+        microkit_dbg_printf(PROGNAME "Restart trusted loader and a new client\n");
+        //ret = monitor_call_restart();
+        break;
+    default:
+        /* do nothing for now */
+        microkit_dbg_printf(PROGNAME "Undefined container monitor call: %lu\n", monitorcall_number);
+        break;
+    }
+
+    return ret;
 }

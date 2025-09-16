@@ -23,9 +23,9 @@ PC_CLAGS := \
 PC_LIBMICROKITCO_OBJ := libmicrokitco/libmicrokitco.a
 PC_LIBMICROKITCO_OPT_PATH := $(PC_SRC_DIR)/config
 
-
-PC_OBJS := \
-	pc/monitor.o
+PC_MONITOR_OBJS := pc/monitor.o
+PC_FRONTEND_OBJS :=	pc/frontend.o
+PC_OBJS := PC_FRONTEND_OBJS PC_MONITOR_OBJS
 
 pc:
 	mkdir -p pc
@@ -46,9 +46,14 @@ pc/%.o: CFLAGS += $(PC_CLAGS)
 pc/%.o: $(PC_SRC_DIR)/%.c $(CONTAINER_LIBC_INCLUDE) | pc
 	$(CC) -c $(CFLAGS) $< -o $@
 
+frontend.elf: LIBS += $(LIBGCC)
+frontend.elf: LDFLAGS += -L$(BOARD_DIR)/lib -L$(LIBCRYPTO_BUILD_DIR) -L$(LIBEXTELF_BUILD_DIR) -L$(LIBTSLDR_BUILD_DIR)
+frontend.elf: $(PC_FRONTEND_OBJS) pc/$(PC_LIBMICROKITCO_OBJ) $(CONTAINER_LIBC_LIB) ${LIBEXTELF} ${LIBCRYPTO} $(LIBTSLDR)
+	$(LD) $(LDFLAGS) $^ $(LIBS) -o $@
+
 monitor.elf: LIBS += $(LIBGCC)
 monitor.elf: LDFLAGS += -L$(BOARD_DIR)/lib -L$(LIBCRYPTO_BUILD_DIR) -L$(LIBEXTELF_BUILD_DIR) -L$(LIBTSLDR_BUILD_DIR)
-monitor.elf: $(PC_OBJS) pc/$(PC_LIBMICROKITCO_OBJ) $(CONTAINER_LIBC_LIB) ${LIBEXTELF} ${LIBCRYPTO} $(LIBTSLDR)
+monitor.elf: $(PC_MONITOR_OBJS) pc/$(PC_LIBMICROKITCO_OBJ) $(CONTAINER_LIBC_LIB) ${LIBEXTELF} ${LIBCRYPTO} $(LIBTSLDR)
 	$(LD) $(LDFLAGS) $^ $(LIBS) -o $@
 
 -include $(PC_OBJS:.o=.d)

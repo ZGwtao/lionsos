@@ -7,6 +7,7 @@ IMAGES := \
 	timer_driver.elf \
 	eth_driver.elf \
 	monitor.elf \
+	frontend.elf \
 	fat.elf \
 	serial_driver.elf \
 	serial_virt_rx.elf \
