@@ -88,6 +88,27 @@ def container_connect(mpd: SystemDescription.ProtectionDomain, cpd: SystemDescri
     cpd.add_map(Map(container_exec, 0x2800000, perms="rwx", cached="true"))
 
 
+def frontend_connect(mpd: SystemDescription.ProtectionDomain, fpd: SystemDescription.ProtectionDomain):
+
+    name_prefix = mpd.name + "/" + fpd.name + "/"
+
+    ext_trampoline_elf = MemoryRegion(name_prefix + "trampoline", 0x800000)
+    ext_monitor_elf = MemoryRegion(name_prefix + "monitor", 0x800000)
+    ext_client_elf = MemoryRegion(name_prefix + "client", 0x800000)
+
+    sdf.add_mr(ext_trampoline_elf)
+    sdf.add_mr(ext_monitor_elf)
+    sdf.add_mr(ext_client_elf)
+
+    mpd.add_map(Map(ext_trampoline_elf, 0x6800000, perms="rw", cached="true"))
+    mpd.add_map(Map(ext_monitor_elf, 0x6000000, perms="rw", cached="true"))
+    mpd.add_map(Map(ext_client_elf, 0xB000000, perms="rw", cached="true"))
+
+    fpd.add_map(Map(ext_trampoline_elf, 0x6000000, perms="rw", cached="true"))
+    fpd.add_map(Map(ext_monitor_elf, 0x4000000, perms="rw", cached="true"))
+    fpd.add_map(Map(ext_client_elf, 0xB000000, perms="rw", cached="true"))
+
+
 def generate(sdf_path: str, output_dir: str, dtb: DeviceTree):
     serial_node = dtb.node(board.serial)
     assert serial_node is not None
@@ -113,15 +134,18 @@ def generate(sdf_path: str, output_dir: str, dtb: DeviceTree):
     _ = monitor.add_child_pd(container, child_id=1)
     container_connect(monitor, container)
 
-    serial_system.add_client(monitor)
-    timer_system.add_client(monitor)
+    frontend = ProtectionDomain("frontend", "frontend.elf", priority=3)
+    frontend_connect(monitor, frontend)
+
+    serial_system.add_client(frontend)
+    timer_system.add_client(frontend)
 
     fatfs = ProtectionDomain("fatfs", "fat.elf", priority=96)
 
     fs = LionsOs.FileSystem.Fat(
         sdf,
         fatfs,
-        monitor,
+        frontend,
         blk=blk_system,
         partition=board.blk_partition
     )
@@ -134,6 +158,7 @@ def generate(sdf_path: str, output_dir: str, dtb: DeviceTree):
         serial_virt_tx,
         serial_virt_rx,
         monitor,
+        frontend,
         fatfs,
         timer_driver,
         blk_driver,
