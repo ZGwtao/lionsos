@@ -33,13 +33,12 @@ LIBCRYPTO_CFLAGS ?= -mcpu=$(CPU) -mstrict-align -nostdlib -ffreestanding -g -O3 
           			-Wall -Wno-unused-function -Werror \
           			-I$(BOARD_DIR)/include
 
-all: libcrypto_dir $(LIBCRYPTO)
+all: $(LIBCRYPTO)
 
-.PHONY: libcrypto_dir
-libcrypto_dir: 
-	$(info $(shell mkdir -p $(BUILD_DIR)/libcrypto))
+$(LIBCRYPTO_BUILD_DIR):
+	mkdir -p $@
 
-$(LIBCRYPTO_OBJS): $(LIBCRYPTO_BUILD_DIR)/%.o : $(LIBCRYPTO_SRC_DIR)/%.c libcrypto_dir
+$(LIBCRYPTO_OBJS): $(LIBCRYPTO_BUILD_DIR)/%.o : $(LIBCRYPTO_SRC_DIR)/%.c | $(LIBCRYPTO_BUILD_DIR)
 	$(CC) -c $(LIBCRYPTO_CFLAGS) $< -o $@
 
 $(LIBCRYPTO): $(LIBCRYPTO_OBJS)

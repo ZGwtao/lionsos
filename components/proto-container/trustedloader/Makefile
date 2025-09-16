@@ -38,14 +38,16 @@ LIBTSLDR_CFLAGS ?= -mcpu=$(CPU) -mstrict-align -nostdlib -ffreestanding -g -O3 \
 					-I$(LIBTSLDR_SRC_DIR)/include \
 					-I$(LIBEXTELF_SRC_DIR)/include
 
-all: libtsldr_dir $(LIBTSLDR)
+all: $(LIBTSLDR)
 
-.PHONY: libtsldr_dir
-libtsldr_dir: 
-	$(info $(shell mkdir -p $(BUILD_DIR)/libtsldr))
+# Build directory as a real target
+$(LIBTSLDR_BUILD_DIR):
+	mkdir -p $@
 
-$(LIBTSLDR_OBJS): $(LIBTSLDR_BUILD_DIR)/%.o : $(LIBTSLDR_SRC_DIR)/%.c libtsldr_dir
+# Object rules depend on the directory, not a phony
+$(LIBTSLDR_BUILD_DIR)/%.o: $(LIBTSLDR_SRC_DIR)/%.c | $(LIBTSLDR_BUILD_DIR)
 	$(CC) -c $(LIBTSLDR_CFLAGS) $< -o $@
 
+# Archive rule
 $(LIBTSLDR): $(LIBTSLDR_OBJS)
 	$(AR) rcs $@ $^

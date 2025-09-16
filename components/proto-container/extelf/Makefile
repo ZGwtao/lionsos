@@ -35,13 +35,12 @@ LIBEXTELF_CFLAGS ?= -mcpu=$(CPU) -mstrict-align -nostdlib -ffreestanding -g -O3 
           			-Wall -Wno-unused-function -Werror \
           			-I$(BOARD_DIR)/include
 
-all: libextelf_dir $(LIBEXTELF)
+all: $(LIBEXTELF)
 
-.PHONY: libextelf_dir
-libextelf_dir: 
-	$(info $(shell mkdir -p $(BUILD_DIR)/libextelf))
+$(LIBEXTELF_BUILD_DIR):
+	mkdir -p $@
 
-$(LIBEXTELF_OBJS): $(LIBEXTELF_BUILD_DIR)/%.o : $(LIBEXTELF_SRC_DIR)/%.c libextelf_dir
+$(LIBEXTELF_OBJS): $(LIBEXTELF_BUILD_DIR)/%.o : $(LIBEXTELF_SRC_DIR)/%.c | $(LIBEXTELF_BUILD_DIR)
 	$(CC) -c $(LIBEXTELF_CFLAGS) $< -o $@
 
 $(LIBEXTELF): $(LIBEXTELF_OBJS)
