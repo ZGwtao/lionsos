@@ -110,7 +110,10 @@ include $(LIONSOS)/components/proto-container/pc.mk
 $(MUSL):
 	mkdir -p $@
 
-$(CONTAINER_LIBC_LIB) $(CONTAINER_LIBC_INCLUDE): ${MUSL}
+MUSL_CONFIGURED := ${MUSL}/.configured
+MUSL_BUILT := ${MUSL}/.built
+
+$(MUSL_CONFIGURED):
 	cd ${MUSL} && \
 	CC=aarch64-none-elf-gcc \
 	CROSS_COMPILE=aarch64-none-elf- \
@@ -122,7 +125,13 @@ $(CONTAINER_LIBC_LIB) $(CONTAINER_LIBC_INCLUDE): ${MUSL}
 		--enable-warnings \
 		--disable-shared \
 		--enable-static
+	touch $@
+
+$(MUSL_BUILT): $(MUSL_CONFIGURED)
 	${MAKE} -C ${MUSL} install
+	touch $@
+
+$(CONTAINER_LIBC_LIB) $(CONTAINER_LIBC_INCLUDE): $(MUSL_BUILT)
 
 ${IMAGES}: libsddf_util_debug.a
 
