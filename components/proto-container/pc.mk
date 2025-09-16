@@ -48,7 +48,7 @@ pc/%.o: $(PC_SRC_DIR)/%.c $(CONTAINER_LIBC_INCLUDE) | pc
 
 monitor.elf: LIBS += $(LIBGCC)
 monitor.elf: LDFLAGS += -L$(BOARD_DIR)/lib -L$(LIBCRYPTO_BUILD_DIR) -L$(LIBEXTELF_BUILD_DIR) -L$(LIBTSLDR_BUILD_DIR)
-monitor.elf: $(PC_OBJS) pc/$(PC_LIBMICROKITCO_OBJ) $(CONTAINER_LIBC_LIB)
+monitor.elf: $(PC_OBJS) pc/$(PC_LIBMICROKITCO_OBJ) $(CONTAINER_LIBC_LIB) ${LIBEXTELF} ${LIBCRYPTO} $(LIBTSLDR)
 	$(LD) $(LDFLAGS) $^ $(LIBS) -o $@
 
 -include $(PC_OBJS:.o=.d)

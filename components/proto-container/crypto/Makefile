@@ -39,7 +39,7 @@ all: libcrypto_dir $(LIBCRYPTO)
 libcrypto_dir: 
 	$(info $(shell mkdir -p $(BUILD_DIR)/libcrypto))
 
-$(LIBCRYPTO_OBJS): $(LIBCRYPTO_BUILD_DIR)/%.o : $(LIBCRYPTO_SRC_DIR)/%.c
+$(LIBCRYPTO_OBJS): $(LIBCRYPTO_BUILD_DIR)/%.o : $(LIBCRYPTO_SRC_DIR)/%.c libcrypto_dir
 	$(CC) -c $(LIBCRYPTO_CFLAGS) $< -o $@
 
 $(LIBCRYPTO): $(LIBCRYPTO_OBJS)

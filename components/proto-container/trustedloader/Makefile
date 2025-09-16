@@ -44,7 +44,7 @@ all: libtsldr_dir $(LIBTSLDR)
 libtsldr_dir: 
 	$(info $(shell mkdir -p $(BUILD_DIR)/libtsldr))
 
-$(LIBTSLDR_OBJS): $(LIBTSLDR_BUILD_DIR)/%.o : $(LIBTSLDR_SRC_DIR)/%.c
+$(LIBTSLDR_OBJS): $(LIBTSLDR_BUILD_DIR)/%.o : $(LIBTSLDR_SRC_DIR)/%.c libtsldr_dir
 	$(CC) -c $(LIBTSLDR_CFLAGS) $< -o $@
 
 $(LIBTSLDR): $(LIBTSLDR_OBJS)

@@ -41,7 +41,7 @@ all: libextelf_dir $(LIBEXTELF)
 libextelf_dir: 
 	$(info $(shell mkdir -p $(BUILD_DIR)/libextelf))
 
-$(LIBEXTELF_OBJS): $(LIBEXTELF_BUILD_DIR)/%.o : $(LIBEXTELF_SRC_DIR)/%.c
+$(LIBEXTELF_OBJS): $(LIBEXTELF_BUILD_DIR)/%.o : $(LIBEXTELF_SRC_DIR)/%.c libextelf_dir
 	$(CC) -c $(LIBEXTELF_CFLAGS) $< -o $@
 
 $(LIBEXTELF): $(LIBEXTELF_OBJS)

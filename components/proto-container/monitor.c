@@ -8,6 +8,8 @@
 #include <elf_utils.h>
 #include <libtrustedlo.h>
 
+#define PROGNAME "[container monitor] "
+
 __attribute__((__section__(".serial_client_config"))) serial_client_config_t serial_config;
 __attribute__((__section__(".timer_client_config"))) timer_client_config_t timer_config;
 
@@ -49,10 +51,47 @@ void init(void)
 // ...
     printf(">>>\n");
 #endif
+
+    seL4_UserContext ctxt = {0};
+    ctxt.pc = 0x2000000;
+    ctxt.sp = 0x10000000000;
+    seL4_Error error = seL4_TCB_WriteRegisters(
+        BASE_TCB_CAP + PD_TEMPLATE_CHILD_TCB,
+        seL4_True,
+        0, /* No flags */
+        1, /* writing 1 register */
+        &ctxt
+    );
+
+    if (error != seL4_NoError) {
+        microkit_dbg_puts("microkit_pd_restart: error writing TCB registers\n");
+        microkit_internal_crash(error);
+    }
+    microkit_pd_restart(PD_TEMPLATE_CHILD_TCB, 0x2000000);
 }
 
 void notified(microkit_channel ch)
 {
-    
     ;
+}
+
+seL4_Bool fault(microkit_child child, microkit_msginfo msginfo, microkit_msginfo *reply_msginfo)
+{
+    microkit_dbg_printf(PROGNAME "Received fault message for child PD: %d\n", child);
+
+    seL4_Word label = microkit_msginfo_get_label(msginfo);
+    microkit_dbg_printf(PROGNAME "Fault label: %d\n", label);
+
+    if (label == seL4_Fault_VMFault) {
+        seL4_Word ip = microkit_mr_get(seL4_VMFault_IP);
+        seL4_Word address = microkit_mr_get(seL4_VMFault_Addr);
+        microkit_dbg_printf(PROGNAME "seL4_Fault_VMFault\n");
+        microkit_dbg_printf(PROGNAME "Fault address: 0x%x\n", (unsigned long long)address);
+        microkit_dbg_printf(PROGNAME "Fault instruction pointer: 0x%x\n", (unsigned long long)ip);
+    }
+
+    microkit_pd_stop(child);
+
+    // Stop the thread explicitly; no need to reply to the fault
+    return seL4_False;
 }
