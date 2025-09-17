@@ -8,7 +8,20 @@
 #include <stdint.h>
 #include <lions/fs/protocol.h>
 
-#define FS_BUFFER_SIZE 0x8000
+#define FS_BUFFER_SIZE      0x8000
+#define REQUEST_ID_MAXIMUM  (FS_QUEUE_CAPACITY - 1)
+#define NUM_BUFFERS         FS_QUEUE_CAPACITY * 4
+
+struct request_metadata {
+    fs_cmd_t command;
+    fs_cmpl_t completion;
+    bool used;
+    bool complete;
+} request_metadata[FS_QUEUE_CAPACITY];
+
+struct buffer_metadata {
+    bool used;
+} buffer_metadata[FS_QUEUE_CAPACITY];
 
 int fs_request_allocate(uint64_t *request_id);
 void fs_request_free(uint64_t request_id);
