@@ -13,6 +13,7 @@
 #include <sddf/serial/config.h>
 #include <sddf/util/printf.h>
 
+#include <libmicrokitco.h>
 #include <lions/fs/config.h>
 #include <fs_helpers.h>
 
@@ -26,6 +27,13 @@ __attribute__((__section__(".serial_client_config"))) serial_client_config_t ser
 __attribute__((__section__(".timer_client_config"))) timer_client_config_t timer_config;
 __attribute__((__section__(".fs_client_config"))) fs_client_config_t fs_config;
 
+co_control_t co_controller_mem;
+microkit_cothread_sem_t sem[PC_WORKER_THREAD_NUM + 1];
+
+uint64_t _worker_thread_stack_one = 0xA0000000;
+uint64_t _worker_thread_stack_two = 0xB0000000;
+
+
 serial_queue_handle_t serial_rx_queue_handle;
 serial_queue_handle_t serial_tx_queue_handle;
 
@@ -33,10 +41,11 @@ fs_queue_t *fs_command_queue;
 fs_queue_t *fs_completion_queue;
 char *fs_share;
 
-
 #define POOL_SIZE   16384
 static char morecore[POOL_SIZE];
 pool_cookie_t *cookie;
+
+
 
 void init(void)
 {
@@ -67,7 +76,17 @@ void init(void)
     fs_completion_queue = fs_config.server.completion_queue.vaddr;
     fs_share = fs_config.server.share.vaddr;
 
+    stack_ptrs_arg_array_t costacks = {
+        _worker_thread_stack_one,
+        _worker_thread_stack_two
+    };
 
+    microkit_cothread_init(&co_controller_mem, PC_WORKER_THREAD_STACKSIZE, costacks);
+    for (uint32_t i = 0; i < (PC_WORKER_THREAD_NUM + 1); i++) {
+        microkit_cothread_semaphore_init(&sem[i]);
+    }
+
+    microkit_cothread_yield();
     
     //custom_memcpy((void *)shared1, _proto_container, _proto_container_end - _proto_container);
     microkit_dbg_printf(PROGNAME "Wrote proto-container's ELF file into memory\n");

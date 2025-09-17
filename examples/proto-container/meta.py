@@ -110,6 +110,14 @@ def frontend_connect(mpd: SystemDescription.ProtectionDomain, fpd: SystemDescrip
 
     sdf.add_channel(Channel(a=mpd, b=fpd, a_id=2, b_id=1, pp_b=True))
 
+def corountine_setup(pd: SystemDescription.ProtectionDomain):
+    worker_thread_stack1 = MemoryRegion("worker_thread_stack1", 0x40000)
+    worker_thread_stack2 = MemoryRegion("worker_thread_stack2", 0x40000)
+    sdf.add_mr(worker_thread_stack1)
+    sdf.add_mr(worker_thread_stack2)
+    pd.add_map(Map(worker_thread_stack1, 0xA0000000, perms="rw", cached="false"))
+    pd.add_map(Map(worker_thread_stack2, 0xB0000000, perms="rw", cached="false"))
+
 
 def generate(sdf_path: str, output_dir: str, dtb: DeviceTree):
     serial_node = dtb.node(board.serial)
@@ -138,6 +146,7 @@ def generate(sdf_path: str, output_dir: str, dtb: DeviceTree):
 
     frontend = ProtectionDomain("frontend", "frontend.elf", priority=250)
     frontend_connect(monitor, frontend)
+    corountine_setup(frontend)
 
     serial_system.add_client(frontend)
     timer_system.add_client(frontend)
