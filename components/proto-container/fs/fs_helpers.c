@@ -4,19 +4,11 @@
  */
 
 #include <microkit.h>
+#include <sddf/util/util.h>
 #include <lions/fs/config.h>
 #include <fs_helpers.h>
+#include <string.h>
 
-#define assert(x) { if(!(x)) microkit_internal_crash(-1); }
-
-// minimal memcpy
-void *memcpy(void *dest, const void *src, size_t n)
-{
-    unsigned char *d = dest;
-    const unsigned char *s = src;
-    while (n--) *d++ = *s++;
-    return dest;
-}
 
 void microkit_cothread_wait_on_channel(uint8_t id);
 
