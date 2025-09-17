@@ -44,9 +44,14 @@ fs_queue_t *fs_command_queue;
 fs_queue_t *fs_completion_queue;
 char *fs_share;
 
+bool fs_init;
+
+
 #define POOL_SIZE   16384
 static char morecore[POOL_SIZE];
 pool_cookie_t *cookie;
+
+
 
 
 
@@ -55,12 +60,60 @@ void test_entrypoint(void)
     memset(request_metadata, 0, sizeof(request_metadata_t) * FS_QUEUE_CAPACITY);
     memset(buffer_metadata, 0, sizeof(buffer_metadata_t) * FS_QUEUE_CAPACITY);
 
+    microkit_dbg_printf(PROGNAME "(fs mount) start fs initialisation\n");
     fs_cmpl_t completion;
     int err = fs_command_blocking(&completion, (fs_cmd_t){ .type = FS_CMD_INITIALISE });
     if (err || completion.status != FS_STATUS_SUCCESS) {
         microkit_dbg_printf(PROGNAME "MP|ERROR: Failed to mount\n");
     }
-    microkit_dbg_printf(PROGNAME "Finished fs initialisation\n");
+    fs_init = true;
+
+    microkit_dbg_printf(PROGNAME "(fs mount) finished fs initialisation\n");
+}
+
+void load_entrypoint(void)
+{
+    while(!fs_init) {
+        microkit_cothread_yield();
+    }
+
+    //custom_memcpy((void *)shared1, _proto_container, _proto_container_end - _proto_container);
+    microkit_dbg_printf(PROGNAME "Wrote proto-container's ELF file into memory\n");
+
+    //custom_memcpy((void *)shared2, _client, _client_end - _client);
+    microkit_dbg_printf(PROGNAME "Wrote client's ELF file into memory\n");
+
+    //custom_memcpy((void *)shared3, _trampoline, _trampoline_end - _trampoline);
+    microkit_dbg_printf(PROGNAME "Wrote trampoline's ELF file into memory\n");
+
+    microkit_dbg_printf(PROGNAME "Making ppc to container monitor backend\n");
+
+    microkit_msginfo info;
+    seL4_Error error;
+
+    microkit_mr_set(0, 1);
+    info = microkit_ppcall(1, microkit_msginfo_new(0, 1));
+    error = microkit_msginfo_get_label(info);
+    if (error != seL4_NoError) {
+        microkit_internal_crash(error);
+    }
+
+    //custom_memcpy((void *)shared2, _test, _test_end - _test);
+    microkit_dbg_printf(PROGNAME "Wrote test's ELF file into memory\n");
+
+    microkit_mr_set(0, 2);
+    info = microkit_ppcall(1, microkit_msginfo_new(0, 1));
+    error = microkit_msginfo_get_label(info);
+    if (error != seL4_NoError) {
+        microkit_internal_crash(error);
+    }
+
+    while(1) {
+        microkit_dbg_printf(PROGNAME "Ready to handle tasks\n");
+        while (1) {
+            microkit_cothread_yield();
+        }
+    }
 }
 
 
@@ -92,6 +145,7 @@ void init(void)
     fs_command_queue = fs_config.server.command_queue.vaddr;
     fs_completion_queue = fs_config.server.completion_queue.vaddr;
     fs_share = fs_config.server.share.vaddr;
+    fs_init = false;
 
     stack_ptrs_arg_array_t costacks = {
         _worker_thread_stack_one,
@@ -104,42 +158,16 @@ void init(void)
     }
 
     if (microkit_cothread_spawn(test_entrypoint, NULL) == LIBMICROKITCO_NULL_HANDLE) {
-        microkit_dbg_printf(PROGNAME "MP|ERROR: Cannot initialise Micropython cothread\n");
+        microkit_dbg_printf(PROGNAME "Cannot initialise frontend cothread1\n");
+        microkit_internal_crash(-1);
+    }
+
+    if (microkit_cothread_spawn(load_entrypoint, NULL) == LIBMICROKITCO_NULL_HANDLE) {
+        microkit_dbg_printf(PROGNAME "Cannot initialise frontend cothread1\n");
         microkit_internal_crash(-1);
     }
 
     microkit_cothread_yield();
-    
-    //custom_memcpy((void *)shared1, _proto_container, _proto_container_end - _proto_container);
-    microkit_dbg_printf(PROGNAME "Wrote proto-container's ELF file into memory\n");
-
-    //custom_memcpy((void *)shared2, _client, _client_end - _client);
-    microkit_dbg_printf(PROGNAME "Wrote client's ELF file into memory\n");
-
-    //custom_memcpy((void *)shared3, _trampoline, _trampoline_end - _trampoline);
-    microkit_dbg_printf(PROGNAME "Wrote trampoline's ELF file into memory\n");
-
-    microkit_dbg_printf(PROGNAME "Making ppc to container monitor backend\n");
-
-    microkit_msginfo info;
-    seL4_Error error;
-
-    microkit_mr_set(0, 1);
-    info = microkit_ppcall(1, microkit_msginfo_new(0, 1));
-    error = microkit_msginfo_get_label(info);
-    if (error != seL4_NoError) {
-        microkit_internal_crash(error);
-    }
-
-    //custom_memcpy((void *)shared2, _test, _test_end - _test);
-    microkit_dbg_printf(PROGNAME "Wrote test's ELF file into memory\n");
-
-    microkit_mr_set(0, 2);
-    info = microkit_ppcall(1, microkit_msginfo_new(0, 1));
-    error = microkit_msginfo_get_label(info);
-    if (error != seL4_NoError) {
-        microkit_internal_crash(error);
-    }
 
     microkit_dbg_printf(PROGNAME "Finished init\n");
 }
