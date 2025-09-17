@@ -33,6 +33,9 @@ microkit_cothread_sem_t sem[PC_WORKER_THREAD_NUM + 1];
 uint64_t _worker_thread_stack_one = 0xA0000000;
 uint64_t _worker_thread_stack_two = 0xB0000000;
 
+request_metadata_t request_metadata[FS_QUEUE_CAPACITY];
+buffer_metadata_t buffer_metadata[FS_QUEUE_CAPACITY];
+
 
 serial_queue_handle_t serial_rx_queue_handle;
 serial_queue_handle_t serial_tx_queue_handle;
@@ -45,6 +48,20 @@ char *fs_share;
 static char morecore[POOL_SIZE];
 pool_cookie_t *cookie;
 
+
+
+void test_entrypoint(void)
+{
+    memset(request_metadata, 0, sizeof(request_metadata_t) * FS_QUEUE_CAPACITY);
+    memset(buffer_metadata, 0, sizeof(buffer_metadata_t) * FS_QUEUE_CAPACITY);
+
+    fs_cmpl_t completion;
+    int err = fs_command_blocking(&completion, (fs_cmd_t){ .type = FS_CMD_INITIALISE });
+    if (err || completion.status != FS_STATUS_SUCCESS) {
+        microkit_dbg_printf(PROGNAME "MP|ERROR: Failed to mount\n");
+    }
+    microkit_dbg_printf(PROGNAME "Finished fs initialisation\n");
+}
 
 
 void init(void)
@@ -86,6 +103,11 @@ void init(void)
         microkit_cothread_semaphore_init(&sem[i]);
     }
 
+    if (microkit_cothread_spawn(test_entrypoint, NULL) == LIBMICROKITCO_NULL_HANDLE) {
+        microkit_dbg_printf(PROGNAME "MP|ERROR: Cannot initialise Micropython cothread\n");
+        microkit_internal_crash(-1);
+    }
+
     microkit_cothread_yield();
     
     //custom_memcpy((void *)shared1, _proto_container, _proto_container_end - _proto_container);
@@ -125,4 +147,7 @@ void init(void)
 void notified(microkit_channel ch)
 {
     microkit_dbg_printf(PROGNAME "Received notification on channel: %d\n", ch);
+
+    fs_process_completions();
+    microkit_cothread_recv_ntfn(ch);
 }

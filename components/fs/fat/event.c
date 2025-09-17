@@ -119,7 +119,10 @@ void print_sector_data(uint8_t *buffer, unsigned long size) {
 _Static_assert(FF_FS_LOCK >= (FAT_MAX_OPENED_DIRNUM + FAT_MAX_OPENED_FILENUM),
     "FF_FS_LOCK should be equal or larger than max opened dir number and max opened file number combined");
 
-void init(void) {
+void init(void)
+{
+    microkit_dbg_puts("[@fatfs] Init entry\n");
+
     assert(fs_config_check_magic(&fs_config));
     assert(blk_config_check_magic(&blk_config));
 
@@ -155,6 +158,7 @@ void init(void) {
     for (uint32_t i = 0; i < (FAT_WORKER_THREAD_NUM + 1); i++) {
         microkit_cothread_semaphore_init(&sem[i]);
     }
+    microkit_dbg_puts("[@fatfs] Init exit\n");
 }
 
 // The notified function requires careful management of the state of the file system
@@ -170,6 +174,7 @@ void notified(microkit_channel ch) {
         LOG_FATFS("Unknown channel:%d\n", ch);
         return;
     }
+    microkit_dbg_puts("[@fatfs] Notified entry\n");
 
     // This variable track if there are new requests being popped from client request queue and pushed into the couroutine pool or not
     bool new_request_popped = true;
@@ -275,10 +280,14 @@ void notified(microkit_channel ch) {
         LOG_FATFS("FS notify client\n");
         fs_queue_publish_production(fs_completion_queue, fs_response_enqueued);
         microkit_notify(fs_config.client.id);
+        microkit_dbg_puts("[@fatfs] Notify client with enqueued responses\n");
     }
     if (blk_request_pushed) {
         LOG_FATFS("FS notify block virt\n");
         microkit_notify(blk_config.virt.id);
         blk_request_pushed = false;
+        microkit_dbg_puts("[@fatfs] Notify block virtualiser with enqueued requests\n");
     }
+
+    microkit_dbg_puts("[@fatfs] Notified exit\n");
 }

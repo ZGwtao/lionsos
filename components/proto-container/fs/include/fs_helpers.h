@@ -1,27 +1,22 @@
-/*
- * Copyright 2024, UNSW
- * SPDX-License-Identifier: BSD-2-Clause
- */
-
-#pragma once
 
 #include <stdint.h>
+#include <stddef.h>
 #include <lions/fs/protocol.h>
 
 #define FS_BUFFER_SIZE      0x8000
 #define REQUEST_ID_MAXIMUM  (FS_QUEUE_CAPACITY - 1)
 #define NUM_BUFFERS         FS_QUEUE_CAPACITY * 4
 
-struct request_metadata {
+typedef struct request_metadata {
     fs_cmd_t command;
     fs_cmpl_t completion;
     bool used;
     bool complete;
-} request_metadata[FS_QUEUE_CAPACITY];
+} request_metadata_t;
 
-struct buffer_metadata {
+typedef struct buffer_metadata {
     bool used;
-} buffer_metadata[FS_QUEUE_CAPACITY];
+} buffer_metadata_t;
 
 int fs_request_allocate(uint64_t *request_id);
 void fs_request_free(uint64_t request_id);

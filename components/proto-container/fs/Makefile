@@ -23,7 +23,7 @@ AR := $(TOOLCHAIN)-ar
 BOARD_DIR ?= $(MICROKIT_SDK)/board/$(MICROKIT_BOARD)/$(MICROKIT_CONFIG)
 
 FSHELPER_OBJS :=  \
-	fs_helper.o
+	fs_helpers.o
 
 LIBFSHELPER_SRC_DIR ?= $(CURDIR)
 LIBFSHELPER_BUILD_DIR := $(BUILD_DIR)/libfshelper
@@ -32,7 +32,10 @@ LIBFSHELPER := $(LIBFSHELPER_BUILD_DIR)/libfshelper.a
 
 LIBFSHELPER_CFLAGS ?= -mcpu=$(CPU) -mstrict-align -nostdlib -ffreestanding -g -O3 \
           			-Wall -Wno-unused-function -Werror \
-          			-I$(BOARD_DIR)/include -I$(LIBFSHELPER_SRC_DIR)/include
+          			-I$(BOARD_DIR)/include \
+					-I$(LIBFSHELPER_SRC_DIR)/include \
+					-I$(LIONSOS)/include \
+					-I$(SDDF)/include
 
 all: $(LIBFSHELPER)
 

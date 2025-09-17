@@ -4,17 +4,32 @@
  */
 
 #include <microkit.h>
-#include <assert.h>
-#include <lions/fs/protocol.h>
 #include <lions/fs/config.h>
 #include <fs_helpers.h>
+
+#define assert(x) { if(!(x)) microkit_internal_crash(-1); }
+
+// minimal memcpy
+void *memcpy(void *dest, const void *src, size_t n)
+{
+    unsigned char *d = dest;
+    const unsigned char *s = src;
+    while (n--) *d++ = *s++;
+    return dest;
+}
+
+void microkit_cothread_wait_on_channel(uint8_t id);
 
 extern fs_client_config_t fs_config;
 extern fs_queue_t *fs_command_queue;
 extern fs_queue_t *fs_completion_queue;
 extern char *fs_share;
 
-int fs_request_allocate(uint64_t *request_id) {
+extern request_metadata_t request_metadata[FS_QUEUE_CAPACITY];
+extern buffer_metadata_t buffer_metadata[FS_QUEUE_CAPACITY];
+
+int fs_request_allocate(uint64_t *request_id)
+{
     for (uint64_t i = 0; i < NUM_BUFFERS; i++) {
         if (!request_metadata[i].used) {
             request_metadata[i].used = true;
@@ -25,14 +40,16 @@ int fs_request_allocate(uint64_t *request_id) {
     return 1;
 }
 
-void fs_request_free(uint64_t request_id) {
+void fs_request_free(uint64_t request_id)
+{
     assert(request_id <= REQUEST_ID_MAXIMUM);
     assert(request_metadata[request_id].used);
     request_metadata[request_id].used = false;
     request_metadata[request_id].complete = false;
 }
 
-int fs_buffer_allocate(ptrdiff_t *buffer) {
+int fs_buffer_allocate(ptrdiff_t *buffer)
+{
     for (int i = 0; i < NUM_BUFFERS; i++) {
         if (!buffer_metadata[i].used) {
             buffer_metadata[i].used = true;
@@ -43,36 +60,36 @@ int fs_buffer_allocate(ptrdiff_t *buffer) {
     return 1;
 }
 
-void fs_buffer_free(ptrdiff_t buffer) {
+void fs_buffer_free(ptrdiff_t buffer)
+{
     uint64_t i = buffer / FS_BUFFER_SIZE;
     assert(i < NUM_BUFFERS);
     assert(buffer_metadata[i].used);
     buffer_metadata[i].used = false;
 }
 
-void *fs_buffer_ptr(ptrdiff_t buffer) {
+inline void *fs_buffer_ptr(ptrdiff_t buffer) {
     return fs_share + buffer;
 }
 
-void fs_process_completions(void) {
-    fs_msg_t message;
+void fs_process_completions(void)
+{
     uint64_t to_consume = fs_queue_length_consumer(fs_completion_queue);
     for (uint64_t i = 0; i < to_consume; i++) {
         fs_cmpl_t completion = fs_queue_idx_filled(fs_completion_queue, i)->cmpl;
 
         if (completion.id > REQUEST_ID_MAXIMUM) {
-            printf("received bad fs completion: invalid request id: %lu\n", completion.id);
             continue;
         }
 
         request_metadata[completion.id].completion = completion;
         request_metadata[completion.id].complete = true;
-        fs_request_flag_set(completion.id);
     }
     fs_queue_publish_consumption(fs_completion_queue, to_consume);
 }
 
-void fs_command_issue(fs_cmd_t cmd) {
+void fs_command_issue(fs_cmd_t cmd)
+{
     assert(cmd.id <= REQUEST_ID_MAXIMUM);
     assert(request_metadata[cmd.id].used);
 
@@ -84,7 +101,8 @@ void fs_command_issue(fs_cmd_t cmd) {
     request_metadata[cmd.id].command = cmd;
 }
 
-void fs_command_complete(uint64_t request_id, fs_cmd_t *command, fs_cmpl_t *completion) {
+void fs_command_complete(uint64_t request_id, fs_cmd_t *command, fs_cmpl_t *completion)
+{
     assert(request_metadata[request_id].complete);
     if (command != NULL) {
         *command = request_metadata[request_id].command;
@@ -94,7 +112,8 @@ void fs_command_complete(uint64_t request_id, fs_cmd_t *command, fs_cmpl_t *comp
     }
 }
 
-int fs_command_blocking(fs_cmpl_t *completion, fs_cmd_t cmd) {
+int fs_command_blocking(fs_cmpl_t *completion, fs_cmd_t cmd)
+{
     uint64_t request_id;
     int err = fs_request_allocate(&request_id);
     if (err) {
