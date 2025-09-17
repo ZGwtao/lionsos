@@ -7,6 +7,7 @@
 #include <stdarg.h>
 #include <stdint.h>
 #include <microkit.h>
+#include <k_r_malloc.h>
 #include <sddf/timer/config.h>
 #include <sddf/serial/queue.h>
 #include <sddf/serial/config.h>
@@ -24,11 +25,26 @@ __attribute__((__section__(".timer_client_config"))) timer_client_config_t timer
 serial_queue_handle_t serial_rx_queue_handle;
 serial_queue_handle_t serial_tx_queue_handle;
 
+#define POOL_SIZE   16384
+static char morecore[POOL_SIZE];
+pool_cookie_t *cookie;
 
 void init(void)
 {
     microkit_dbg_printf(PROGNAME "Entered init\n");
 
+    cookie = mspace_bootstrap_allocator(POOL_SIZE, morecore);
+    if (!cookie) {
+        microkit_internal_crash(-1);
+    }
+    microkit_dbg_printf(PROGNAME "Init memory allocator\n");
+#if 0
+    char *c = mspace_k_r_malloc_alloc(&cookie->k_r_malloc, sizeof(c));
+    if (c != NULL) {
+        *c = 'a';
+        mspace_k_r_malloc_free(&cookie->k_r_malloc, c);
+    }
+#endif
     assert(serial_config_check_magic(&serial_config));
     assert(timer_config_check_magic(&timer_config));
 

@@ -5,9 +5,11 @@ PC_LIBMICROKITCO_DIR := $(LIONSOS)/dep/libmicrokitco
 
 LIBGCC := $(shell aarch64-none-elf-gcc -print-libgcc-file-name)
 
+LIBKRMALLOC_SRC_DIR := $(PC_SRC_DIR)/alloc
 LIBCRYPTO_SRC_DIR := $(PC_SRC_DIR)/crypto
 LIBEXTELF_SRC_DIR := $(PC_SRC_DIR)/extelf
 LIBTSLDR_SRC_DIR  := $(PC_SRC_DIR)/trustedloader
+include $(LIBKRMALLOC_SRC_DIR)/Makefile
 include $(LIBCRYPTO_SRC_DIR)/Makefile
 include $(LIBEXTELF_SRC_DIR)/Makefile
 include $(LIBTSLDR_SRC_DIR)/Makefile
@@ -16,6 +18,7 @@ PC_CLAGS := \
 	-I$(CONTAINER_LIBC_INCLUDE) \
 	-I$(PC_LIBMICROKITCO_DIR) \
 	-I$(PC_SRC_DIR)/config \
+	-I$(LIBKRMALLOC_SRC_DIR)/include \
 	-I$(LIBCRYPTO_SRC_DIR)/include \
 	-I$(LIBEXTELF_SRC_DIR)/include \
 	-I$(LIBTSLDR_SRC_DIR)/include
@@ -47,8 +50,8 @@ pc/%.o: $(PC_SRC_DIR)/%.c $(CONTAINER_LIBC_INCLUDE) | pc
 	$(CC) -c $(CFLAGS) $< -o $@
 
 frontend.elf: LIBS += $(LIBGCC)
-frontend.elf: LDFLAGS += -L$(BOARD_DIR)/lib -L$(LIBCRYPTO_BUILD_DIR) -L$(LIBEXTELF_BUILD_DIR) -L$(LIBTSLDR_BUILD_DIR)
-frontend.elf: $(PC_FRONTEND_OBJS) pc/$(PC_LIBMICROKITCO_OBJ) $(CONTAINER_LIBC_LIB) ${LIBEXTELF} ${LIBCRYPTO} $(LIBTSLDR)
+frontend.elf: LDFLAGS += -L$(BOARD_DIR)/lib -L$(LIBCRYPTO_BUILD_DIR) -L$(LIBEXTELF_BUILD_DIR) -L$(LIBTSLDR_BUILD_DIR) -L$(LIBKRMALLOC_BUILD_DIR)
+frontend.elf: $(PC_FRONTEND_OBJS) pc/$(PC_LIBMICROKITCO_OBJ) $(CONTAINER_LIBC_LIB) ${LIBEXTELF} ${LIBCRYPTO} $(LIBTSLDR) $(LIBKRMALLOC)
 	$(LD) $(LDFLAGS) $^ $(LIBS) -o $@
 
 monitor.elf: LIBS += $(LIBGCC)
