@@ -58,7 +58,7 @@ void init(void)
     }
 
     seL4_Error error;
-
+#if 0
     /* start to parse client elf information */
     Elf64_Ehdr *ehdr = (Elf64_Ehdr *)container_elf;
     /* check elf integrity */
@@ -69,7 +69,7 @@ void init(void)
         microkit_dbg_printf(PROGNAME "Data in shared memory region is an ELF file\n");
     }
     microkit_dbg_printf(PROGNAME "Verified ELF header\n");
-
+#endif
     Elf64_Ehdr *trampoline_ehdr = (Elf64_Ehdr *)trampoline_elf;
     /* check elf integrity */
     if (custom_memcmp(trampoline_ehdr->e_ident, (const unsigned char*)ELFMAG, SELFMAG) != 0) {
@@ -80,6 +80,7 @@ void init(void)
     }
     microkit_dbg_printf(PROGNAME "Verified ELF header\n");
 
+#if 0
     char *section = NULL;
     seL4_Word section_size = 0;
 
@@ -110,7 +111,7 @@ void init(void)
 
     load_elf((void *)ehdr->e_entry, ehdr);
     microkit_dbg_printf(PROGNAME "Load client elf to the targeting memory region\n");
-
+#endif
     load_elf((void *)trampoline_ehdr->e_entry, trampoline_ehdr);
     microkit_dbg_printf(PROGNAME "Load trampoline elf to the targeting memory region\n");
 

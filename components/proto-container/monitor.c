@@ -105,10 +105,11 @@ seL4_MessageInfo_t monitor_call_debute(void)
 #if 0
     custom_memcpy((void*)container_elf, (char *)shared2, 0x800000);
     microkit_dbg_printf(PROGNAME "Copied client program to child PD's memory region\n");
-
-    custom_memcpy((void*)trampoline_elf, (char *)shared3, 0x800000);
-    microkit_dbg_printf(PROGNAME "Copied trampoline program to child PD's memory region\n");
 #endif
+
+    custom_memcpy((void*)trampoline_elf, (char *)0x6800000, 0x800000);
+    microkit_dbg_printf(PROGNAME "Copied trampoline program to child PD's memory region\n");
+
     // Restart the child PD at the entry point
     microkit_pd_restart(PD_TEMPLATE_CHILD_TCB, ehdr->e_entry);
     microkit_dbg_printf(PROGNAME "Started child PD at entrypoint address: 0x%x\n", (unsigned long long)ehdr->e_entry);

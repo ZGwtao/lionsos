@@ -32,7 +32,8 @@ PC_LIBMICROKITCO_OPT_PATH := $(PC_SRC_DIR)/config
 PC_MONITOR_OBJS := pc/monitor.o
 PC_FRONTEND_OBJS :=	pc/frontend.o
 PC_PROTOCON_OBJS := pc/protocon.o
-PC_OBJS := PC_FRONTEND_OBJS PC_MONITOR_OBJS PC_PROTOCON_OBJS
+PC_TRAMPOLINE_OBJS := pc/trampoline.o
+PC_OBJS := PC_FRONTEND_OBJS PC_MONITOR_OBJS PC_PROTOCON_OBJS PC_TRAMPOLINE_OBJS
 
 pc:
 	mkdir -p pc
@@ -67,12 +68,18 @@ monitor.elf: $(PC_MONITOR_OBJS) pc/$(PC_LIBMICROKITCO_OBJ) $(CONTAINER_LIBC_LIB)
 	$(LD) $(LDFLAGS) $^ $(LIBS) -o $@
 
 protocon.elf: LIBS += $(LIBGCC)
-protocon.elf: LDFLAGS = -L$(BOARD_DIR)/lib -L$(LIBCRYPTO_BUILD_DIR) -L$(LIBEXTELF_BUILD_DIR) -L$(LIBTSLDR_BUILD_DIR)
+protocon.elf: LDFLAGS += -L$(BOARD_DIR)/lib -L$(LIBCRYPTO_BUILD_DIR) -L$(LIBEXTELF_BUILD_DIR) -L$(LIBTSLDR_BUILD_DIR)
 protocon.elf: $(PC_PROTOCON_OBJS) \
               ${LIBEXTELF} $(LIBTSLDR) $(LIBCRYPTO)
 	$(LD) $(LDFLAGS) \
 		--defsym __sel4_ipc_buffer=0x100000 \
 		--defsym loader_context=0xE00000 \
 		$^ $(LIBS) -o $@
+
+trampoline.elf: LIBS += $(LIBGCC)
+trampoline.elf: LDFLAGS += -L$(BOARD_DIR)/lib -L$(LIBEXTELF_BUILD_DIR)
+trampoline.elf: $(PC_TRAMPOLINE_OBJS) $(LIBEXTELF)
+	$(LD) $(LDFLAGS) -Ttext=0x1800000 $^ $(LIBS) -o $@
+
 
 -include $(PC_OBJS:.o=.d)

@@ -134,10 +134,8 @@ void closedir(uint64_t fd)
     });
 }
 
-uint64_t openfile(void)
+uint64_t openfile(char fname[])
 {
-    const char *fname = "protocon.elf";
-
     ptrdiff_t buffer;
     int err = fs_buffer_allocate(&buffer);
     assert(!err);
@@ -156,7 +154,7 @@ uint64_t openfile(void)
     });
     fs_buffer_free(buffer);
     if (completion.status != FS_STATUS_SUCCESS) {
-        microkit_dbg_printf(PROGNAME "(file open) failed to open %s\n", fname);
+        //microkit_dbg_printf(PROGNAME "(file open) failed to open %s\n", fname);
         return -1;
     }
     uint64_t fd = completion.data.file_open.fd;
@@ -171,10 +169,10 @@ uint64_t openfile(void)
             .params.file_close.fd = fd,
         });
         fs_buffer_free(buffer);
-        microkit_dbg_printf(PROGNAME "(file open) failed to open %s\n", fname);
+        //microkit_dbg_printf(PROGNAME "(file open) failed to open %s\n", fname);
         return -1;
     }
-    microkit_dbg_printf(PROGNAME "(file open) open fd %d\n", fd);
+    //microkit_dbg_printf(PROGNAME "(file open) open fd %d\n", fd);
     return fd;
 }
 
@@ -234,24 +232,33 @@ void load_entrypoint(void)
 
     uint64_t dir_fd = opendir();
     microkit_dbg_printf(PROGNAME "(dir open): fd is %d opened\n", dir_fd);
-
+#if 0
     listdir(dir_fd);
     microkit_dbg_printf(PROGNAME "(dir list): fd is %d listed\n", dir_fd);
 
     closedir(dir_fd);
     microkit_dbg_printf(PROGNAME "(dir close): fd is %d closed\n", dir_fd);
-
-    uint64_t file_fd = openfile();
-    microkit_dbg_printf(PROGNAME "(file open): fd is %d opened\n", file_fd);
+#endif
+    uint64_t file_fd = openfile("protocon.elf");
+    if (file_fd != (uint64_t)-1) {
+        microkit_dbg_printf(PROGNAME "(file open): fd is %d opened\n", file_fd);
+    } else {
+        microkit_dbg_printf(PROGNAME "(file open): failed to open protocon.elf\n");
+        // halt...
+        while (1);
+    }
 
     uint64_t pos = 0;
     uint64_t pre;
     uintptr_t buf = shared1;
-
     while (true) {
         pre = pos;
         pos = readfile((void *)buf, FS_BUFFER_SIZE, file_fd, pos);
-        if (pos == (uint64_t)-1) break;
+        if (pos == (uint64_t)-1) {
+            microkit_dbg_printf(PROGNAME "(file read): failed to read from fd: %d\n", file_fd);
+            // halt...
+            while (1);
+        }
         if (pos == pre) {
             microkit_dbg_printf(PROGNAME "(file read): all read from %d\n", file_fd);
             break;
@@ -263,8 +270,37 @@ void load_entrypoint(void)
     //custom_memcpy((void *)shared1, _proto_container, _proto_container_end - _proto_container);
     microkit_dbg_printf(PROGNAME "Wrote proto-container's ELF file into memory\n");
 #if 0
+    file_fd = openfile("client.elf");
     //custom_memcpy((void *)shared2, _client, _client_end - _client);
     microkit_dbg_printf(PROGNAME "Wrote client's ELF file into memory\n");
+#else
+    file_fd = openfile("trampoline.elf");
+    if (file_fd != (uint64_t)-1) {
+        microkit_dbg_printf(PROGNAME "(file open): fd is %d opened\n", file_fd);
+    } else {
+        microkit_dbg_printf(PROGNAME "(file open): failed to open trampoline.elf\n");
+        // halt...
+        while (1);
+    }
+
+    pos = 0;
+    buf = shared3;
+
+    while (true) {
+        pre = pos;
+        pos = readfile((void *)buf, FS_BUFFER_SIZE, file_fd, pos);
+        if (pos == (uint64_t)-1) {
+            microkit_dbg_printf(PROGNAME "(file read): failed to read from fd: %d\n", file_fd);
+            // halt...
+            while (1);
+        }
+        if (pos == pre) {
+            microkit_dbg_printf(PROGNAME "(file read): all read from %d\n", file_fd);
+            break;
+        }
+        buf += pos - pre;
+    }
+    microkit_dbg_printf(PROGNAME "(file read): read %d data from %d \n", pos, file_fd);
 
     //custom_memcpy((void *)shared3, _trampoline, _trampoline_end - _trampoline);
     microkit_dbg_printf(PROGNAME "Wrote trampoline's ELF file into memory\n");

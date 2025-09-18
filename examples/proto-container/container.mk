@@ -9,6 +9,7 @@ IMAGES := \
 	monitor.elf \
 	frontend.elf \
 	protocon.elf \
+	trampoline.elf \
 	fat.elf \
 	serial_driver.elf \
 	serial_virt_rx.elf \
