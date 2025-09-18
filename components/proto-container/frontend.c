@@ -184,7 +184,7 @@ uint64_t readfile(void *dest, uint64_t size, uint64_t fd, uint64_t pos)
     int err = fs_buffer_allocate(&read_buffer);
     assert(!err);
 
-    microkit_dbg_printf(PROGNAME "(fs read) begin to read data from %d\n", fd);
+    //microkit_dbg_printf(PROGNAME "(fs read) begin to read data from %d\n", fd);
 
     fs_cmpl_t completion;
     err = fs_command_blocking(&completion, (fs_cmd_t){
@@ -198,14 +198,14 @@ uint64_t readfile(void *dest, uint64_t size, uint64_t fd, uint64_t pos)
     });
     if (err || completion.status != FS_STATUS_SUCCESS) {
         fs_buffer_free(read_buffer);
-        microkit_dbg_printf(PROGNAME "(fs read) failed to read file with fd: %d\n", fd);
+        //microkit_dbg_printf(PROGNAME "(fs read) failed to read file with fd: %d\n", fd);
         return -1;
     }
 
     memcpy(dest, fs_buffer_ptr(read_buffer), completion.data.file_read.len_read);
     fs_buffer_free(read_buffer);
 
-    microkit_dbg_printf(PROGNAME "(fs read) have read %d data successfully\n", completion.data.file_read.len_read);
+    //microkit_dbg_printf(PROGNAME "(fs read) have read %d data successfully\n", completion.data.file_read.len_read);
     return pos + completion.data.file_read.len_read;
 }
 
@@ -357,8 +357,9 @@ void init(void)
 
 void notified(microkit_channel ch)
 {
-    microkit_dbg_printf(PROGNAME "Received notification on channel: %d\n", ch);
+    //microkit_dbg_printf(PROGNAME "Received notification on channel: %d\n", ch);
 
     fs_process_completions();
+
     microkit_cothread_recv_ntfn(ch);
 }

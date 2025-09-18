@@ -174,7 +174,6 @@ void notified(microkit_channel ch) {
         LOG_FATFS("Unknown channel:%d\n", ch);
         return;
     }
-    microkit_dbg_puts("[@fatfs] Notified entry\n");
 
     // This variable track if there are new requests being popped from client request queue and pushed into the couroutine pool or not
     bool new_request_popped = true;
@@ -280,14 +279,10 @@ void notified(microkit_channel ch) {
         LOG_FATFS("FS notify client\n");
         fs_queue_publish_production(fs_completion_queue, fs_response_enqueued);
         microkit_notify(fs_config.client.id);
-        microkit_dbg_puts("[@fatfs] Notify client with enqueued responses\n");
     }
     if (blk_request_pushed) {
         LOG_FATFS("FS notify block virt\n");
         microkit_notify(blk_config.virt.id);
         blk_request_pushed = false;
-        microkit_dbg_puts("[@fatfs] Notify block virtualiser with enqueued requests\n");
     }
-
-    microkit_dbg_puts("[@fatfs] Notified exit\n");
 }
