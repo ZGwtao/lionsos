@@ -29,11 +29,17 @@ PC_CLAGS := \
 PC_LIBMICROKITCO_OBJ := libmicrokitco/libmicrokitco.a
 PC_LIBMICROKITCO_OPT_PATH := $(PC_SRC_DIR)/config
 
+PC_CLIENT_OBJS := pc/client.o
 PC_MONITOR_OBJS := pc/monitor.o
 PC_FRONTEND_OBJS :=	pc/frontend.o
 PC_PROTOCON_OBJS := pc/protocon.o
 PC_TRAMPOLINE_OBJS := pc/trampoline.o
-PC_OBJS := PC_FRONTEND_OBJS PC_MONITOR_OBJS PC_PROTOCON_OBJS PC_TRAMPOLINE_OBJS
+PC_OBJS := \
+	PC_FRONTEND_OBJS \
+	PC_MONITOR_OBJS \
+	PC_PROTOCON_OBJS \
+	PC_TRAMPOLINE_OBJS \
+	PC_CLIENT_OBJS
 
 pc:
 	mkdir -p pc
@@ -80,6 +86,12 @@ trampoline.elf: LIBS += $(LIBGCC)
 trampoline.elf: LDFLAGS += -L$(BOARD_DIR)/lib -L$(LIBEXTELF_BUILD_DIR)
 trampoline.elf: $(PC_TRAMPOLINE_OBJS) $(LIBEXTELF)
 	$(LD) $(LDFLAGS) -Ttext=0x1800000 $^ $(LIBS) -o $@
+
+
+client.elf: LIBS += $(LIBGCC)
+client.elf: LDFLAGS += -L$(BOARD_DIR)/lib
+client.elf: $(PC_CLIENT_OBJS)
+	$(LD) $(LDFLAGS) -Ttext=0x2800000 $^ $(LIBS) -o $@
 
 
 -include $(PC_OBJS:.o=.d)

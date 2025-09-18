@@ -58,7 +58,7 @@ void init(void)
     }
 
     seL4_Error error;
-#if 0
+#if 1
     /* start to parse client elf information */
     Elf64_Ehdr *ehdr = (Elf64_Ehdr *)container_elf;
     /* check elf integrity */
@@ -96,7 +96,7 @@ void init(void)
         microkit_internal_crash(-1);
     }
     microkit_dbg_printf(PROGNAME "Finished up access rights integrity checking\n");
-
+#else
     tsldr_restore_caps(&loader_context, true);
 
     /* (really) populate allowed access rights */

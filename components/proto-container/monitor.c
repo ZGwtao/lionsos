@@ -102,10 +102,8 @@ seL4_MessageInfo_t monitor_call_debute(void)
     load_elf((void*)trusted_loader_exec, ehdr);
     microkit_dbg_printf(PROGNAME "Copied trusted loader to child PD's memory region\n");
 
-#if 0
-    custom_memcpy((void*)container_elf, (char *)shared2, 0x800000);
+    custom_memcpy((void*)container_elf, (char *)0xb000000, 0x800000);
     microkit_dbg_printf(PROGNAME "Copied client program to child PD's memory region\n");
-#endif
 
     custom_memcpy((void*)trampoline_elf, (char *)0x6800000, 0x800000);
     microkit_dbg_printf(PROGNAME "Copied trampoline program to child PD's memory region\n");
