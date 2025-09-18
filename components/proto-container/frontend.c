@@ -136,7 +136,7 @@ void closedir(uint64_t fd)
 
 uint64_t openfile(void)
 {
-    const char *fname = "monitor.elf";
+    const char *fname = "protocon.elf";
 
     ptrdiff_t buffer;
     int err = fs_buffer_allocate(&buffer);

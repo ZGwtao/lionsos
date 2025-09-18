@@ -8,6 +8,7 @@ IMAGES := \
 	eth_driver.elf \
 	monitor.elf \
 	frontend.elf \
+	protocon.elf \
 	fat.elf \
 	serial_driver.elf \
 	serial_virt_rx.elf \
