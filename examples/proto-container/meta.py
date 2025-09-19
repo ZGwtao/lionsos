@@ -77,14 +77,14 @@ def container_connect(mpd: SystemDescription.ProtectionDomain, cpd: SystemDescri
 
     trampoline_stack = MemoryRegion(name_prefix + "trampoline/stack", 0x1000)
     container_stack = MemoryRegion(name_prefix + "container/stack", 0x1000)
-    container_exec = MemoryRegion(name_prefix + "container/exec", 0x800000)
+    container_exec = MemoryRegion(name_prefix + "container/exec", 0x2000000)
 
     sdf.add_mr(trampoline_stack)
     sdf.add_mr(container_stack)
     sdf.add_mr(container_exec)
 
-    cpd.add_map(Map(trampoline_stack, 0x0FFFFDFF000, perms="rw", cached="true"))
-    cpd.add_map(Map(container_stack, 0x0FFFFBFF000, perms="rw", cached="true"))
+    cpd.add_map(Map(trampoline_stack, 0x00FFFDFF000, perms="rw", cached="true"))
+    cpd.add_map(Map(container_stack,  0x00FFFBFF000, perms="rw", cached="true"))
     cpd.add_map(Map(container_exec, 0x2800000, perms="rwx", cached="true"))
 
 
@@ -161,6 +161,19 @@ def generate(sdf_path: str, output_dir: str, dtb: DeviceTree):
         partition=board.blk_partition
     )
 
+    serial_system.add_client(container)
+    timer_system.add_client(container)
+
+    fatfs2 = ProtectionDomain("fatfs2", "fatfs.elf", priority=96)
+    fs2 = LionsOs.FileSystem.Fat(
+        sdf,
+        fatfs2,
+        container,
+        blk=blk_system,
+        partition=1
+    )
+
+
     if board.name == "maaxboard":
         timer_system.add_client(blk_driver)
 
@@ -171,6 +184,7 @@ def generate(sdf_path: str, output_dir: str, dtb: DeviceTree):
         monitor,
         frontend,
         fatfs,
+        fatfs2,
         timer_driver,
         blk_driver,
         blk_virt,
@@ -180,6 +194,8 @@ def generate(sdf_path: str, output_dir: str, dtb: DeviceTree):
 
     assert fs.connect()
     assert fs.serialise_config(output_dir)
+    assert fs2.connect()
+    assert fs2.serialise_config(output_dir)
     assert serial_system.connect()
     assert serial_system.serialise_config(output_dir)
     assert timer_system.connect()

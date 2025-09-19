@@ -6,6 +6,7 @@
 IMAGES := \
 	timer_driver.elf \
 	eth_driver.elf \
+	micropython.elf \
 	monitor.elf \
 	frontend.elf \
 	protocon.elf \
@@ -104,6 +105,11 @@ include ${SDDF}/libco/libco.mk
 include ${BLK_DRIVER}/blk_driver.mk
 include ${BLK_COMPONENTS}/blk_components.mk
 
+MICROPYTHON_LIBMATH := ${LIBMATH}
+MICROPYTHON_CONFIG_INCLUDE := ${CONFIG_INCLUDE}
+MICROPYTHON_FROZEN_MANIFEST :=
+include $(LIONSOS)/components/micropython/micropython.mk
+
 %.py: ${CONTAINER_DIR}/%.py
 	cp $< $@
 
@@ -150,10 +156,14 @@ FORCE:
 %.elf: %.o
 	${LD} ${LDFLAGS} -o $@ $< ${LIBS}
 
+mpy-cross: FORCE
+	${MAKE} -C ${LIONSOS}/dep/micropython/mpy-cross BUILD=$(abspath ./mpy_cross)
+
 $(DTB): $(DTS)
 	$(DTC) -q -I dts -O dtb $(DTS) > $(DTB)
 
 $(SYSTEM_FILE): $(METAPROGRAM) $(IMAGES) $(DTB)
+	cp $(BUILD_DIR)/fat.elf $(BUILD_DIR)/fatfs.elf
 	$(PYTHON) $(METAPROGRAM) --sddf $(SDDF) --board $(MICROKIT_BOARD) --dtb $(DTB) --output . --sdf $(SYSTEM_FILE)
 	$(OBJCOPY) --update-section .device_resources=serial_driver_device_resources.data serial_driver.elf
 	$(OBJCOPY) --update-section .serial_driver_config=serial_driver_config.data serial_driver.elf
@@ -164,9 +174,13 @@ $(SYSTEM_FILE): $(METAPROGRAM) $(IMAGES) $(DTB)
 	$(OBJCOPY) --update-section .serial_client_config=serial_client_frontend.data 	frontend.elf
 	$(OBJCOPY) --update-section .fs_client_config=fs_client_frontend.data 			frontend.elf
 	$(OBJCOPY) --update-section .device_resources=blk_driver_device_resources.data blk_driver.elf
+	$(OBJCOPY) --update-section .timer_client_config=timer_client_container.data 	micropython.elf
+	$(OBJCOPY) --update-section .serial_client_config=serial_client_container.data	micropython.elf
+	$(OBJCOPY) --update-section .fs_client_config=fs_client_container.data			micropython.elf
 	$(OBJCOPY) --update-section .blk_driver_config=blk_driver.data blk_driver.elf
 	$(OBJCOPY) --update-section .blk_virt_config=blk_virt.data blk_virt.elf
 	$(OBJCOPY) --update-section .blk_client_config=blk_client_fatfs.data fat.elf
+	$(OBJCOPY) --update-section .blk_client_config=blk_client_fatfs2.data fatfs.elf
 	$(OBJCOPY) --update-section .fs_server_config=fs_server_fatfs.data fat.elf
 
 $(IMAGE_FILE) $(REPORT_FILE): $(IMAGES) $(SYSTEM_FILE)
@@ -175,7 +189,7 @@ $(IMAGE_FILE) $(REPORT_FILE): $(IMAGES) $(SYSTEM_FILE)
 		--config $(MICROKIT_CONFIG) -o $(IMAGE_FILE) -r $(REPORT_FILE)
 
 qemu_disk:
-	$(LIONSOS)/dep/sddf/tools/mkvirtdisk $@ 1 512 16777216
+	$(LIONSOS)/dep/sddf/tools/mkvirtdisk $@ 2 512 16777216
 
 qemu: ${IMAGE_FILE} qemu_disk
 	$(QEMU) -machine virt,virtualization=on \

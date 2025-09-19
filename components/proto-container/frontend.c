@@ -270,7 +270,7 @@ void load_entrypoint(void)
     //custom_memcpy((void *)shared1, _proto_container, _proto_container_end - _proto_container);
     microkit_dbg_printf(PROGNAME "Wrote proto-container's ELF file into memory\n");
 
-    file_fd = openfile("client.elf");
+    file_fd = openfile("micropython.elf");
     if (file_fd != (uint64_t)-1) {
         microkit_dbg_printf(PROGNAME "(file open): fd is %d opened\n", file_fd);
     } else {

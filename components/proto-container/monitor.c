@@ -38,7 +38,7 @@ void init(void)
 
     seL4_UserContext ctxt = {0};
     ctxt.pc = 0x2000000;
-    ctxt.sp = 0x10000000000;
+    ctxt.sp = 0x01000000000;
     seL4_Error error = seL4_TCB_WriteRegisters(
         BASE_TCB_CAP + PD_TEMPLATE_CHILD_TCB,
         seL4_True,

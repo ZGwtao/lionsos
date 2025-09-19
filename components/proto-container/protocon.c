@@ -22,9 +22,9 @@ uintptr_t container_exec    = 0x2800000;
 
 #define STACKS_SIZE 0x1000
 
-uintptr_t trampoline_stack_top  = (0x0FFFFE00000);
-uintptr_t tsldr_stack_bottom    = (0x10000000000 - STACKS_SIZE);
-uintptr_t container_stack_top   = (0x0FFFFC00000);
+uintptr_t trampoline_stack_top  = (0x00FFFE00000);
+uintptr_t tsldr_stack_bottom    = (0x00FFFFFF000);
+uintptr_t container_stack_top   = (0x00FFFC00000);
 
 typedef void (*entry_fn_t)(void);
 

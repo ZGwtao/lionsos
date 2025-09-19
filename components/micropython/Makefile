@@ -166,7 +166,7 @@ $(BUILD)/micropython/lwip/%.o: $(LWIP)/src/%.c
 
 $(BUILD)/micropython.elf: $(OBJ) $(LIBMICROKITCO_OBJ)
 	$(ECHO) "LINK $@"
-	$(LD) $(LDFLAGS) $^ $(LIBS) -o $@
+	$(LD) $(LDFLAGS) -Ttext=0x2800000 $^ $(LIBS) -o $@
 	$(Q)$(SIZE) $@
 
 # Include remaining core make rules.
