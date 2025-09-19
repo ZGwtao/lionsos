@@ -148,8 +148,8 @@ def generate(sdf_path: str, output_dir: str, dtb: DeviceTree):
     frontend_connect(monitor, frontend)
     corountine_setup(frontend)
 
-    serial_system.add_client(frontend)
-    timer_system.add_client(frontend)
+    # serial_system.add_client(frontend)
+    # timer_system.add_client(frontend)
 
     fatfs = ProtectionDomain("fatfs", "fat.elf", priority=96)
 
