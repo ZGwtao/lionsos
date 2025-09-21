@@ -184,6 +184,7 @@ $(SYSTEM_FILE): $(METAPROGRAM) $(IMAGES) $(DTB)
 	$(OBJCOPY) --update-section .blk_client_config=blk_client_fatfs.data fat.elf
 	$(OBJCOPY) --update-section .blk_client_config=blk_client_fatfs2.data fatfs.elf
 	$(OBJCOPY) --update-section .fs_server_config=fs_server_fatfs.data fat.elf
+	$(OBJCOPY) --update-section .fs_server_config=fs_server_fatfs2.data fatfs.elf
 
 $(IMAGE_FILE) $(REPORT_FILE): $(IMAGES) $(SYSTEM_FILE)
 	$(MICROKIT_TOOL) $(SYSTEM_FILE) \
