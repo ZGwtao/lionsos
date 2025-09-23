@@ -10,6 +10,8 @@
 #include <microkit.h>
 #include <ed25519.h>
 #include <libtrustedlo.h>
+#include <string.h>
+#include <sddf/timer/config.h>
 
 #define PROGNAME "[@protocon] "
 

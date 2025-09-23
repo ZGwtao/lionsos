@@ -8,7 +8,7 @@
 
 #include <libmicrokitco.h>
 #include <lions/fs/config.h>
-#include <fs_helpers.h>
+#include <pico_vfs.h>
 
 #define PROGNAME "[@monitor] "
 
@@ -61,6 +61,98 @@ void test_entrypoint(void)
     fs_init = true;
 
     microkit_dbg_printf(PROGNAME "(fs mount) finished fs initialisation\n");
+}
+
+// argument passing structure to worker cothread
+typedef struct {
+    Elf64_Ehdr *eh;
+    uint64_t ebase;
+} arg_t;
+
+void monitor_call_debute_lower()
+{
+    arg_t *arg_ptr = (arg_t *) microkit_cothread_my_arg();
+    arg_t my_owned_args = *arg_ptr;
+
+    Elf64_Ehdr *eh = my_owned_args.eh;
+    uint64_t ebase = my_owned_args.ebase;
+
+    if (eh->e_shoff == 0 || eh->e_shnum == 0 || eh->e_shentsize != sizeof(Elf64_Shdr))
+        microkit_dbg_printf(PROGNAME "no section headers present or unexpected shentsize\n");
+    if (eh->e_shstrndx == SHN_UNDEF || eh->e_shstrndx >= eh->e_shnum)
+        microkit_dbg_printf(PROGNAME "invalid e_shstrndx");
+
+    Elf64_Shdr *sh_table = (Elf64_Shdr *)(ebase + eh->e_shoff);
+    Elf64_Shdr *shstr_sh = &sh_table[eh->e_shstrndx];
+
+    const char *shstrtab = (const char *)(ebase + shstr_sh->sh_offset);
+
+    Elf64_Shdr *target_sh = NULL;
+    for (int i = 0; i < eh->e_shnum; ++i) {
+        Elf64_Shdr *sh = &sh_table[i];
+        if (sh->sh_name >= shstr_sh->sh_size) continue;
+        const char *name = shstrtab + sh->sh_name;
+        if (strcmp(name, ".timer_client_config") == 0) {
+            target_sh = sh;
+            break;
+        }
+    }
+    if (!target_sh) {
+        microkit_dbg_printf(PROGNAME "section '%s' not found\n", ".timer_client_config");
+    } else {
+        microkit_dbg_printf(PROGNAME "section '%s' is found\n", ".timer_client_config");
+    }
+    int err = 0;
+    size_t ds = pico_vfs_readfile2buf((void *)(ebase + (uint64_t)target_sh->sh_offset), "timer_client_container.data", &err);
+    if (err != seL4_NoError) {
+        // halt...
+        while (1);
+    }
+
+    for (int i = 0; i < eh->e_shnum; ++i) {
+        Elf64_Shdr *sh = &sh_table[i];
+        if (sh->sh_name >= shstr_sh->sh_size) continue;
+        const char *name = shstrtab + sh->sh_name;
+        if (strcmp(name, ".serial_client_config") == 0) {
+            target_sh = sh;
+            break;
+        }
+    }
+    if (!target_sh) {
+        microkit_dbg_printf(PROGNAME "section '%s' not found\n", ".serial_client_config");
+    } else {
+        microkit_dbg_printf(PROGNAME "section '%s' is found\n", ".serial_client_config");
+    }
+    ds = pico_vfs_readfile2buf((void *)(ebase + (uint64_t)target_sh->sh_offset), "serial_client_container.data", &err);
+    if (err != seL4_NoError) {
+        // halt...
+        while (1);
+    }
+
+    for (int i = 0; i < eh->e_shnum; ++i) {
+        Elf64_Shdr *sh = &sh_table[i];
+        if (sh->sh_name >= shstr_sh->sh_size) continue;
+        const char *name = shstrtab + sh->sh_name;
+        if (strcmp(name, ".fs_client_config") == 0) {
+            target_sh = sh;
+            break;
+        }
+    }
+    if (!target_sh) {
+        microkit_dbg_printf(PROGNAME "section '%s' not found\n", ".fs_client_config");
+    } else {
+        microkit_dbg_printf(PROGNAME "section '%s' is found\n", ".fs_client_config");
+    }
+    ds = pico_vfs_readfile2buf((void *)(ebase + (uint64_t)target_sh->sh_offset), "fs_client_container.data", &err);
+    if (err != seL4_NoError) {
+        // halt...
+        while (1);
+    }
+
+    /* switch to trusted loader */
+    Elf64_Ehdr *ehdr = (Elf64_Ehdr *)0x6000000;
+    microkit_pd_restart(PD_TEMPLATE_CHILD_TCB, ehdr->e_entry);
+    microkit_dbg_printf(PROGNAME "Started child PD at entrypoint address: 0x%x\n", (unsigned long long)ehdr->e_entry);
 }
 
 
@@ -150,10 +242,14 @@ seL4_MessageInfo_t monitor_call_debute(void)
     custom_memcpy((void*)trampoline_elf, (char *)0x6800000, 0x800000);
     microkit_dbg_printf(PROGNAME "Copied trampoline program to child PD's memory region\n");
 
-    // Restart the child PD at the entry point
-    microkit_pd_restart(PD_TEMPLATE_CHILD_TCB, ehdr->e_entry);
-    microkit_dbg_printf(PROGNAME "Started child PD at entrypoint address: 0x%x\n", (unsigned long long)ehdr->e_entry);
+    arg_t arg1 = { .eh = (Elf64_Ehdr *)container_elf, .ebase = container_elf };
+    if (microkit_cothread_spawn(monitor_call_debute_lower, &arg1) == LIBMICROKITCO_NULL_HANDLE) {
+        microkit_dbg_printf(PROGNAME "Cannot initialise monitor cothread\n");
+        microkit_internal_crash(-1);
+    }
+    microkit_cothread_yield();
 
+    microkit_dbg_printf(PROGNAME "finished with loading data files\n");
     return microkit_msginfo_new(seL4_NoError, 0);
 }
 

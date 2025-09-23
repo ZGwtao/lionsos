@@ -128,6 +128,7 @@ static uint64_t openfile(char fname[])
             .params.file_close.fd = fd,
         });
         fs_buffer_free(buffer);
+        microkit_dbg_printf(PROGNAME "failed to size file");
         return -1;
     }
     return fd;
@@ -155,6 +156,7 @@ static uint64_t readfile(void *dest, uint64_t size, uint64_t fd, uint64_t pos)
     });
     if (err || completion.status != FS_STATUS_SUCCESS) {
         fs_buffer_free(read_buffer);
+        microkit_dbg_printf(PROGNAME "failed to read file");
         return -1;
     }
 
@@ -183,7 +185,7 @@ uint64_t pico_vfs_readfile2buf(void *buf, char *path, int *err)
         microkit_dbg_printf(PROGNAME "(file open): fd is %d opened\n", file_fd);
     } else {
         *err = -1;
-        microkit_dbg_printf(PROGNAME "(file open): failed to open protocon.elf\n");
+        microkit_dbg_printf(PROGNAME "(file open): failed to open %s\n", path);
         return 0;
     }
 
