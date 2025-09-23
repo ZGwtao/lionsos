@@ -164,17 +164,25 @@ def generate(sdf_path: str, output_dir: str, dtb: DeviceTree):
     serial_system.add_client(container)
     timer_system.add_client(container)
 
-    fatfs2 = ProtectionDomain("fatfs2", "fatfs.elf", priority=96)
-    fs2 = LionsOs.FileSystem.Fat(
+    container_fs = ProtectionDomain("container_fs", "container_fs.elf", priority=96)
+    cfs = LionsOs.FileSystem.Fat(
         sdf,
-        fatfs2,
+        container_fs,
         container,
         blk=blk_system,
         partition=1
+    ) 
+
+    monitor_fs = ProtectionDomain("monitor_fs", "monitor_fs.elf", priority=96)
+    mfs = LionsOs.FileSystem.Fat(
+        sdf,
+        monitor_fs,
+        monitor,
+        blk=blk_system,
+        partition=2
     )
 
-
-    if board.name == "maaxboard":
+    if board.name =="maaxboard":
         timer_system.add_client(blk_driver)
 
     pds = [
@@ -184,7 +192,8 @@ def generate(sdf_path: str, output_dir: str, dtb: DeviceTree):
         monitor,
         frontend,
         fatfs,
-        fatfs2,
+        container_fs,
+        monitor_fs,
         timer_driver,
         blk_driver,
         blk_virt,
@@ -194,8 +203,10 @@ def generate(sdf_path: str, output_dir: str, dtb: DeviceTree):
 
     assert fs.connect()
     assert fs.serialise_config(output_dir)
-    assert fs2.connect()
-    assert fs2.serialise_config(output_dir)
+    assert cfs.connect()
+    assert cfs.serialise_config(output_dir)
+    assert mfs.connect()
+    assert mfs.serialise_config(output_dir)
     assert serial_system.connect()
     assert serial_system.serialise_config(output_dir)
     assert timer_system.connect()

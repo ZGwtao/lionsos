@@ -5,11 +5,16 @@
 #include <elf_utils.h>
 #include <libtrustedlo.h>
 
+#include <lions/fs/config.h>
+#include <fs_helpers.h>
+
 #define PROGNAME "[@monitor] "
 
 uintptr_t trusted_loader_exec = 0x4000000;
 uintptr_t trampoline_elf = 0xD800000;
 uintptr_t container_elf = 0xA00000000;
+
+__attribute__((__section__(".fs_client_config"))) fs_client_config_t fs_config;
 
 /* 4KB in size */
 tsldr_md_t tsldr_metadata_patched;
@@ -21,6 +26,10 @@ uintptr_t tsldr_metadata = 0x1000000;
 
 seL4_Word system_hash;
 unsigned char public_key[PUBLIC_KEY_BYTES];
+
+fs_queue_t *fs_command_queue;
+fs_queue_t *fs_completion_queue;
+char *fs_share;
 
 
 void init(void)
