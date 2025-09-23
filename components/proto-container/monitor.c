@@ -44,7 +44,7 @@ void init(void)
 // ...
     printf(">>>\n");
 #endif
-
+#if 0
     seL4_UserContext ctxt = {0};
     ctxt.pc = 0x2000000;
     ctxt.sp = 0x01000000000;
@@ -61,6 +61,7 @@ void init(void)
         microkit_internal_crash(error);
     }
     microkit_pd_restart(PD_TEMPLATE_CHILD_TCB, 0x2000000);
+#endif
 }
 
 void notified(microkit_channel ch)
