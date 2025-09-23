@@ -15,7 +15,7 @@
 
 #include <libmicrokitco.h>
 #include <lions/fs/config.h>
-#include <fs_helpers.h>
+#include <pico_vfs.h>
 
 #define PROGNAME "[@frontend] "
 
