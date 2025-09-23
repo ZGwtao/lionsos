@@ -161,8 +161,8 @@ def generate(sdf_path: str, output_dir: str, dtb: DeviceTree):
         partition=board.blk_partition
     )
 
-    serial_system.add_client(container, True)
-    timer_system.add_client(container, True)
+    serial_system.add_client(container)
+    timer_system.add_client(container)
 
     fatfs2 = ProtectionDomain("fatfs2", "fatfs.elf", priority=96)
     fs2 = LionsOs.FileSystem.Fat(
@@ -194,7 +194,7 @@ def generate(sdf_path: str, output_dir: str, dtb: DeviceTree):
 
     assert fs.connect()
     assert fs.serialise_config(output_dir)
-    assert fs2.connect(optional=True)
+    assert fs2.connect()
     assert fs2.serialise_config(output_dir)
     assert serial_system.connect()
     assert serial_system.serialise_config(output_dir)

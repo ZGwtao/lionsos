@@ -176,9 +176,9 @@ $(SYSTEM_FILE): $(METAPROGRAM) $(IMAGES) $(DTB)
 #	$(OBJCOPY) --update-section .serial_client_config=serial_client_frontend.data 	frontend.elf
 	$(OBJCOPY) --update-section .fs_client_config=fs_client_frontend.data 			frontend.elf
 	$(OBJCOPY) --update-section .device_resources=blk_driver_device_resources.data blk_driver.elf
-	$(OBJCOPY) --update-section .timer_client_config=timer_client_container.data 	micropython.elf
-	$(OBJCOPY) --update-section .serial_client_config=serial_client_container.data	micropython.elf
-	$(OBJCOPY) --update-section .fs_client_config=fs_client_container.data			micropython.elf
+#	$(OBJCOPY) --update-section .timer_client_config=timer_client_container.data 	micropython.elf
+#	$(OBJCOPY) --update-section .serial_client_config=serial_client_container.data	micropython.elf
+#	$(OBJCOPY) --update-section .fs_client_config=fs_client_container.data			micropython.elf
 	$(OBJCOPY) --update-section .blk_driver_config=blk_driver.data blk_driver.elf
 	$(OBJCOPY) --update-section .blk_virt_config=blk_virt.data blk_virt.elf
 	$(OBJCOPY) --update-section .blk_client_config=blk_client_fatfs.data fat.elf
