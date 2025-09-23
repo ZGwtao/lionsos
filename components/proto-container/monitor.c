@@ -1,10 +1,12 @@
 
 #include <microkit.h>
 #include <stdarg.h>
+#include <string.h>
 #include <sddf/util/printf.h>
 #include <elf_utils.h>
 #include <libtrustedlo.h>
 
+#include <libmicrokitco.h>
 #include <lions/fs/config.h>
 #include <fs_helpers.h>
 
@@ -15,6 +17,19 @@ uintptr_t trampoline_elf = 0xD800000;
 uintptr_t container_elf = 0xA00000000;
 
 __attribute__((__section__(".fs_client_config"))) fs_client_config_t fs_config;
+
+co_control_t co_controller_mem;
+microkit_cothread_sem_t sem[PC_WORKER_THREAD_NUM + 1];
+
+uint64_t _worker_thread_stack_one = 0xA0000000;
+uint64_t _worker_thread_stack_two = 0xB0000000;
+
+
+request_metadata_t request_metadata[FS_QUEUE_CAPACITY];
+buffer_metadata_t buffer_metadata[FS_QUEUE_CAPACITY];
+
+bool fs_init;
+
 
 /* 4KB in size */
 tsldr_md_t tsldr_metadata_patched;
@@ -32,41 +47,58 @@ fs_queue_t *fs_completion_queue;
 char *fs_share;
 
 
+void test_entrypoint(void)
+{
+    memset(request_metadata, 0, sizeof(request_metadata_t) * FS_QUEUE_CAPACITY);
+    memset(buffer_metadata, 0, sizeof(buffer_metadata_t) * FS_QUEUE_CAPACITY);
+
+    microkit_dbg_printf(PROGNAME "(fs mount) start fs initialisation\n");
+    fs_cmpl_t completion;
+    int err = fs_command_blocking(&completion, (fs_cmd_t){ .type = FS_CMD_INITIALISE });
+    if (err || completion.status != FS_STATUS_SUCCESS) {
+        microkit_dbg_printf(PROGNAME "MP|ERROR: Failed to mount\n");
+    }
+    fs_init = true;
+
+    microkit_dbg_printf(PROGNAME "(fs mount) finished fs initialisation\n");
+}
+
+
 void init(void)
 {
     microkit_dbg_puts("Hello from monitor\n");
     sddf_printf("Test serial driver\n");
-#if 0
-/* to use printf, we need stdout as an FD (1) */
-// no plan for a VFS...
-// can use seL4_libs instead
-// -- sel4muslsys
-// ...
-    printf(">>>\n");
-#endif
-#if 0
-    seL4_UserContext ctxt = {0};
-    ctxt.pc = 0x2000000;
-    ctxt.sp = 0x01000000000;
-    seL4_Error error = seL4_TCB_WriteRegisters(
-        BASE_TCB_CAP + PD_TEMPLATE_CHILD_TCB,
-        seL4_True,
-        0, /* No flags */
-        1, /* writing 1 register */
-        &ctxt
-    );
 
-    if (error != seL4_NoError) {
-        microkit_dbg_puts("microkit_pd_restart: error writing TCB registers\n");
-        microkit_internal_crash(error);
+    assert(fs_config_check_magic(&fs_config));
+    fs_command_queue = fs_config.server.command_queue.vaddr;
+    fs_completion_queue = fs_config.server.completion_queue.vaddr;
+    fs_share = fs_config.server.share.vaddr;
+    fs_init = false;
+
+    stack_ptrs_arg_array_t costacks = {
+        _worker_thread_stack_one,
+        _worker_thread_stack_two
+    };
+
+    microkit_cothread_init(&co_controller_mem, PC_WORKER_THREAD_STACKSIZE, costacks);
+    for (uint32_t i = 0; i < (PC_WORKER_THREAD_NUM + 1); i++) {
+        microkit_cothread_semaphore_init(&sem[i]);
     }
-    microkit_pd_restart(PD_TEMPLATE_CHILD_TCB, 0x2000000);
-#endif
+
+    if (microkit_cothread_spawn(test_entrypoint, NULL) == LIBMICROKITCO_NULL_HANDLE) {
+        microkit_dbg_printf(PROGNAME "Cannot initialise frontend cothread1\n");
+        microkit_internal_crash(-1);
+    }
+    microkit_cothread_yield();
+
+    microkit_dbg_printf(PROGNAME "Finished init\n");
 }
 
 void notified(microkit_channel ch)
 {
-    ;
+    fs_process_completions();
+
+    microkit_cothread_recv_ntfn(ch);
 }
 
 seL4_Bool fault(microkit_child child, microkit_msginfo msginfo, microkit_msginfo *reply_msginfo)
