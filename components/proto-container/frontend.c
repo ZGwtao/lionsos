@@ -23,7 +23,7 @@ uintptr_t shared1 = 0x4000000;
 uintptr_t shared2 = 0xb000000;
 uintptr_t shared3 = 0x6000000;
 
-//__attribute__((__section__(".serial_client_config"))) serial_client_config_t serial_config;
+__attribute__((__section__(".serial_client_config"))) serial_client_config_t serial_config;
 //__attribute__((__section__(".timer_client_config"))) timer_client_config_t timer_config;
 __attribute__((__section__(".fs_client_config"))) fs_client_config_t fs_config;
 

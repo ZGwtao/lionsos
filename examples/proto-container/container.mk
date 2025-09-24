@@ -175,7 +175,7 @@ $(SYSTEM_FILE): $(METAPROGRAM) $(IMAGES) $(DTB)
 	$(OBJCOPY) --update-section .serial_virt_rx_config=serial_virt_rx.data serial_virt_rx.elf
 	$(OBJCOPY) --update-section .device_resources=timer_driver_device_resources.data timer_driver.elf
 #	$(OBJCOPY) --update-section .timer_client_config=timer_client_frontend.data 	frontend.elf
-#	$(OBJCOPY) --update-section .serial_client_config=serial_client_frontend.data 	frontend.elf
+	$(OBJCOPY) --update-section .serial_client_config=serial_client_frontend.data 	frontend.elf
 	$(OBJCOPY) --update-section .fs_client_config=fs_client_frontend.data 			frontend.elf
 	$(OBJCOPY) --update-section .fs_client_config=fs_client_monitor.data 			monitor.elf
 	$(OBJCOPY) --update-section .device_resources=blk_driver_device_resources.data blk_driver.elf
