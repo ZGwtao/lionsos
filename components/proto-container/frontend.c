@@ -88,7 +88,7 @@ void load_entrypoint(void)
     }
     microkit_dbg_printf(PROGNAME "Wrote proto-container's ELF file into memory\n");
 
-    pos = pico_vfs_readfile2buf((void *)shared2, "micropython.elf", &err);
+    pos = pico_vfs_readfile2buf((void *)shared2, "client.elf", &err);
     if (err != seL4_NoError) {
         // halt...
         while (1);
@@ -113,8 +113,12 @@ void load_entrypoint(void)
     if (error != seL4_NoError) {
         microkit_internal_crash(error);
     }
-#if 0
-    //custom_memcpy((void *)shared2, _test, _test_end - _test);
+
+    pos = pico_vfs_readfile2buf((void *)shared2, "micropython.elf", &err);
+    if (err != seL4_NoError) {
+        // halt...
+        while (1);
+    }
     microkit_dbg_printf(PROGNAME "Wrote test's ELF file into memory\n");
 
     microkit_mr_set(0, 2);
@@ -123,7 +127,7 @@ void load_entrypoint(void)
     if (error != seL4_NoError) {
         microkit_internal_crash(error);
     }
-#endif
+
     while(1) {
         //microkit_dbg_printf(PROGNAME "Ready to handle tasks\n");
         while (1) {

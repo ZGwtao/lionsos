@@ -127,6 +127,52 @@ void monitor_call_debute_lower()
 }
 
 
+void monitor_call_restart_lower()
+{
+    arg_t *arg_ptr = (arg_t *) microkit_cothread_my_arg();
+    arg_t my_owned_args = *arg_ptr;
+
+    Elf64_Ehdr *eh = my_owned_args.eh;
+    void *elf_base = (void *)my_owned_args.elf_base;
+
+    if (eh->e_shoff == 0 || eh->e_shnum == 0 || eh->e_shentsize != sizeof(Elf64_Shdr))
+        microkit_dbg_printf(PROGNAME "no section headers present or unexpected shentsize\n");
+    if (eh->e_shstrndx == SHN_UNDEF || eh->e_shstrndx >= eh->e_shnum)
+        microkit_dbg_printf(PROGNAME "invalid e_shstrndx");
+
+    int err = patch_elf_section(elf_base, ".timer_client_config", "timer_client_container.data");
+    assert(err == seL4_NoError);
+
+    err = patch_elf_section(elf_base, ".serial_client_config", "serial_client_container.data");
+    assert(err == seL4_NoError);
+
+    err = patch_elf_section(elf_base, ".fs_client_config", "fs_client_container.data");
+    assert(err == seL4_NoError);
+
+    /* switch to trusted loader */
+    Elf64_Ehdr *ehdr = (Elf64_Ehdr *)0x6000000;
+    /* set a flag for the trusted loader to check whether to boot or to restart... */
+    microkit_dbg_printf(PROGNAME "Restart template PD without reloading trusted loader\n");
+    seL4_UserContext ctxt = {0};
+    ctxt.pc = ehdr->e_entry;
+    ctxt.sp = 0x01000000000;
+    err = seL4_TCB_WriteRegisters(
+              BASE_TCB_CAP + PD_TEMPLATE_CHILD_TCB,
+              seL4_True,
+              0, /* No flags */
+              1, /* writing 1 register */
+              &ctxt
+          );
+
+    if (err != seL4_NoError) {
+        microkit_dbg_puts("microkit_pd_restart: error writing TCB registers\n");
+        microkit_internal_crash(err);
+    }
+    microkit_dbg_printf(PROGNAME "Started child PD at entrypoint address: 0x%x\n", (unsigned long long)ehdr->e_entry);
+}
+
+
+
 void init(void)
 {
     microkit_dbg_puts("Hello from monitor\n");
@@ -225,6 +271,37 @@ seL4_MessageInfo_t monitor_call_debute(void)
 }
 
 
+seL4_MessageInfo_t monitor_call_restart(void)
+{
+    /* init metadata for proto-container's tsldr */
+    tsldr_init_metadata(&tsldr_metadata_patched);
+
+    seL4_Error error = tsldr_grant_cspace_access();
+    if (error != seL4_NoError) {
+        return microkit_msginfo_new(error, 0);
+    }
+
+    /* reload the trusted loader to the target place */
+    Elf64_Ehdr *ehdr = (Elf64_Ehdr *)0x6000000;
+
+    load_elf((void*)trusted_loader_exec, ehdr);
+    microkit_dbg_printf(PROGNAME "Copied trusted loader to child PD's memory region\n");
+
+    custom_memcpy((void*)container_elf, (char *)0xb000000, 0x800000);
+    microkit_dbg_printf(PROGNAME "Copied client program to child PD's memory region\n");
+
+    arg_t arg1 = { .eh = (Elf64_Ehdr *)container_elf, .elf_base = container_elf };
+    if (microkit_cothread_spawn(monitor_call_restart_lower, &arg1) == LIBMICROKITCO_NULL_HANDLE) {
+        microkit_dbg_printf(PROGNAME "Cannot initialise monitor cothread\n");
+        microkit_internal_crash(-1);
+    }
+    microkit_cothread_yield();
+
+    microkit_dbg_printf(PROGNAME "finished with loading data files\n");
+    return microkit_msginfo_new(seL4_NoError, 0);
+}
+
+
 
 seL4_MessageInfo_t protected(microkit_channel ch, microkit_msginfo msginfo)
 {
@@ -243,7 +320,7 @@ seL4_MessageInfo_t protected(microkit_channel ch, microkit_msginfo msginfo)
         break;
     case 2:
         microkit_dbg_printf(PROGNAME "Restart trusted loader and a new client\n");
-        //ret = monitor_call_restart();
+        ret = monitor_call_restart();
         break;
     default:
         /* do nothing for now */
