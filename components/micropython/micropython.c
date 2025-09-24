@@ -106,9 +106,17 @@ start_repl:
 
     printf("MP|INFO: exited!\n");
 #ifndef EXEC_MODULE
-    goto start_repl;
+    //goto start_repl;
 #endif
+    microkit_msginfo info;
+    seL4_Error error;
 
+    microkit_mr_set(0, 2);
+    info = microkit_ppcall(15, microkit_msginfo_new(0, 1));
+    error = microkit_msginfo_get_label(info);
+    if (error != seL4_NoError) {
+        microkit_internal_crash(error);
+    }
     // libmicrokitco will gracefully clean up when a cothread return, no need to do anything special here
 }
 

@@ -87,6 +87,9 @@ def container_connect(mpd: SystemDescription.ProtectionDomain, cpd: SystemDescri
     cpd.add_map(Map(container_stack,  0x00FFFBFF000, perms="rw", cached="true"))
     cpd.add_map(Map(container_exec, 0x2800000, perms="rwx", cached="true"))
 
+    sdf.add_channel(Channel(a=mpd, b=cpd, a_id=15, b_id=15, pp_b=True))
+
+
 
 def frontend_connect(mpd: SystemDescription.ProtectionDomain, fpd: SystemDescription.ProtectionDomain):
 
