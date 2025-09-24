@@ -37,8 +37,8 @@ request_metadata_t request_metadata[FS_QUEUE_CAPACITY];
 buffer_metadata_t buffer_metadata[FS_QUEUE_CAPACITY];
 
 
-//serial_queue_handle_t serial_rx_queue_handle;
-//serial_queue_handle_t serial_tx_queue_handle;
+serial_queue_handle_t serial_rx_queue_handle;
+serial_queue_handle_t serial_tx_queue_handle;
 
 fs_queue_t *fs_command_queue;
 fs_queue_t *fs_completion_queue;
@@ -113,7 +113,7 @@ void load_entrypoint(void)
     if (error != seL4_NoError) {
         microkit_internal_crash(error);
     }
-
+#if 0
     pos = pico_vfs_readfile2buf((void *)shared2, "micropython.elf", &err);
     if (err != seL4_NoError) {
         // halt...
@@ -127,7 +127,7 @@ void load_entrypoint(void)
     if (error != seL4_NoError) {
         microkit_internal_crash(error);
     }
-
+#endif
     while(1) {
         //microkit_dbg_printf(PROGNAME "Ready to handle tasks\n");
         while (1) {
@@ -153,15 +153,16 @@ void init(void)
         mspace_k_r_malloc_free(&cookie->k_r_malloc, c);
     }
 #endif
-    //assert(serial_config_check_magic(&serial_config));
+    assert(serial_config_check_magic(&serial_config));
     //assert(timer_config_check_magic(&timer_config));
     assert(fs_config_check_magic(&fs_config));
-#if 0
+
     if (serial_config.rx.queue.vaddr != NULL) {
         serial_queue_init(&serial_rx_queue_handle, serial_config.rx.queue.vaddr, serial_config.rx.data.size, serial_config.rx.data.vaddr);
     }
     serial_queue_init(&serial_tx_queue_handle, serial_config.tx.queue.vaddr, serial_config.tx.data.size, serial_config.tx.data.vaddr);
-#endif
+    serial_putchar_init(serial_config.tx.id, &serial_tx_queue_handle);
+
     fs_command_queue = fs_config.server.command_queue.vaddr;
     fs_completion_queue = fs_config.server.completion_queue.vaddr;
     fs_share = fs_config.server.share.vaddr;
@@ -192,11 +193,126 @@ void init(void)
     microkit_dbg_printf(PROGNAME "Finished init\n");
 }
 
+#define INPUT_BUF_SIZE 128
+#define FNAME_BUF_SIZE 64
+
+static char input_buf[INPUT_BUF_SIZE];
+static char fname_buf[FNAME_BUF_SIZE];
+static size_t input_len = 0;
+
+
+void load_elf_payload(void)
+{
+    while(!fs_init) {
+        microkit_cothread_yield();
+    }
+    microkit_dbg_printf(PROGNAME "entry of load_elf_payload\n");
+
+    int err;
+    uint64_t pos;
+    microkit_msginfo info;
+    seL4_Error error;
+
+    pos = pico_vfs_readfile2buf((void *)shared2, fname_buf, &err);
+    if (err != seL4_NoError) {
+        microkit_dbg_printf(PROGNAME "Failed to read %s\n", fname_buf);
+        return;
+    }
+    microkit_dbg_printf(PROGNAME "Wrote test's ELF file into memory\n");
+
+    microkit_mr_set(0, 2);
+    info = microkit_ppcall(1, microkit_msginfo_new(0, 1));
+    error = microkit_msginfo_get_label(info);
+    if (error != seL4_NoError) {
+        microkit_internal_crash(error);
+    }
+}
+
+/* ----- Command handlers ----- */
+
+static void parse_start_cmd(const char *arg)
+{
+    // Skip leading spaces
+    while (*arg == ' ') arg++;
+
+    if (*arg == '\0') {
+        sddf_printf("\nInvalid usage: 'start' requires a filename\n> ");
+        return;
+    }
+
+    // Extract filename (stop at space or NUL)
+    const char *end = arg;
+    while (*end && *end != ' ') end++;
+
+    size_t len = end - arg;
+    if (len >= sizeof(fname_buf)) len = sizeof(fname_buf) - 1;
+
+    memset(fname_buf, 0, FNAME_BUF_SIZE);
+    memcpy(fname_buf, arg, len);
+    fname_buf[len] = '\0';
+
+    sddf_printf("\nValid command: start %s\n> ", fname_buf);
+
+    if (microkit_cothread_spawn(load_elf_payload, NULL) == LIBMICROKITCO_NULL_HANDLE) {
+        microkit_dbg_printf(PROGNAME "Cannot frontend cothread to load payload\n");
+        microkit_internal_crash(-1);
+    }
+    microkit_cothread_yield();
+}
+
+static void handle_line(const char *line)
+{
+    // Skip leading spaces
+    while (*line == ' ') line++;
+
+    if (*line == '\0') {
+        // Empty input → just prompt
+        sddf_printf("\n> ");
+        return;
+    }
+
+    if (strncmp(line, "start", 5) == 0) {
+        const char *after = line + 5;
+        if (*after == '\0') {
+            sddf_printf("\nInvalid usage: 'start' requires a filename\n> ");
+        } else if (*after == ' ') {
+            parse_start_cmd(after);
+        } else {
+            sddf_printf("\nInvalid command format\n> ");
+        }
+    } else {
+        sddf_printf("\nUnknown command: %s\n> ", line);
+    }
+}
+
+/* ----- Microkit callback ----- */
+
 void notified(microkit_channel ch)
 {
-    //microkit_dbg_printf(PROGNAME "Received notification on channel: %d\n", ch);
-
     fs_process_completions();
 
     microkit_cothread_recv_ntfn(ch);
+
+    if (ch == serial_config.rx.id) {
+        char c;
+        while (!serial_dequeue(&serial_rx_queue_handle, &c)) {
+            if (c != '\r') {
+                sddf_putchar_unbuffered(c);
+            }
+
+            if (input_len < INPUT_BUF_SIZE - 1) {
+                if (c == '\r') {
+                    input_buf[input_len] = '\0';
+                    handle_line(input_buf);
+                    input_len = 0;
+                    break;
+                } else {
+                    input_buf[input_len++] = c;
+                }
+            } else {
+                sddf_printf("\nInput too long, buffer cleared.\n> ");
+                input_len = 0;
+            }
+        }
+    }
 }

@@ -64,7 +64,7 @@ frontend.elf: LIBS += $(LIBGCC)
 frontend.elf: LDFLAGS += -L$(BOARD_DIR)/lib \
 							-L$(LIBCRYPTO_BUILD_DIR) -L$(LIBEXTELF_BUILD_DIR) -L$(LIBTSLDR_BUILD_DIR) \
 							-L$(LIBKRMALLOC_BUILD_DIR) -L$(LIBFSHELPER_BUILD_DIR)
-frontend.elf: $(PC_FRONTEND_OBJS) pc/$(PC_LIBMICROKITCO_OBJ) \
+frontend.elf: $(PC_FRONTEND_OBJS) pc/$(PC_LIBMICROKITCO_OBJ) libsddf_util.a \
               ${LIBEXTELF} $(LIBKRMALLOC) $(LIBFSHELPER) $(CONTAINER_LIBC_LIB)
 	$(LD) $(LDFLAGS) $^ $(LIBS) -o $@
 
