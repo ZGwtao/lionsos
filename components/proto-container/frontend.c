@@ -298,5 +298,33 @@ void notified(microkit_channel ch)
                 }
             }
         }
+    } else if (ch == 30) { /* notification from monitor */
+        sddf_putchar_unbuffered('T');
+        sddf_putchar_unbuffered('y');
+        sddf_putchar_unbuffered('p');
+        sddf_putchar_unbuffered('e');
+        sddf_putchar_unbuffered(':');
+        sddf_putchar_unbuffered(' ');
+        sddf_putchar_unbuffered('\"');
+        sddf_putchar_unbuffered('C');
+        sddf_putchar_unbuffered('t');
+        sddf_putchar_unbuffered('r');
+        sddf_putchar_unbuffered('l');
+        sddf_putchar_unbuffered(' ');
+        sddf_putchar_unbuffered('\\');
+        sddf_putchar_unbuffered(' ');
+        sddf_putchar_unbuffered('0');
+        sddf_putchar_unbuffered('\"');
+        sddf_putchar_unbuffered(' ');
+        sddf_putchar_unbuffered('t');
+        sddf_putchar_unbuffered('o');
+        sddf_putchar_unbuffered(' ');
+        sddf_putchar_unbuffered('r');
+        sddf_putchar_unbuffered('e');
+        sddf_putchar_unbuffered('t');
+        sddf_putchar_unbuffered('u');
+        sddf_putchar_unbuffered('r');
+        sddf_putchar_unbuffered('n');
+        sddf_putchar_unbuffered('\n');
     }
 }

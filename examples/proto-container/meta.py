@@ -112,6 +112,7 @@ def frontend_connect(mpd: SystemDescription.ProtectionDomain, fpd: SystemDescrip
     fpd.add_map(Map(ext_client_elf, 0xB000000, perms="rw", cached="true"))
 
     sdf.add_channel(Channel(a=mpd, b=fpd, a_id=2, b_id=1, pp_b=True))
+    sdf.add_channel(Channel(a=mpd, b=fpd, a_id=30, b_id=30))
 
 def corountine_setup(pd: SystemDescription.ProtectionDomain):
     name_prefix = pd.name + "/"

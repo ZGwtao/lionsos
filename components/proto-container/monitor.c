@@ -304,6 +304,8 @@ seL4_MessageInfo_t monitor_call_restart(void)
 seL4_MessageInfo_t monitor_call_restore(void)
 {
     // TODO
+    microkit_notify(30);
+
     return microkit_msginfo_new(seL4_NoError, 0);
 }
 
