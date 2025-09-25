@@ -5,22 +5,36 @@
 #include <sddf/serial/config.h>
 #include <lions/fs/config.h>
 
+#include <sddf/util/printf.h>
+
 __attribute__((__section__(".serial_client_config"))) serial_client_config_t serial_config;
 __attribute__((__section__(".timer_client_config"))) timer_client_config_t timer_config;
 __attribute__((__section__(".fs_client_config"))) fs_client_config_t fs_config;
 
 
+serial_queue_handle_t serial_rx_queue_handle;
+serial_queue_handle_t serial_tx_queue_handle;
+
+
 void init(void)
 {
-    microkit_dbg_puts("\n");
-    microkit_dbg_puts("\n");
-    microkit_dbg_puts("Hello from client!\n");
-    microkit_dbg_puts("\n");
-    microkit_dbg_puts("\n");
+    assert(serial_config_check_magic(&serial_config));
+    if (serial_config.rx.queue.vaddr != NULL) {
+        serial_queue_init(&serial_rx_queue_handle, serial_config.rx.queue.vaddr, serial_config.rx.data.size, serial_config.rx.data.vaddr);
+    }
+    serial_queue_init(&serial_tx_queue_handle, serial_config.tx.queue.vaddr, serial_config.tx.data.size, serial_config.tx.data.vaddr);
+    serial_putchar_init(serial_config.tx.id, &serial_tx_queue_handle);
 
-    //*((seL4_Word *)0xC000000) = 0x10;
+    sddf_printf("Hello from client.elf!\n");
 
-    //microkit_notify(2);
+    // exit from client...
+    microkit_mr_set(0, 0x100);
+
+    microkit_msginfo info = microkit_ppcall(15, microkit_msginfo_new(0, 1));
+    seL4_Error error = microkit_msginfo_get_label(info);
+    if (error != seL4_NoError) {
+        microkit_internal_crash(error);
+    }
 }
 
 void notified(microkit_channel ch)
