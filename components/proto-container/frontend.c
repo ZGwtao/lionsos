@@ -52,6 +52,21 @@ static char morecore[POOL_SIZE];
 pool_cookie_t *cookie;
 
 
+static void print_prompt(void)
+{
+    sddf_putchar_unbuffered('f');
+    sddf_putchar_unbuffered('r');
+    sddf_putchar_unbuffered('o');
+    sddf_putchar_unbuffered('n');
+    sddf_putchar_unbuffered('t');
+    sddf_putchar_unbuffered('e');
+    sddf_putchar_unbuffered('n');
+    sddf_putchar_unbuffered('d');
+    sddf_putchar_unbuffered('>');
+    sddf_putchar_unbuffered('$');
+    sddf_putchar_unbuffered(' ');
+}
+
 
 void test_entrypoint(void)
 {
@@ -74,10 +89,6 @@ void load_entrypoint(void)
     while(!fs_init) {
         microkit_cothread_yield();
     }
-
-    uint64_t dir_fd = opendir(".");
-    microkit_dbg_printf(PROGNAME "(dir open): fd is %d opened\n", dir_fd);
-
     int err;
     uint64_t pos;
 
@@ -88,13 +99,6 @@ void load_entrypoint(void)
     }
     microkit_dbg_printf(PROGNAME "Wrote proto-container's ELF file into memory\n");
 
-    pos = pico_vfs_readfile2buf((void *)shared2, "client.elf", &err);
-    if (err != seL4_NoError) {
-        // halt...
-        while (1);
-    }
-    microkit_dbg_printf(PROGNAME "Wrote client's ELF file into memory\n");
-
     pos = pico_vfs_readfile2buf((void *)shared3, "trampoline.elf", &err);
     if (err != seL4_NoError) {
         // halt...
@@ -102,38 +106,8 @@ void load_entrypoint(void)
     }
     microkit_dbg_printf(PROGNAME "Wrote trampoline's ELF file into memory\n");
 
-    microkit_dbg_printf(PROGNAME "Making ppc to container monitor backend\n");
-
-    microkit_msginfo info;
-    seL4_Error error;
-
-    microkit_mr_set(0, 1);
-    info = microkit_ppcall(1, microkit_msginfo_new(0, 1));
-    error = microkit_msginfo_get_label(info);
-    if (error != seL4_NoError) {
-        microkit_internal_crash(error);
-    }
-#if 0
-    pos = pico_vfs_readfile2buf((void *)shared2, "micropython.elf", &err);
-    if (err != seL4_NoError) {
-        // halt...
-        while (1);
-    }
-    microkit_dbg_printf(PROGNAME "Wrote test's ELF file into memory\n");
-
-    microkit_mr_set(0, 2);
-    info = microkit_ppcall(1, microkit_msginfo_new(0, 1));
-    error = microkit_msginfo_get_label(info);
-    if (error != seL4_NoError) {
-        microkit_internal_crash(error);
-    }
-#endif
-    while(1) {
-        //microkit_dbg_printf(PROGNAME "Ready to handle tasks\n");
-        while (1) {
-            microkit_cothread_yield();
-        }
-    }
+    sddf_putchar_unbuffered('\n');
+    print_prompt();
 }
 
 
@@ -220,7 +194,7 @@ void load_elf_payload(void)
     }
     microkit_dbg_printf(PROGNAME "Wrote test's ELF file into memory\n");
 
-    microkit_mr_set(0, 2);
+    microkit_mr_set(0, 1);
     info = microkit_ppcall(1, microkit_msginfo_new(0, 1));
     error = microkit_msginfo_get_label(info);
     if (error != seL4_NoError) {
@@ -262,26 +236,24 @@ static void parse_start_cmd(const char *arg)
 
 static void handle_line(const char *line)
 {
-    // Skip leading spaces
-    while (*line == ' ') line++;
+    while (*line == ' ') line++;  // skip spaces
 
     if (*line == '\0') {
-        // Empty input → just prompt
-        sddf_printf("\n> ");
+        // empty input
         return;
     }
 
     if (strncmp(line, "start", 5) == 0) {
         const char *after = line + 5;
         if (*after == '\0') {
-            sddf_printf("\nInvalid usage: 'start' requires a filename\n> ");
+            sddf_printf("Invalid usage: 'start' requires a filename\n");
         } else if (*after == ' ') {
             parse_start_cmd(after);
         } else {
-            sddf_printf("\nInvalid command format\n> ");
+            sddf_printf("Invalid command format\n");
         }
     } else {
-        sddf_printf("\nUnknown command: %s\n> ", line);
+        sddf_printf("Unknown command: %s\n", line);
     }
 }
 
@@ -290,28 +262,40 @@ static void handle_line(const char *line)
 void notified(microkit_channel ch)
 {
     fs_process_completions();
-
     microkit_cothread_recv_ntfn(ch);
 
     if (ch == serial_config.rx.id) {
         char c;
         while (!serial_dequeue(&serial_rx_queue_handle, &c)) {
-            if (c != '\r') {
-                sddf_putchar_unbuffered(c);
-            }
+            if (c == '\r') {
+                // end of line
+                sddf_putchar_unbuffered('\r');
+                sddf_putchar_unbuffered('\n');
 
-            if (input_len < INPUT_BUF_SIZE - 1) {
-                if (c == '\r') {
-                    input_buf[input_len] = '\0';
-                    handle_line(input_buf);
-                    input_len = 0;
-                    break;
-                } else {
-                    input_buf[input_len++] = c;
+                input_buf[input_len] = '\0';
+                handle_line(input_buf);
+
+                // reset buffer and show prompt
+                input_len = 0;
+                print_prompt();
+            } else if (c == '\b' || c == 127) {
+                // backspace
+                if (input_len > 0) {
+                    input_len--;
+                    sddf_putchar_unbuffered('\b');
+                    sddf_putchar_unbuffered(' ');
+                    sddf_putchar_unbuffered('\b');
                 }
             } else {
-                sddf_printf("\nInput too long, buffer cleared.\n> ");
-                input_len = 0;
+                // normal char
+                if (input_len < INPUT_BUF_SIZE - 1) {
+                    input_buf[input_len++] = c;
+                    sddf_putchar_unbuffered(c); // immediate echo
+                } else {
+                    sddf_printf("\nInput too long, buffer cleared\n");
+                    input_len = 0;
+                    print_prompt();
+                }
             }
         }
     }
