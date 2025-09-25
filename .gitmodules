@@ -8,7 +8,8 @@
 	branch = main
 [submodule "micropython"]
 	path = dep/micropython
-	url = https://github.com/micropython/micropython.git
+	url = https://github.com/ZGwtao/micropython.git
+	branch = mp-container
 [submodule "musllibc"]
 	path = dep/musllibc
 	url = https://github.com/au-ts/musllibc.git
