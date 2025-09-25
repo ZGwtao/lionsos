@@ -301,6 +301,11 @@ seL4_MessageInfo_t monitor_call_restart(void)
     return microkit_msginfo_new(seL4_NoError, 0);
 }
 
+seL4_MessageInfo_t monitor_call_restore(void)
+{
+    // TODO
+    return microkit_msginfo_new(seL4_NoError, 0);
+}
 
 
 seL4_MessageInfo_t protected(microkit_channel ch, microkit_msginfo msginfo)
@@ -321,6 +326,10 @@ seL4_MessageInfo_t protected(microkit_channel ch, microkit_msginfo msginfo)
     case 2:
         microkit_dbg_printf(PROGNAME "Restart trusted loader and a new client\n");
         ret = monitor_call_restart();
+        break;
+    case 0x100:
+        microkit_dbg_printf(PROGNAME "Exit to uninstantiated container\n");
+        ret = monitor_call_restore();
         break;
     default:
         /* do nothing for now */

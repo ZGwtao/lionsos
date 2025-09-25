@@ -93,9 +93,16 @@ start_repl:
     // the networking needs to be initialised before initialising the fs
     init_vfs();
 
+    bool exit = false;
+    bool restart = false;
     // Start a normal REPL; will exit when ctrl-D is entered on a blank line.
 #ifndef EXEC_MODULE
-    pyexec_friendly_repl();
+    int ret = pyexec_friendly_repl();
+    if (ret == PYEXEC_FORCED_RESTART) {
+        restart = true;
+    } else if (ret == PYEXEC_FORCED_EXIT) {
+        exit = true;
+    }
 #else
     pyexec_frozen_module(EXEC_MODULE, false);
 #endif
@@ -111,7 +118,11 @@ start_repl:
     microkit_msginfo info;
     seL4_Error error;
 
-    microkit_mr_set(0, 2);
+    if (restart) {
+        microkit_mr_set(0, 2);
+    } else if (exit) {
+        microkit_mr_set(0, ret);
+    }
     info = microkit_ppcall(15, microkit_msginfo_new(0, 1));
     error = microkit_msginfo_get_label(info);
     if (error != seL4_NoError) {
