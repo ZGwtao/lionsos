@@ -47,6 +47,7 @@ typedef struct {
 
 #define TSLDR_MD_SIZE 0x1000
 typedef struct {
+    size_t child_id;
     seL4_Word system_hash;
     unsigned char public_key[PUBLIC_KEY_BYTES];
     seL4_Word channels[MICROKIT_MAX_CHANNELS];
@@ -55,7 +56,8 @@ typedef struct {
     /* for recording ... */
     bool init;
     uint8_t padding[TSLDR_MD_SIZE
-                    - ( sizeof(seL4_Word) 
+                    - ( sizeof(size_t)
+                      + sizeof(seL4_Word) 
                       + PUBLIC_KEY_BYTES 
                       + sizeof(seL4_Word) * MICROKIT_MAX_CHANNELS 
                       + sizeof(seL4_Word) * MICROKIT_MAX_CHANNELS 
@@ -71,9 +73,9 @@ _Static_assert(sizeof(tsldr_md_t) == TSLDR_MD_SIZE,
 /* access to child TCB from monitor */
 #define PD_TEMPLATE_CHILD_TCB   1
 /* for monitor to access the cnode of container */
-#define PD_TEMPLATE_CHILD_CNODE     8
+#define PD_TEMPLATE_CHILD_CSPACE_BASE   (650)
 /* for monitor to access the vspace of container */
-#define PD_TEMPLATE_CHILD_VSPACE    9
+#define PD_TEMPLATE_CHILD_VSPACE_BASE   (650 + 64)
 /* for monitor to access it's own cspace */
 #define PD_TEMPLATE_CNODE_ROOT  586
 /* for monitor to access the background CNode of its child */
@@ -109,6 +111,7 @@ typedef struct {
     /* Access right table */
     AccessRights access_rights;
 
+    size_t child_id;
     /*
      * Rights bitmaps / filters:
      *   1. Channels
@@ -194,5 +197,5 @@ seL4_Error tsldr_loading_epilogue(uintptr_t client_exec, uintptr_t client_stack)
 seL4_Error tsldr_loading_prologue(trusted_loader_t *loader);
 
 /* grant access to the child's cspaces from the monitor's view */
-seL4_Error tsldr_grant_cspace_access(void);
+seL4_Error tsldr_grant_cspace_access(size_t child_id);
 
