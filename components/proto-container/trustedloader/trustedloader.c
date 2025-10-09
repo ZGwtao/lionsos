@@ -387,7 +387,7 @@ void tsldr_remove_caps(trusted_loader_t *loader, bool self_loading)
         } else {
             error = seL4_ARM_Page_Map(
                 mapping->page,
-                PD_TEMPLATE_CHILD_VSPACE_BASE + loader->child_id,,
+                PD_TEMPLATE_CHILD_VSPACE_BASE + loader->child_id,
                 mapping->vaddr,
                 rights,
                 mapping->attrs
@@ -448,7 +448,7 @@ void tsldr_restore_caps(trusted_loader_t *loader, bool self_loading)
                 PD_TEMPLATE_CHILD_CSPACE_BASE + loader->child_id,
                 CNODE_NTFN_BASE_CAP + channel_id,
                 PD_CAP_BITS,
-                PD_TEMPLATE_CBG_CNODE,
+                PD_TEMPLATE_CHILD_BNODE_BASE + loader->child_id,
                 BACKGROUND_NTFN_BASE_CAP + channel_id,
                 PD_CAP_BITS,
                 seL4_AllRights
@@ -483,7 +483,7 @@ void tsldr_restore_caps(trusted_loader_t *loader, bool self_loading)
                 PD_TEMPLATE_CHILD_CSPACE_BASE + loader->child_id,
                 CNODE_IRQ_BASE_CAP + irq_id,
                 PD_CAP_BITS,
-                PD_TEMPLATE_CBG_CNODE,
+                PD_TEMPLATE_CHILD_BNODE_BASE + loader->child_id,
                 BACKGROUND_IRQ_BASE_CAP + irq_id,
                 PD_CAP_BITS,
                 seL4_AllRights
@@ -741,7 +741,7 @@ seL4_Error tsldr_grant_cspace_access(size_t child_id)
         CNODE_BACKGROUND_CAP,  /* the background CNode in the container's CNode */
         PD_CAP_BITS,
         PD_TEMPLATE_CNODE_ROOT,
-        PD_TEMPLATE_CBG_CNODE, /* the background CNode in the monitor's CNode */
+        PD_TEMPLATE_CHILD_BNODE_BASE + child_id, /* the background CNode in the monitor's CNode */
         PD_CAP_BITS,
         seL4_AllRights
     );
