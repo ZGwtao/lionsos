@@ -90,8 +90,6 @@ _Static_assert(sizeof(tsldr_md_t) == TSLDR_MD_SIZE,
 #define CNODE_VSPACE_CAP        (750)
 #define CNODE_BASE_MAPPING_CAP  (CNODE_VSPACE_CAP + 1)
 
-#define CNODE_CHILD_BASE_MAPPING_CAP    (10 + 8 * 64)
-
 #define BACKGROUND_VSPACE_CAP       9
 #define BACKGROUND_NTFN_BASE_CAP    10
 #define BACKGROUND_IRQ_BASE_CAP     (BACKGROUND_NTFN_BASE_CAP + 64)

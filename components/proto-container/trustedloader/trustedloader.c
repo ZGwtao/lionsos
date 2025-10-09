@@ -354,7 +354,7 @@ void tsldr_remove_caps(trusted_loader_t *loader, bool self_loading)
 
         if (self_loading) {
             /* move target page from background CNode to current CNode */
-            seL4_CPtr page_index = mapping->page - CNODE_CHILD_BASE_MAPPING_CAP;
+            seL4_CPtr page_index = mapping->page;
             error = seL4_CNode_Move(
                 CNODE_SELF_CAP, CNODE_BASE_MAPPING_CAP + page_index, PD_CAP_BITS,
                 CNODE_BACKGROUND_CAP, BACKGROUND_MAPPING_BASE_CAP + page_index, PD_CAP_BITS);
@@ -515,7 +515,7 @@ void tsldr_restore_caps(trusted_loader_t *loader, bool self_loading)
 
         if (self_loading){
             /* move target page from background CNode to current CNode */
-            seL4_CPtr page_index = mapping->page - CNODE_CHILD_BASE_MAPPING_CAP;
+            seL4_CPtr page_index = mapping->page;
             error = seL4_CNode_Move(
                 CNODE_SELF_CAP, CNODE_BASE_MAPPING_CAP + page_index, PD_CAP_BITS,
                 CNODE_BACKGROUND_CAP, BACKGROUND_MAPPING_BASE_CAP + page_index, PD_CAP_BITS);
@@ -657,7 +657,21 @@ seL4_Error tsldr_loading_prologue(trusted_loader_t *loader)
         return error;
     }
     microkit_dbg_printf(LIB_NAME_MACRO "Move target page to current CNode for unmapping\n");
-    
+
+    /*
+     * for all proto-containers, trusted loading context is in 0xE00000,
+     * the symbolic reference is specified at link time with (e.g.) "loader_context" variable
+     * but it should be changeable...
+     * 
+     * 0xE00000 is not compulsory...
+     * the protocol is:
+     *  -> specify a vaddr in proto-container's address space (say 0xE00000),
+     *  -> use the backuped TSLDR_CONTEXT_CAP to map this vaddr
+     *  -> write trusted loading context into this page
+     *  -> unmap this page after one trusted loading batch
+     *  -> bring it back at next trusted loading batch
+     *      -> to see what is required to be removed (or restored)
+     */
     error = seL4_ARM_Page_Map(
         CNODE_TSLDR_CONTEXT_CAP,
         CNODE_VSPACE_CAP,
