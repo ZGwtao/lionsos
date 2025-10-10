@@ -36,8 +36,8 @@ typedef struct {
     uint64_t elf_base;
 } arg_t;
 
-/* 4KB in size */
-tsldr_md_t tsldr_metadata_patched;
+/* 4KB * 64 in size */
+tsldr_md_array_t tsldr_metadata_patched;
 /*
  * A shared memory region with container, containing content from tsldr_metadata_patched
  * Will be init each time the container restarts by copying the data from above
@@ -233,11 +233,6 @@ seL4_Bool fault(microkit_child child, microkit_msginfo msginfo, microkit_msginfo
 
 seL4_MessageInfo_t monitor_call_debute(void)
 {
-    seL4_Error error = tsldr_grant_cspace_access();
-    if (error != seL4_NoError) {
-        return microkit_msginfo_new(error, 0);
-    }
-
     Elf64_Ehdr *ehdr = (Elf64_Ehdr *)0x6000000;
 
     if (custom_memcmp(ehdr->e_ident, (const unsigned char*)ELFMAG, SELFMAG) != 0) {
@@ -248,7 +243,12 @@ seL4_MessageInfo_t monitor_call_debute(void)
     microkit_dbg_printf(PROGNAME "Verified ELF header\n");
 
     /* init metadata for proto-container's tsldr */
-    tsldr_init_metadata(&tsldr_metadata_patched);
+    tsldr_init_metadata(&tsldr_metadata_patched, 1);
+
+    seL4_Error error = tsldr_grant_cspace_access(1);
+    if (error != seL4_NoError) {
+        return microkit_msginfo_new(error, 0);
+    }
 
     load_elf((void*)trusted_loader_exec, ehdr);
     microkit_dbg_printf(PROGNAME "Copied trusted loader to child PD's memory region\n");
@@ -274,9 +274,9 @@ seL4_MessageInfo_t monitor_call_debute(void)
 seL4_MessageInfo_t monitor_call_restart(void)
 {
     /* init metadata for proto-container's tsldr */
-    tsldr_init_metadata(&tsldr_metadata_patched);
+    tsldr_init_metadata(&tsldr_metadata_patched, 1);
 
-    seL4_Error error = tsldr_grant_cspace_access();
+    seL4_Error error = tsldr_grant_cspace_access(1);
     if (error != seL4_NoError) {
         return microkit_msginfo_new(error, 0);
     }

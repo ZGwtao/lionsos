@@ -67,6 +67,12 @@ typedef struct {
 _Static_assert(sizeof(tsldr_md_t) == TSLDR_MD_SIZE,
                "tsldr_md_t must be exactly one page");
 
+/* each template PD has one */
+typedef struct {
+    /* maximum is 64 per monitor */
+    tsldr_md_t md_array[64];
+} tsldr_md_array_t;
+
 
 #define PD_CAP_BITS     10
 
@@ -169,7 +175,7 @@ seL4_Error tsldr_populate_rights(trusted_loader_t *loader, const unsigned char *
 seL4_Error tsldr_populate_allowed(trusted_loader_t *loader);
 
 
-void tsldr_init_metadata(tsldr_md_t *tsldr_metadata_patched);
+void tsldr_init_metadata(tsldr_md_array_t *array, size_t id);
 
 /**
  * @brief Initialise a trusted loader

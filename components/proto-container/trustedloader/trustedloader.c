@@ -245,11 +245,24 @@ seL4_Error tsldr_populate_allowed(trusted_loader_t *loader)
     return seL4_NoError;
 }
 
-void tsldr_init_metadata(tsldr_md_t *tsldr_metadata_patched)
+void tsldr_init_metadata(tsldr_md_array_t *array, size_t id)
 {
+    if (!array) {
+        microkit_dbg_printf(LIB_NAME_MACRO "Invalid array pointer given\n");
+        return;
+    }
+    if (id >= 64 || id < 0) {
+        microkit_dbg_printf(LIB_NAME_MACRO "Invalid template PD child ID given: %d\n", id);
+        return;
+    }
+    tsldr_md_t *target_md = &array->md_array[id];
+
     /* initialise trusted loader metadata */
     custom_memset((tsldr_md_t *)tsldr_metadata, 0, sizeof(tsldr_md_t));
-    custom_memcpy((tsldr_md_t *)tsldr_metadata, tsldr_metadata_patched, sizeof(tsldr_md_t));
+    custom_memcpy((tsldr_md_t *)tsldr_metadata, target_md, sizeof(tsldr_md_t));
+
+    // one trusted loader in a proto-container may work for this container solely...
+    /* copy corresponding metadata context for the trusted loader lib */
     ((tsldr_md_t *)tsldr_metadata)->init = true;
 }
 
