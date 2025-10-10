@@ -181,12 +181,13 @@ void tsldr_init_metadata(tsldr_md_array_t *array, size_t id);
  * @brief Initialise a trusted loader
  *
  * @param loader Pointer to the trusted loader to initialise
+ * @param id The id of child PD (for a template PD)
  * @param fn Function pointer to the verifying mechanism
  * @param hash_val System hash value
  * @param hash_len Length of the system hash value
  * @param signature_len Length of the access right table signature
  */
-void tsldr_init(trusted_loader_t *loader, crypto_verify_fn fn, seL4_Word hash_val, size_t hash_len, size_t signature_len);
+void tsldr_init(trusted_loader_t *loader, size_t id, crypto_verify_fn fn, seL4_Word hash_val, size_t hash_len, size_t signature_len);
 
 
 void tsldr_restore_caps(trusted_loader_t *loader, bool self_loading);
