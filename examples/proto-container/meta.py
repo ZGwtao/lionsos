@@ -47,10 +47,11 @@ BOARDS: List[Board] = [
     ),
 ]
 
-def container_connect(mpd: SystemDescription.ProtectionDomain, cpd: SystemDescription.ProtectionDomain):
+def container_connect(mpd: SystemDescription.ProtectionDomain, cpd: SystemDescription.ProtectionDomain, cid: int):
 
     name_prefix = mpd.name + "/" + cpd.name + "/"
 
+    # one per container memory regions...
     container_elf = MemoryRegion(name_prefix + "container/elf", 0x800000)
     trampoline_elf = MemoryRegion(name_prefix + "trampoline/elf", 0x800000)
     trampoline_exec = MemoryRegion(name_prefix + "trampoline/exec", 0x800000)
@@ -63,17 +64,16 @@ def container_connect(mpd: SystemDescription.ProtectionDomain, cpd: SystemDescri
     sdf.add_mr(tsldr_exec)
     sdf.add_mr(tsldr_data)
 
-    mpd.add_map(Map(container_elf, 0xA00000000, perms="rw", cached="true"))
-    mpd.add_map(Map(trampoline_exec, 0xD000000, perms="rwx", cached="true"))
-    mpd.add_map(Map(trampoline_elf,  0xD800000, perms="rwx", cached="true"))
-    mpd.add_map(Map(tsldr_exec, 0x4000000, perms="rw", cached="true"))
-    mpd.add_map(Map(tsldr_data, 0x1000000, perms="rw", cached="true"))
+    mpd.add_map(Map(tsldr_data,     0x0ffc0000 + cid * 0x1000,   perms="rw", cached="true"))
+    mpd.add_map(Map(tsldr_exec,     0x10000000 + cid * 0x800000, perms="rw", cached="true"))
+    mpd.add_map(Map(trampoline_elf, 0x30000000 + cid * 0x800000, perms="rw", cached="true"))
+    mpd.add_map(Map(container_elf,  0x50000000 + cid * 0x800000, perms="rw", cached="true"))
 
-    cpd.add_map(Map(container_elf, 0x2000000, perms="rw", cached="true"))
-    cpd.add_map(Map(trampoline_exec, 0x1800000, perms="rwx", cached="true"))
-    cpd.add_map(Map(trampoline_elf,  0x1000000, perms="rwx", cached="true"))
-    cpd.add_map(Map(tsldr_exec, 0x200000, perms="rwx", cached="true"))
-    cpd.add_map(Map(tsldr_data, 0xA00000, perms="rw", cached="true"))
+    cpd.add_map(Map(tsldr_exec,         0x0200000, perms="rwx", cached="true"))
+    cpd.add_map(Map(tsldr_data,         0x0A00000, perms="rw", cached="true"))
+    cpd.add_map(Map(trampoline_elf,     0x1000000, perms="rwx", cached="true"))
+    cpd.add_map(Map(trampoline_exec,    0x1800000, perms="rwx", cached="true"))
+    cpd.add_map(Map(container_elf,      0x2000000, perms="rw", cached="true"))
 
     trampoline_stack = MemoryRegion(name_prefix + "trampoline/stack", 0x1000)
     container_stack = MemoryRegion(name_prefix + "container/stack", 0x1000)
@@ -96,19 +96,19 @@ def frontend_connect(mpd: SystemDescription.ProtectionDomain, fpd: SystemDescrip
     name_prefix = mpd.name + "/" + fpd.name + "/"
 
     ext_trampoline_elf = MemoryRegion(name_prefix + "trampoline", 0x800000)
-    ext_monitor_elf = MemoryRegion(name_prefix + "monitor", 0x800000)
+    ext_protocon_elf = MemoryRegion(name_prefix + "protocon", 0x800000)
     ext_client_elf = MemoryRegion(name_prefix + "client", 0x800000)
 
     sdf.add_mr(ext_trampoline_elf)
-    sdf.add_mr(ext_monitor_elf)
+    sdf.add_mr(ext_protocon_elf)
     sdf.add_mr(ext_client_elf)
 
+    mpd.add_map(Map(ext_protocon_elf,   0x6000000, perms="rw", cached="true"))
     mpd.add_map(Map(ext_trampoline_elf, 0x6800000, perms="rw", cached="true"))
-    mpd.add_map(Map(ext_monitor_elf, 0x6000000, perms="rw", cached="true"))
-    mpd.add_map(Map(ext_client_elf, 0xB000000, perms="rw", cached="true"))
+    mpd.add_map(Map(ext_client_elf,     0x7000000, perms="rw", cached="true"))
 
     fpd.add_map(Map(ext_trampoline_elf, 0x6000000, perms="rw", cached="true"))
-    fpd.add_map(Map(ext_monitor_elf, 0x4000000, perms="rw", cached="true"))
+    fpd.add_map(Map(ext_protocon_elf, 0x4000000, perms="rw", cached="true"))
     fpd.add_map(Map(ext_client_elf, 0xB000000, perms="rw", cached="true"))
 
     sdf.add_channel(Channel(a=mpd, b=fpd, a_id=2, b_id=1, pp_b=True))
@@ -144,10 +144,13 @@ def generate(sdf_path: str, output_dir: str, dtb: DeviceTree):
     blk_virt = ProtectionDomain("blk_virt", "blk_virt.elf", priority=199, stack_size=0x2000)
     blk_system = Sddf.Blk(sdf, blk_node, blk_driver, blk_virt)
 
+    #sp0 = ProtectionDomain("sp0", priority=53)
     container = ProtectionDomain("container", priority=53)
     monitor = ProtectionDomain("monitor", "monitor.elf", priority=54, template=True)
-    _ = monitor.add_child_pd(container, child_id=1)
-    container_connect(monitor, container)
+    _ = monitor.add_child_pd(container, child_id=0)
+    #_ = monitor.add_child_pd(sp0, child_id=1)
+    container_connect(monitor, container, 0)
+    #container_connect(monitor, sp0)
 
     frontend = ProtectionDomain("frontend", "frontend.elf", priority=50)
     frontend_connect(monitor, frontend)

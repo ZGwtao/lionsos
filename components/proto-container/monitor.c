@@ -13,9 +13,18 @@
 
 #define PROGNAME "[@monitor] "
 
-uintptr_t trusted_loader_exec = 0x4000000;
-uintptr_t trampoline_elf = 0xD800000;
-uintptr_t container_elf = 0xA00000000;
+// shared memory with the proto-container PDs
+uintptr_t trusted_loader_exec   = 0x10000000;
+uintptr_t trampoline_elf        = 0x30000000;
+uintptr_t container_elf         = 0x50000000;
+
+// each elf file is of the same upper size limit
+#define ELF_FILE_SIZE           0x800000
+// elf files from frontend as external files...
+// shared memory with the frontend PD
+uintptr_t ext_protocon_elf      = 0x6000000;
+uintptr_t ext_trampoline_elf    = 0x6800000;
+uintptr_t ext_payload_elf       = 0x7000000;
 
 __attribute__((__section__(".fs_client_config"))) fs_client_config_t fs_config;
 
@@ -43,7 +52,7 @@ tsldr_md_array_t tsldr_metadata_patched;
  * A shared memory region with container, containing content from tsldr_metadata_patched
  * Will be init each time the container restarts by copying the data from above
  */
-uintptr_t tsldr_metadata = 0x1000000;
+uintptr_t tsldr_metadata = 0xffc0000;
 
 seL4_Word system_hash;
 unsigned char public_key[PUBLIC_KEY_BYTES];
@@ -100,7 +109,7 @@ static inline uint64_t vaddr_to_file_off_elf64(const void *elf_base, uint64_t va
         uint64_t size  = sh[i].sh_size;
         if (vaddr >= start && vaddr < start + size) {
             if (sh[i].sh_type == SHT_NOBITS) return (uint64_t)-1;
-            return elf_base + sh[i].sh_offset + (vaddr - start);
+            return (uint64_t)(elf_base + sh[i].sh_offset + (vaddr - start));
         }
     }
     return (uint64_t)-1;
@@ -117,7 +126,7 @@ static int patch_elf_section(void *elf_base, char section_name[], char data_file
     }
 
     int err = 0;
-    size_t _ = pico_vfs_readfile2buf((void *)(elf_base + (uint64_t)target_sh->sh_offset), data_file, &err);
+    pico_vfs_readfile2buf((void *)(elf_base + (uint64_t)target_sh->sh_offset), data_file, &err);
     if (err != seL4_NoError) {
         // halt...
         while (1);
@@ -230,8 +239,8 @@ void monitor_call_debute_lower()
     assert(err == seL4_NoError);
 #endif
     /* switch to trusted loader */
-    Elf64_Ehdr *ehdr = (Elf64_Ehdr *)0x6000000;
-    microkit_pd_restart(PD_TEMPLATE_CHILD_TCB, ehdr->e_entry);
+    Elf64_Ehdr *ehdr = (Elf64_Ehdr *)ext_protocon_elf;
+    microkit_pd_restart(0, ehdr->e_entry);
     microkit_dbg_printf(PROGNAME "Started child PD at entrypoint address: 0x%x\n", (unsigned long long)ehdr->e_entry);
 }
 
@@ -270,14 +279,14 @@ void monitor_call_restart_lower()
 #endif
 
     /* switch to trusted loader */
-    Elf64_Ehdr *ehdr = (Elf64_Ehdr *)0x6000000;
+    Elf64_Ehdr *ehdr = (Elf64_Ehdr *)ext_protocon_elf;
     /* set a flag for the trusted loader to check whether to boot or to restart... */
     microkit_dbg_printf(PROGNAME "Restart template PD without reloading trusted loader\n");
     seL4_UserContext ctxt = {0};
     ctxt.pc = ehdr->e_entry;
     ctxt.sp = 0x01000000000;
     err = seL4_TCB_WriteRegisters(
-              BASE_TCB_CAP + PD_TEMPLATE_CHILD_TCB,
+              BASE_TCB_CAP + 0,
               seL4_True,
               0, /* No flags */
               1, /* writing 1 register */
@@ -353,7 +362,7 @@ seL4_Bool fault(microkit_child child, microkit_msginfo msginfo, microkit_msginfo
 
 seL4_MessageInfo_t monitor_call_debute(void)
 {
-    Elf64_Ehdr *ehdr = (Elf64_Ehdr *)0x6000000;
+    Elf64_Ehdr *ehdr = (Elf64_Ehdr *)ext_protocon_elf;
 
     if (custom_memcmp(ehdr->e_ident, (const unsigned char*)ELFMAG, SELFMAG) != 0) {
         microkit_dbg_printf(PROGNAME "Data in shared memory region must be an ELF file\n");
@@ -362,10 +371,10 @@ seL4_MessageInfo_t monitor_call_debute(void)
 
     microkit_dbg_printf(PROGNAME "Verified ELF header\n");
 
+    int cid = 0;
     /* init metadata for proto-container's tsldr */
-    tsldr_init_metadata(&tsldr_metadata_patched, 1);
-
-    seL4_Error error = tsldr_grant_cspace_access(1);
+    tsldr_init_metadata(&tsldr_metadata_patched, cid);
+    seL4_Error error = tsldr_grant_cspace_access(cid);
     if (error != seL4_NoError) {
         return microkit_msginfo_new(error, 0);
     }
@@ -373,10 +382,10 @@ seL4_MessageInfo_t monitor_call_debute(void)
     load_elf((void*)trusted_loader_exec, ehdr);
     microkit_dbg_printf(PROGNAME "Copied trusted loader to child PD's memory region\n");
 
-    custom_memcpy((void*)container_elf, (char *)0xb000000, 0x800000);
+    custom_memcpy((void*)container_elf, (char *)ext_payload_elf, ELF_FILE_SIZE);
     microkit_dbg_printf(PROGNAME "Copied client program to child PD's memory region\n");
 
-    custom_memcpy((void*)trampoline_elf, (char *)0x6800000, 0x800000);
+    custom_memcpy((void*)trampoline_elf, (char *)ext_trampoline_elf, ELF_FILE_SIZE);
     microkit_dbg_printf(PROGNAME "Copied trampoline program to child PD's memory region\n");
 
     arg_t arg1 = { .eh = (Elf64_Ehdr *)container_elf, .elf_base = container_elf };
@@ -393,21 +402,21 @@ seL4_MessageInfo_t monitor_call_debute(void)
 
 seL4_MessageInfo_t monitor_call_restart(void)
 {
+    int cid = 0;
     /* init metadata for proto-container's tsldr */
-    tsldr_init_metadata(&tsldr_metadata_patched, 1);
-
-    seL4_Error error = tsldr_grant_cspace_access(1);
+    tsldr_init_metadata(&tsldr_metadata_patched, cid);
+    seL4_Error error = tsldr_grant_cspace_access(cid);
     if (error != seL4_NoError) {
         return microkit_msginfo_new(error, 0);
     }
 
     /* reload the trusted loader to the target place */
-    Elf64_Ehdr *ehdr = (Elf64_Ehdr *)0x6000000;
+    Elf64_Ehdr *ehdr = (Elf64_Ehdr *)ext_protocon_elf;
 
     load_elf((void*)trusted_loader_exec, ehdr);
     microkit_dbg_printf(PROGNAME "Copied trusted loader to child PD's memory region\n");
 
-    custom_memcpy((void*)container_elf, (char *)0xb000000, 0x800000);
+    custom_memcpy((void*)container_elf, (char *)ext_payload_elf, ELF_FILE_SIZE);
     microkit_dbg_printf(PROGNAME "Copied client program to child PD's memory region\n");
 
     arg_t arg1 = { .eh = (Elf64_Ehdr *)container_elf, .elf_base = container_elf };
