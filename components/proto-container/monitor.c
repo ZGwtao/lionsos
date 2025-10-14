@@ -9,6 +9,7 @@
 #include <libmicrokitco.h>
 #include <lions/fs/config.h>
 #include <pico_vfs.h>
+#include <pc_config.h>
 
 #define PROGNAME "[@monitor] "
 
@@ -68,7 +69,7 @@ void test_entrypoint(void)
     microkit_dbg_printf(PROGNAME "(fs mount) finished fs initialisation\n");
 }
 
-static int patch_elf_section(void *elf_base, char section_name[], char data_file[])
+static Elf64_Shdr *elf_find_section(void *elf_base, char section_name[])
 {
     Elf64_Ehdr *eh = (Elf64_Ehdr *)elf_base;
     Elf64_Shdr *sh_table = (Elf64_Shdr *)(elf_base + eh->e_shoff);
@@ -86,7 +87,34 @@ static int patch_elf_section(void *elf_base, char section_name[], char data_file
             break;
         }
     }
-    if (!target_sh) microkit_dbg_printf(PROGNAME "section '%s' not found\n", section_name);
+    return target_sh;
+}
+
+static inline uint64_t vaddr_to_file_off_elf64(const void *elf_base, uint64_t vaddr) {
+    const uint8_t    *base = (const uint8_t *)elf_base;
+    const Elf64_Ehdr *eh   = (const Elf64_Ehdr *)base;
+    const Elf64_Shdr *sh   = (const Elf64_Shdr *)(base + eh->e_shoff);
+
+    for (uint16_t i = 0; i < eh->e_shnum; ++i) {
+        uint64_t start = sh[i].sh_addr;
+        uint64_t size  = sh[i].sh_size;
+        if (vaddr >= start && vaddr < start + size) {
+            if (sh[i].sh_type == SHT_NOBITS) return (uint64_t)-1;
+            return elf_base + sh[i].sh_offset + (vaddr - start);
+        }
+    }
+    return (uint64_t)-1;
+}
+
+static int patch_elf_section(void *elf_base, char section_name[], char data_file[])
+{
+    Elf64_Shdr *target_sh;
+    // find target elf section for patching
+    target_sh= elf_find_section(elf_base, section_name);
+    if (!target_sh) {
+        microkit_dbg_printf(PROGNAME "section '%s' not found\n", section_name);
+        return -1;
+    }
 
     int err = 0;
     size_t _ = pico_vfs_readfile2buf((void *)(elf_base + (uint64_t)target_sh->sh_offset), data_file, &err);
@@ -94,9 +122,80 @@ static int patch_elf_section(void *elf_base, char section_name[], char data_file
         // halt...
         while (1);
     }
+    microkit_dbg_printf(PROGNAME "  %d \n", (void *)(elf_base));
+    microkit_dbg_printf(PROGNAME "  %d \n", (void *)(elf_base + (uint64_t)target_sh->sh_offset));
+    microkit_dbg_printf(PROGNAME "  %d \n", (void *)(((Elf64_Ehdr *)elf_base)->e_entry + (uint64_t)target_sh->sh_offset));
     return err;
 }
 
+static void patch_elf_connection(void *elf_base, char data_file[], uintptr_t vaddr)
+{
+    int err = 0;
+    uintptr_t target_sh = vaddr_to_file_off_elf64(elf_base, vaddr);
+    if (!target_sh) {
+        // halt...
+        while (1);
+    }
+    // FIXME: allow multiple connections...
+    pico_vfs_readfile2buf((void *)target_sh, data_file, &err);
+    if (err != seL4_NoError) {
+        // halt...
+        microkit_dbg_printf(PROGNAME "Failed to establish connection for %s iface: %d", data_file, vaddr);
+        while (1);
+    }
+}
+
+static int patch_iface_sections(void *elf_base, Elf64_Shdr *sh)
+{
+    // parse the interface section ...
+    template_pd_iface_t *ib = (template_pd_iface_t *)(elf_base + (uint64_t)sh->sh_offset);
+
+    const uint8_t *nums = &ib->t1_num;
+    const pc_svc_iface_t *types = &ib->type1;
+    const uintptr_t (*ifaces[8])[PC_MAX_IFACE_NUM] = {
+        &ib->t1_iface, &ib->t2_iface, &ib->t3_iface, &ib->t4_iface,
+        &ib->t5_iface, &ib->t6_iface, &ib->t7_iface, &ib->t8_iface
+    };
+
+    for (int i = 0; i < PC_MAX_IFACE_TYPE; ++i) {
+        if (nums[i] == 0) { // pass...
+            continue;
+        }
+        // fetch the number of interfaces...
+        uint8_t n = nums[i];
+        // sanity checks (dump unused ones)
+        if (n > PC_MAX_IFACE_NUM) {
+            n = PC_MAX_IFACE_NUM;
+        }
+        // fetch interface array
+        const uintptr_t *arr = *ifaces[i];
+        // check interface type and establish connections...
+        switch(types[i]) {
+        case FS_IFACE: {
+            for (uint8_t j = 0; j < n; ++j) {
+                patch_elf_connection(elf_base, "fs_client_container.data", arr[j]);
+            }
+            break;
+        }
+        case TIMER_IFACE: {
+            for (uint8_t j = 0; j < 1; ++j) {
+                patch_elf_connection(elf_base, "timer_client_container.data", arr[j]);
+            }
+            break;
+        }
+        case SERIAL_IFACE: {
+            for (uint8_t j = 0; j < n; ++j) {
+                patch_elf_connection(elf_base, "serial_client_container.data", arr[j]);
+            }
+            break;
+        }
+        default:
+            microkit_dbg_printf(PROGNAME "Unsupported interface type: %d", types[i]);
+            break;
+        };
+    }
+    return 0;
+}
 
 void monitor_call_debute_lower()
 {
@@ -111,6 +210,13 @@ void monitor_call_debute_lower()
     if (eh->e_shstrndx == SHN_UNDEF || eh->e_shstrndx >= eh->e_shnum)
         microkit_dbg_printf(PROGNAME "invalid e_shstrndx");
 
+    Elf64_Shdr *iface_sh;
+    iface_sh = elf_find_section(elf_base, IFACE_SECTION_NAME);
+    if (!iface_sh) {
+        microkit_dbg_printf(PROGNAME "Failed to restart container as no iface section specified\n");
+        return;
+    }
+#if 0
     int err = patch_elf_section(elf_base, ".timer_client_config", "timer_client_container.data");
     assert(err == seL4_NoError);
 
@@ -119,7 +225,10 @@ void monitor_call_debute_lower()
 
     err = patch_elf_section(elf_base, ".fs_client_config", "fs_client_container.data");
     assert(err == seL4_NoError);
-
+#else
+    int err = patch_iface_sections(elf_base, iface_sh);
+    assert(err == seL4_NoError);
+#endif
     /* switch to trusted loader */
     Elf64_Ehdr *ehdr = (Elf64_Ehdr *)0x6000000;
     microkit_pd_restart(PD_TEMPLATE_CHILD_TCB, ehdr->e_entry);
@@ -140,6 +249,13 @@ void monitor_call_restart_lower()
     if (eh->e_shstrndx == SHN_UNDEF || eh->e_shstrndx >= eh->e_shnum)
         microkit_dbg_printf(PROGNAME "invalid e_shstrndx");
 
+    Elf64_Shdr *iface_sh;
+    iface_sh = elf_find_section(elf_base, IFACE_SECTION_NAME);
+    if (!iface_sh) {
+        microkit_dbg_printf(PROGNAME "Failed to restart container as no iface section specified!\n");
+        return;
+    }
+#if 0
     int err = patch_elf_section(elf_base, ".timer_client_config", "timer_client_container.data");
     assert(err == seL4_NoError);
 
@@ -148,6 +264,10 @@ void monitor_call_restart_lower()
 
     err = patch_elf_section(elf_base, ".fs_client_config", "fs_client_container.data");
     assert(err == seL4_NoError);
+#else
+    int err = patch_iface_sections(elf_base, iface_sh);
+    assert(err == seL4_NoError);
+#endif
 
     /* switch to trusted loader */
     Elf64_Ehdr *ehdr = (Elf64_Ehdr *)0x6000000;
