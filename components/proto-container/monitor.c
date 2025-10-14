@@ -244,6 +244,7 @@ void monitor_call_debute_lower()
     uintptr_t payload_base = container_elf + 0x800000 * cid;
     uintptr_t protocon_base = trusted_loader_exec + 0x800000 * cid;
     uintptr_t trampoline_base = trampoline_elf + 0x800000 * cid;
+    uintptr_t entry = ehdr->e_entry;
 
     load_elf((void*)protocon_base, ehdr);
     microkit_dbg_printf(PROGNAME "Copied trusted loader to child PD's memory region\n");
@@ -258,8 +259,8 @@ void monitor_call_debute_lower()
     assert(err == seL4_NoError);
 
     /* switch to trusted loader */
-    microkit_pd_restart(cid, ehdr->e_entry);
-    microkit_dbg_printf(PROGNAME "Started child PD at entrypoint address: 0x%x\n", (unsigned long long)ehdr->e_entry);
+    microkit_pd_restart(cid, entry);
+    microkit_dbg_printf(PROGNAME "Started child PD at entrypoint address: 0x%x\n", (unsigned long long)entry);
 }
 
 
