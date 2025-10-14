@@ -48,11 +48,14 @@ typedef struct {
 
 /* 4KB * 64 in size */
 tsldr_md_array_t tsldr_metadata_patched;
+
 /*
  * A shared memory region with container, containing content from tsldr_metadata_patched
  * Will be init each time the container restarts by copying the data from above
  */
-uintptr_t tsldr_metadata = 0xffc0000;
+uintptr_t tsldr_metadata;
+// base of all shared metadata regions
+tsldr_md_t *tsldr_metadata_base = (tsldr_md_t *)0xffc0000;
 
 seL4_Word system_hash;
 unsigned char public_key[PUBLIC_KEY_BYTES];
@@ -194,7 +197,7 @@ static int patch_iface_sections(void *elf_base, Elf64_Shdr *sh)
         }
         case SERIAL_IFACE: {
             for (uint8_t j = 0; j < n; ++j) {
-                patch_elf_connection(elf_base, "serial_client_container.data", arr[j]);
+                patch_elf_connection(elf_base, "serial_client_sp0.data", arr[j]);
             }
             break;
         }
@@ -208,39 +211,54 @@ static int patch_iface_sections(void *elf_base, Elf64_Shdr *sh)
 
 void monitor_call_debute_lower()
 {
-    arg_t *arg_ptr = (arg_t *) microkit_cothread_my_arg();
-    arg_t my_owned_args = *arg_ptr;
+    //arg_t *arg_ptr = (arg_t *) microkit_cothread_my_arg();
+    //arg_t my_owned_args = *arg_ptr;
 
-    Elf64_Ehdr *eh = my_owned_args.eh;
-    void *elf_base = (void *)my_owned_args.elf_base;
+    Elf64_Ehdr *ehdr = (Elf64_Ehdr *)ext_protocon_elf; //my_owned_args.eh;
 
+    // FIXME: should not use shared memory to determine state...
+    Elf64_Ehdr *eh = (Elf64_Ehdr *)ext_payload_elf;
     if (eh->e_shoff == 0 || eh->e_shnum == 0 || eh->e_shentsize != sizeof(Elf64_Shdr))
         microkit_dbg_printf(PROGNAME "no section headers present or unexpected shentsize\n");
     if (eh->e_shstrndx == SHN_UNDEF || eh->e_shstrndx >= eh->e_shnum)
         microkit_dbg_printf(PROGNAME "invalid e_shstrndx");
 
+    // FIXME: should not use shared memory to determine state...
     Elf64_Shdr *iface_sh;
-    iface_sh = elf_find_section(elf_base, IFACE_SECTION_NAME);
+    iface_sh = elf_find_section((void *)ext_payload_elf, IFACE_SECTION_NAME);
     if (!iface_sh) {
         microkit_dbg_printf(PROGNAME "Failed to restart container as no iface section specified\n");
         return;
     }
-#if 0
-    int err = patch_elf_section(elf_base, ".timer_client_config", "timer_client_container.data");
+    // choose an available container PD in here... 
+
+    int cid = 1;
+
+    // finished and picked one
+    int err = tsldr_grant_cspace_access(cid);
+    if (err != seL4_NoError) {
+        microkit_dbg_printf(PROGNAME "Failed to grant cspace access to target container PD\n");
+        return;
+    }
+
+    uintptr_t payload_base = container_elf + 0x800000 * cid;
+    uintptr_t protocon_base = trusted_loader_exec + 0x800000 * cid;
+    uintptr_t trampoline_base = trampoline_elf + 0x800000 * cid;
+
+    load_elf((void*)protocon_base, ehdr);
+    microkit_dbg_printf(PROGNAME "Copied trusted loader to child PD's memory region\n");
+
+    custom_memcpy((void*)payload_base, (char *)ext_payload_elf, ELF_FILE_SIZE);
+    microkit_dbg_printf(PROGNAME "Copied client program to child PD's memory region\n");
+
+    custom_memcpy((void*)trampoline_base, (char *)ext_trampoline_elf, ELF_FILE_SIZE);
+    microkit_dbg_printf(PROGNAME "Copied trampoline program to child PD's memory region\n");
+
+    err = patch_iface_sections((void *)payload_base, iface_sh);
     assert(err == seL4_NoError);
 
-    err = patch_elf_section(elf_base, ".serial_client_config", "serial_client_container.data");
-    assert(err == seL4_NoError);
-
-    err = patch_elf_section(elf_base, ".fs_client_config", "fs_client_container.data");
-    assert(err == seL4_NoError);
-#else
-    int err = patch_iface_sections(elf_base, iface_sh);
-    assert(err == seL4_NoError);
-#endif
     /* switch to trusted loader */
-    Elf64_Ehdr *ehdr = (Elf64_Ehdr *)ext_protocon_elf;
-    microkit_pd_restart(0, ehdr->e_entry);
+    microkit_pd_restart(cid, ehdr->e_entry);
     microkit_dbg_printf(PROGNAME "Started child PD at entrypoint address: 0x%x\n", (unsigned long long)ehdr->e_entry);
 }
 
@@ -264,19 +282,18 @@ void monitor_call_restart_lower()
         microkit_dbg_printf(PROGNAME "Failed to restart container as no iface section specified!\n");
         return;
     }
-#if 0
-    int err = patch_elf_section(elf_base, ".timer_client_config", "timer_client_container.data");
-    assert(err == seL4_NoError);
+    // choose an available container PD in here... 
 
-    err = patch_elf_section(elf_base, ".serial_client_config", "serial_client_container.data");
-    assert(err == seL4_NoError);
+    int cid = 1;
 
-    err = patch_elf_section(elf_base, ".fs_client_config", "fs_client_container.data");
+    // finished and picked one
+    int err = tsldr_grant_cspace_access(cid);
+    if (err != seL4_NoError) {
+        microkit_dbg_printf(PROGNAME "Failed to grant cspace access to target container PD\n");
+        return;
+    }
+    err = patch_iface_sections(elf_base, iface_sh);
     assert(err == seL4_NoError);
-#else
-    int err = patch_iface_sections(elf_base, iface_sh);
-    assert(err == seL4_NoError);
-#endif
 
     /* switch to trusted loader */
     Elf64_Ehdr *ehdr = (Elf64_Ehdr *)ext_protocon_elf;
@@ -286,7 +303,7 @@ void monitor_call_restart_lower()
     ctxt.pc = ehdr->e_entry;
     ctxt.sp = 0x01000000000;
     err = seL4_TCB_WriteRegisters(
-              BASE_TCB_CAP + 0,
+              BASE_TCB_CAP + cid,
               seL4_True,
               0, /* No flags */
               1, /* writing 1 register */
@@ -312,6 +329,19 @@ void init(void)
     fs_completion_queue = fs_config.server.completion_queue.vaddr;
     fs_share = fs_config.server.share.vaddr;
     fs_init = false;
+
+    // practically we use 32 indices...
+    for (int i = 0; i < tsldr_metadata_patched.avails; ++i) {
+        // must provide valid hash to 
+        if (tsldr_metadata_patched.md_array[i].system_hash != system_hash) {
+            // do not initialise unspecified tsldr metadata
+            continue;
+        }
+        // adjust global pointer
+        tsldr_metadata = (uintptr_t)(tsldr_metadata_base + i);
+        // initialise the target tsldr_metadata
+        tsldr_init_metadata(&tsldr_metadata_patched, i);
+    }
 
     stack_ptrs_arg_array_t costacks = {
         _worker_thread_stack_one,
@@ -363,33 +393,15 @@ seL4_Bool fault(microkit_child child, microkit_msginfo msginfo, microkit_msginfo
 seL4_MessageInfo_t monitor_call_debute(void)
 {
     Elf64_Ehdr *ehdr = (Elf64_Ehdr *)ext_protocon_elf;
-
     if (custom_memcmp(ehdr->e_ident, (const unsigned char*)ELFMAG, SELFMAG) != 0) {
         microkit_dbg_printf(PROGNAME "Data in shared memory region must be an ELF file\n");
         return microkit_msginfo_new(seL4_InvalidArgument, 0);
     }
-
     microkit_dbg_printf(PROGNAME "Verified ELF header\n");
 
-    int cid = 0;
-    /* init metadata for proto-container's tsldr */
-    tsldr_init_metadata(&tsldr_metadata_patched, cid);
-    seL4_Error error = tsldr_grant_cspace_access(cid);
-    if (error != seL4_NoError) {
-        return microkit_msginfo_new(error, 0);
-    }
-
-    load_elf((void*)trusted_loader_exec, ehdr);
-    microkit_dbg_printf(PROGNAME "Copied trusted loader to child PD's memory region\n");
-
-    custom_memcpy((void*)container_elf, (char *)ext_payload_elf, ELF_FILE_SIZE);
-    microkit_dbg_printf(PROGNAME "Copied client program to child PD's memory region\n");
-
-    custom_memcpy((void*)trampoline_elf, (char *)ext_trampoline_elf, ELF_FILE_SIZE);
-    microkit_dbg_printf(PROGNAME "Copied trampoline program to child PD's memory region\n");
-
-    arg_t arg1 = { .eh = (Elf64_Ehdr *)container_elf, .elf_base = container_elf };
-    if (microkit_cothread_spawn(monitor_call_debute_lower, &arg1) == LIBMICROKITCO_NULL_HANDLE) {
+    //arg_t arg1 = { .eh = ehdr, .elf_base = NULL };
+    //if (microkit_cothread_spawn(monitor_call_debute_lower, &arg1) == LIBMICROKITCO_NULL_HANDLE) {
+    if (microkit_cothread_spawn(monitor_call_debute_lower, NULL) == LIBMICROKITCO_NULL_HANDLE) {
         microkit_dbg_printf(PROGNAME "Cannot initialise monitor cothread\n");
         microkit_internal_crash(-1);
     }
@@ -402,14 +414,6 @@ seL4_MessageInfo_t monitor_call_debute(void)
 
 seL4_MessageInfo_t monitor_call_restart(void)
 {
-    int cid = 0;
-    /* init metadata for proto-container's tsldr */
-    tsldr_init_metadata(&tsldr_metadata_patched, cid);
-    seL4_Error error = tsldr_grant_cspace_access(cid);
-    if (error != seL4_NoError) {
-        return microkit_msginfo_new(error, 0);
-    }
-
     /* reload the trusted loader to the target place */
     Elf64_Ehdr *ehdr = (Elf64_Ehdr *)ext_protocon_elf;
 
@@ -433,7 +437,7 @@ seL4_MessageInfo_t monitor_call_restart(void)
 seL4_MessageInfo_t monitor_call_restore(void)
 {
     // TODO
-    microkit_notify(30);
+    microkit_notify(15);
 
     return microkit_msginfo_new(seL4_NoError, 0);
 }

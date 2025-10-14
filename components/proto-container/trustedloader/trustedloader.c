@@ -256,6 +256,7 @@ void tsldr_init_metadata(tsldr_md_array_t *array, size_t id)
         return;
     }
     tsldr_md_t *target_md = &array->md_array[id];
+    //microkit_dbg_printf(LIB_NAME_MACRO "%d %d\n", target_md->child_id, target_md->system_hash);
 
     /* initialise trusted loader metadata */
     custom_memset((tsldr_md_t *)tsldr_metadata, 0, sizeof(tsldr_md_t));

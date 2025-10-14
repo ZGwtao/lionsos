@@ -69,6 +69,7 @@ _Static_assert(sizeof(tsldr_md_t) == TSLDR_MD_SIZE,
 
 /* each template PD has one */
 typedef struct {
+    uint8_t avails;
     /* maximum is 64 per monitor */
     tsldr_md_t md_array[64];
 } tsldr_md_array_t;

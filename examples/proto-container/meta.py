@@ -87,7 +87,7 @@ def container_connect(mpd: SystemDescription.ProtectionDomain, cpd: SystemDescri
     cpd.add_map(Map(container_stack,  0x00FFFBFF000, perms="rw", cached="true"))
     cpd.add_map(Map(container_exec, 0x2800000, perms="rwx", cached="true"))
 
-    sdf.add_channel(Channel(a=mpd, b=cpd, a_id=15, b_id=15, pp_b=True))
+    sdf.add_channel(Channel(a=mpd, b=cpd, a_id=(24+cid), b_id=15, pp_b=True))
 
 
 
@@ -112,7 +112,7 @@ def frontend_connect(mpd: SystemDescription.ProtectionDomain, fpd: SystemDescrip
     fpd.add_map(Map(ext_client_elf, 0xB000000, perms="rw", cached="true"))
 
     sdf.add_channel(Channel(a=mpd, b=fpd, a_id=2, b_id=1, pp_b=True))
-    sdf.add_channel(Channel(a=mpd, b=fpd, a_id=30, b_id=30))
+    sdf.add_channel(Channel(a=mpd, b=fpd, a_id=15, b_id=30))
 
 def corountine_setup(pd: SystemDescription.ProtectionDomain):
     name_prefix = pd.name + "/"
@@ -144,13 +144,13 @@ def generate(sdf_path: str, output_dir: str, dtb: DeviceTree):
     blk_virt = ProtectionDomain("blk_virt", "blk_virt.elf", priority=199, stack_size=0x2000)
     blk_system = Sddf.Blk(sdf, blk_node, blk_driver, blk_virt)
 
-    #sp0 = ProtectionDomain("sp0", priority=53)
+    sp0 = ProtectionDomain("sp0", priority=53)
     container = ProtectionDomain("container", priority=53)
     monitor = ProtectionDomain("monitor", "monitor.elf", priority=54, template=True)
     _ = monitor.add_child_pd(container, child_id=0)
-    #_ = monitor.add_child_pd(sp0, child_id=1)
+    _ = monitor.add_child_pd(sp0, child_id=1)
     container_connect(monitor, container, 0)
-    #container_connect(monitor, sp0)
+    container_connect(monitor, sp0, 1)
 
     frontend = ProtectionDomain("frontend", "frontend.elf", priority=50)
     frontend_connect(monitor, frontend)
@@ -173,6 +173,8 @@ def generate(sdf_path: str, output_dir: str, dtb: DeviceTree):
 
     serial_system.add_client(container)
     timer_system.add_client(container)
+
+    serial_system.add_client(sp0)
 
     container_fs = ProtectionDomain("container_fs", "container_fs.elf", priority=96)
     cfs = LionsOs.FileSystem.Fat(
