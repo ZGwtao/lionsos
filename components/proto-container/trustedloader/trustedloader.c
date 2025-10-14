@@ -737,8 +737,20 @@ seL4_Error tsldr_grant_cspace_access(size_t child_id)
 {
     microkit_dbg_printf(LIB_NAME_MACRO "child id: %d\n", child_id);
 
+    /* sanity check */
+    seL4_Error error = seL4_CNode_Delete(
+        PD_TEMPLATE_CHILD_CSPACE_BASE + child_id,
+        CNODE_SELF_CAP,
+        PD_CAP_BITS
+    );
+    error = seL4_CNode_Delete(
+        PD_TEMPLATE_CHILD_CSPACE_BASE + child_id,
+        CNODE_BACKGROUND_CAP,
+        PD_CAP_BITS
+    );
+
     /* bring back cap to background CNode and template PD CNode */
-    seL4_Error error = seL4_CNode_Copy(
+    error = seL4_CNode_Copy(
         PD_TEMPLATE_CHILD_CSPACE_BASE + child_id,
         CNODE_SELF_CAP, /* self means the child itself */
         PD_CAP_BITS,
