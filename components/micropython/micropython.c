@@ -26,12 +26,30 @@
 #include "lwip/init.h"
 #include "mpconfigport.h"
 #include "fs_helpers.h"
+#include <pc_config.h>
 
 __attribute__((__section__(".serial_client_config"))) serial_client_config_t serial_config;
 __attribute__((__section__(".timer_client_config"))) timer_client_config_t timer_config;
 __attribute__((__section__(".net_client_config"))) net_client_config_t net_config;
 __attribute__((__section__(".fs_client_config"))) fs_client_config_t fs_config;
 __attribute__((__section__(".i2c_client_config"))) i2c_client_config_t i2c_config;
+
+// interface per client payload
+__attribute__((__section__(".template_pd_iface"))) const template_pd_iface_t ciface = {
+    /* numbers of each interface type */
+    .t1_num = 1,
+    .t2_num = 1,
+    .t3_num = 1,
+    /* type identifiers */
+    .type1 = FS_IFACE,
+    .type2 = TIMER_IFACE,
+    .type3 = SERIAL_IFACE,
+    /* pointer array of each interface type */
+    .t1_iface = { (uintptr_t)&fs_config, 0, 0, 0, 0, 0, 0, 0 },
+    .t2_iface = { (uintptr_t)&timer_config, 0, 0, 0, 0, 0, 0, 0 },
+    .t3_iface = { (uintptr_t)&serial_config, 0, 0, 0, 0, 0, 0, 0 }
+};
+
 
 /* MicroPython is always built with networking and I2C support, but whether we
  * actually do anything with it depends on how the user has connected the MicroPython PD,

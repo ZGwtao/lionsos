@@ -12,6 +12,7 @@ LIBMICROKITCO_PATH := $(LIONSOS)/dep/libmicrokitco
 LWIP := $(SDDF)/network/ipstacks/lwip
 # Path to micropython source code
 MICROPYTHON_SRC := $(LIONSOS)/dep/micropython
+PC_SRC_DIR := $(LIONSOS)/components/proto-container
 FROZEN_MANIFEST ?= $(MICROPYTHON_SRC)/extmod/asyncio/manifest.py
 
 # Include the core environment definitions; this will set $(TOP).
@@ -40,6 +41,7 @@ CFLAGS += \
 	-I$(LIONSOS)/include \
 	-I$(LWIP)/src/include \
 	-I$(LWIP)/src/include/ipv4 \
+	-I$(PC_SRC_DIR)/config \
 	-DLWIP_TCP_KEEPALIVE=1 \
 	-ffreestanding \
 	-mtune=$(CPU)
