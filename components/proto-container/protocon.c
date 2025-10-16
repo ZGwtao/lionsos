@@ -18,6 +18,7 @@
 
 /* 4KB in size, read-only */
 uintptr_t tsldr_metadata    = 0x0A00000;
+uintptr_t acgroup_metadata  = 0x0A01000;
 uintptr_t trampoline_elf    = 0x1000000;
 uintptr_t container_elf     = 0x2000000;
 uintptr_t container_exec    = 0x2800000;
@@ -82,15 +83,15 @@ void init(void)
     }
     microkit_dbg_printf(PROGNAME "Verified ELF header\n");
 
-    char *section = NULL;
+    char *section = (char *)acgroup_metadata;
     seL4_Word section_size = 0;
-
+#if 0
     /* parse access rights table */
     error = tsldr_parse_rights(ehdr, &section, &section_size);
     if (error) {
         microkit_internal_crash(error);
     }
-
+#endif
     /* populate the access rights to the loader */
     error = tsldr_populate_rights(&loader_context, (unsigned char *)section, section_size);
     if (error) {
