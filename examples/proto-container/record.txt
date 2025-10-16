@@ -1,0 +1,10 @@
+
+- channel between monitor and container
+    -> max 62 ids for channels
+    -> some allocated for other channels
+    -> assume monitor has maximumlly 32 clients -> begins at 24, ends at 24+31
+
+- one page between monitor and container for acgroup
+    -> valid at each trust loading time
+    -> reset at each restart
+    

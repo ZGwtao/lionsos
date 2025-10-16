@@ -82,7 +82,6 @@ void init(void)
     }
     microkit_dbg_printf(PROGNAME "Verified ELF header\n");
 
-#if 0
     char *section = NULL;
     seL4_Word section_size = 0;
 
@@ -98,7 +97,7 @@ void init(void)
         microkit_internal_crash(-1);
     }
     microkit_dbg_printf(PROGNAME "Finished up access rights integrity checking\n");
-#else
+
     tsldr_restore_caps(&loader_context, true);
 
     /* (really) populate allowed access rights */
@@ -113,7 +112,7 @@ void init(void)
 
     load_elf((void *)ehdr->e_entry, ehdr);
     microkit_dbg_printf(PROGNAME "Load client elf to the targeting memory region\n");
-#endif
+
     load_elf((void *)trampoline_ehdr->e_entry, trampoline_ehdr);
     microkit_dbg_printf(PROGNAME "Load trampoline elf to the targeting memory region\n");
 

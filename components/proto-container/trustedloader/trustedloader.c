@@ -82,6 +82,8 @@ seL4_Error tsldr_parse_rights(Elf64_Ehdr *ehdr, char *ref_section[], seL4_Word *
 
     if (*ref_section == NULL) {
         microkit_dbg_printf(LIB_NAME_MACRO ".access_rights section not found in ELF\n");
+        // halt...
+        while (1);
         return seL4_InvalidArgument;
     }
 
@@ -98,7 +100,7 @@ seL4_Error tsldr_populate_rights(trusted_loader_t *loader, const unsigned char *
     /* specify where to store access rights */
     AccessRights *rights = &loader->access_rights;
     custom_memset((void *)rights, 0, sizeof(AccessRights));
-
+#if 0
     // Calculate the minimum required size: signature + system_hash + num_access_rights
     size_t min_required_size = loader->signature_len + loader->hash_len + NUM_ENTRIES_SIZE;
 
@@ -106,7 +108,7 @@ seL4_Error tsldr_populate_rights(trusted_loader_t *loader, const unsigned char *
         microkit_dbg_puts("[trusted loader]: Signed message length is too short.\n");
         return seL4_InvalidArgument;
     }
-
+#endif
     const unsigned char *signature = signed_message;
     const unsigned char *data = signed_message + loader->signature_len;
 

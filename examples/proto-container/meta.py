@@ -57,13 +57,16 @@ def container_connect(mpd: SystemDescription.ProtectionDomain, cpd: SystemDescri
     trampoline_exec = MemoryRegion(name_prefix + "trampoline/exec", 0x800000)
     tsldr_exec = MemoryRegion(name_prefix + "tsldr/exec", 0x800000)
     tsldr_data = MemoryRegion(name_prefix + "tsldr/data", 0x1000)
+    acgroup_data = MemoryRegion(name_prefix + "acgroup/data", 0x1000)
 
     sdf.add_mr(container_elf)
     sdf.add_mr(trampoline_elf)
     sdf.add_mr(trampoline_exec)
     sdf.add_mr(tsldr_exec)
     sdf.add_mr(tsldr_data)
+    sdf.add_mr(acgroup_data)
 
+    mpd.add_map(Map(acgroup_data,   0x0ff80000 + cid * 0x1000,   perms="rw", cached="true"))
     mpd.add_map(Map(tsldr_data,     0x0ffc0000 + cid * 0x1000,   perms="rw", cached="true"))
     mpd.add_map(Map(tsldr_exec,     0x10000000 + cid * 0x800000, perms="rw", cached="true"))
     mpd.add_map(Map(trampoline_elf, 0x30000000 + cid * 0x800000, perms="rw", cached="true"))
@@ -71,6 +74,7 @@ def container_connect(mpd: SystemDescription.ProtectionDomain, cpd: SystemDescri
 
     cpd.add_map(Map(tsldr_exec,         0x0200000, perms="rwx", cached="true"))
     cpd.add_map(Map(tsldr_data,         0x0A00000, perms="rw", cached="true"))
+    cpd.add_map(Map(acgroup_data,       0x0A01000, perms="rw", cached="true"))
     cpd.add_map(Map(trampoline_elf,     0x1000000, perms="rwx", cached="true"))
     cpd.add_map(Map(trampoline_exec,    0x1800000, perms="rwx", cached="true"))
     cpd.add_map(Map(container_elf,      0x2000000, perms="rw", cached="true"))
@@ -171,10 +175,10 @@ def generate(sdf_path: str, output_dir: str, dtb: DeviceTree):
         partition=board.blk_partition
     )
 
-    serial_system.add_client(container)
-    timer_system.add_client(container)
+    serial_system.add_client(container, optional=True)
+    timer_system.add_client(container, optional=True)
 
-    serial_system.add_client(sp0)
+    serial_system.add_client(sp0, optional=True)
 
     container_fs = ProtectionDomain("container_fs", "container_fs.elf", priority=96)
     cfs = LionsOs.FileSystem.Fat(
@@ -215,7 +219,7 @@ def generate(sdf_path: str, output_dir: str, dtb: DeviceTree):
 
     assert fs.connect()
     assert fs.serialise_config(output_dir)
-    assert cfs.connect()
+    assert cfs.connect(optional=True)
     assert cfs.serialise_config(output_dir)
     assert mfs.connect()
     assert mfs.serialise_config(output_dir)

@@ -7,6 +7,7 @@ typedef void (*entry_fn_t)(void);
 
 void init(void)
 {
+    uintptr_t acgroup_metadata  = 0xA01000;
     uintptr_t tsldr_metadata    = 0xA00000;
     uintptr_t tsldr_program     = 0x200000;
     uintptr_t tsldr_stack_bottom        = 0x0FFFFFFF000;
@@ -21,6 +22,10 @@ void init(void)
 
     /* clean up trusted loader metadata... */
     custom_memset((void *)tsldr_metadata, 0, 0x1000);
+
+    /* clean up access rights group metadata */
+    // is disposable...
+    custom_memset((void *)acgroup_metadata, 0, 0x1000);
 
     /* clean up trusted loader... */
     custom_memset((void *)tsldr_program, 0, 0x800000);

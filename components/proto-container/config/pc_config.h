@@ -18,7 +18,7 @@
 #define PC_MAX_IFACE_TYPE   8
 
 typedef enum {
-    FS_IFACE,
+    FS_IFACE = 0,
     SERIAL_IFACE,
     NETWORK_IFACE,
     TIMER_IFACE,
