@@ -58,19 +58,3 @@ typedef struct {
 } template_pd_iface_t; /* template PD interface */
 
 #define IFACE_SECTION_NAME   ".template_pd_iface"
-
-/*
-0x2000000   monitor_elf     (0x?)
-0x6000000   protocon_elf    (0x800000) -> from frontend
-0x6800000   trampoline_elf  (0x800000) -> from frontend
-0xB000000   payload_elf     (0x800000) -> from frontend
-
-0xffc0000   tsldr_metadata  (0x1000)   -> to container
-~64
-0x10000000  tsldr_execution (0x800000) -> to container
-~64
-0x30000000  trampoline_elf  (0x800000) -> to container
-~64
-0x50000000  container_elf   (0x800000) -> to container
-~64
-*/

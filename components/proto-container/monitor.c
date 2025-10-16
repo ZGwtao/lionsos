@@ -57,6 +57,9 @@ uintptr_t tsldr_metadata;
 // base of all shared metadata regions
 tsldr_md_t *tsldr_metadata_base = (tsldr_md_t *)0xffc0000;
 
+// base of all shared acgroup metadata regions
+acgrp_metadata_t *acgroup_metadata_base = (acgrp_metadata_t *)0x0ff80000;
+
 seL4_Word system_hash;
 unsigned char public_key[PUBLIC_KEY_BYTES];
 
@@ -255,8 +258,23 @@ void monitor_call_debute_lower()
     custom_memcpy((void*)trampoline_base, (char *)ext_trampoline_elf, ELF_FILE_SIZE);
     microkit_dbg_printf(PROGNAME "Copied trampoline program to child PD's memory region\n");
 
+    // establish necessary connections for the payload (not really atm,)
     err = patch_iface_sections((void *)payload_base, iface_sh);
     assert(err == seL4_NoError);
+
+    // fill access rights group metadata now for the payload...
+    // then the trusted loader will revoke unnecessary capabilities beside the ones we can to establish...
+    acgrp_metadata_t *acg = (acgrp_metadata_t *)((unsigned char *)acgroup_metadata_base + 0x1000 * cid);
+    microkit_dbg_printf(PROGNAME "Curr acg addr: 0x%x, cid: %d\n", acg, cid);
+
+    acg->len = 4;
+
+    uintptr_t mappings[100];
+    mappings[0] = 0xfffe00000;
+    mappings[1] = 0xfffe11000;
+    mappings[2] = 0xfffe01000;
+    mappings[3] = 0xfffe12000;
+    encode_access_rights_to((unsigned char *)acg + sizeof(size_t), NULL, 0, NULL, 0, mappings, 4);
 
     /* switch to trusted loader */
     microkit_pd_restart(cid, entry);

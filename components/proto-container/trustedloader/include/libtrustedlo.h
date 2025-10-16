@@ -7,7 +7,7 @@
 /* use ED25519 algorithm for encryption now */
 #define PUBLIC_KEY_BYTES        32
 
-#define NUM_ENTRIES_SIZE        sizeof(uint32_t)
+#define NUM_ENTRIES_SIZE        sizeof(size_t)
 
 /* number of access rights (for seL4 capabilities only) */
 #define MAX_ACCESS_RIGHTS       MICROKIT_MAX_CHANNELS * 3
@@ -73,6 +73,14 @@ typedef struct {
     /* maximum is 64 per monitor */
     tsldr_md_t md_array[64];
 } tsldr_md_array_t;
+
+
+typedef struct {
+    // overall length of this region
+    size_t len;
+    // 
+
+} acgrp_metadata_t;
 
 
 #define PD_CAP_BITS     10
@@ -151,6 +159,17 @@ typedef struct {
     crypto_verify_fn verify_func;
 } trusted_loader_t;
 
+
+enum {
+    TYPE_CHANNEL = 0x01,
+    TYPE_IRQ     = 0x02,
+    TYPE_MEMORY  = 0x03,
+};
+
+void encode_access_rights_to(void *base,
+                             const uint64_t *channel_ids, size_t n_channels,
+                             const uint64_t *irq_ids,     size_t n_irqs,
+                             const uint64_t *memory_vaddrs,size_t n_vaddrs);
 
 
 MemoryMapping *tsldr_find_mapping_by_vaddr(trusted_loader_t *loader, seL4_Word vaddr, bool sldr, void *data);

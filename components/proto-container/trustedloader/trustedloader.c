@@ -90,6 +90,44 @@ seL4_Error tsldr_parse_rights(Elf64_Ehdr *ehdr, char *ref_section[], seL4_Word *
     return seL4_NoError;
 }
 
+// Write a u64 in little-endian regardless of host endianness.
+static inline void write_u64_le(uint8_t *p, uint64_t v) {
+    p[0] = (uint8_t)(v);
+    p[1] = (uint8_t)(v >> 8);
+    p[2] = (uint8_t)(v >> 16);
+    p[3] = (uint8_t)(v >> 24);
+    p[4] = (uint8_t)(v >> 32);
+    p[5] = (uint8_t)(v >> 40);
+    p[6] = (uint8_t)(v >> 48);
+    p[7] = (uint8_t)(v >> 56);
+}
+
+// Writes: channels, then irqs, then virtual addrs.
+// Returns total bytes written on success; 0 on insufficient capacity.
+void encode_access_rights_to(void *base,
+                            const uint64_t *channel_ids, size_t n_channels,
+                            const uint64_t *irq_ids,     size_t n_irqs,
+                            const uint64_t *memory_vaddrs,size_t n_vaddrs)
+{
+    uint8_t *p = (uint8_t *)base;
+
+    // Channels
+    for (size_t i = 0; i < n_channels; ++i) {
+        *p++ = (uint8_t)TYPE_CHANNEL;
+        write_u64_le(p, channel_ids[i]); p += 8;
+    }
+    // IRQs
+    for (size_t i = 0; i < n_irqs; ++i) {
+        *p++ = (uint8_t)TYPE_IRQ;
+        write_u64_le(p, irq_ids[i]); p += 8;
+    }
+    // Memory virtual addresses
+    for (size_t i = 0; i < n_vaddrs; ++i) {
+        *p++ = (uint8_t)TYPE_MEMORY;
+        write_u64_le(p, memory_vaddrs[i]); p += 8;
+    }
+}
+
 
 seL4_Error tsldr_populate_rights(trusted_loader_t *loader, const unsigned char *data, size_t len)
 {
@@ -100,7 +138,10 @@ seL4_Error tsldr_populate_rights(trusted_loader_t *loader, const unsigned char *
     /* specify where to store access rights */
     AccessRights *rights = &loader->access_rights;
     custom_memset((void *)rights, 0, sizeof(AccessRights));
-    custom_memcpy(&rights->num_entries, data, NUM_ENTRIES_SIZE);
+
+    acgrp_metadata_t *acg = (acgrp_metadata_t *)data;
+    // init number of entries available...
+    rights->num_entries = acg->len;
 
     microkit_dbg_printf(LIB_NAME_MACRO "Number of access rights: %d\n", rights->num_entries);
 
