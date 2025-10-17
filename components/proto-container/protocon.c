@@ -49,11 +49,6 @@ void init(void)
         microkit_internal_crash(-1);
     }
 
-    microkit_dbg_printf(PROGNAME "child id: %d\n", md->child_id);
-    for (int i = 0; i < MICROKIT_MAX_CHANNELS; ++i) {
-        microkit_dbg_printf(PROGNAME "md[%d]->mappings = 0x%x\n", i, md->mappings[i]);
-    }
-
     tsldr_loading_prologue(&loader_context);
 
     /* initialise the real trusted loader... */

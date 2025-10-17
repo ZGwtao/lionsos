@@ -44,6 +44,11 @@ typedef struct {
     seL4_Word attrs;
 } MemoryMapping;
 
+typedef struct {
+    seL4_Word vaddr;
+    seL4_Word number_of_pages;
+    seL4_Word page_size;
+} StrippedMapping;
 
 #define TSLDR_MD_SIZE 0x1000
 typedef struct {
@@ -76,11 +81,35 @@ typedef struct {
 
 
 typedef struct {
+    // whether or not a valid acg
+    bool grp_init;
+    // corresponding to the XML gid
+    uint8_t grp_idx;
+    // the type of this acg
+    uint8_t grp_type;
+    // channels
+    seL4_Word channels[8];
+    // irqs
+    seL4_Word irqs[8];
+    // mappings
+    StrippedMapping mappings[16];
+} acgrp_t;
+
+typedef struct {
+    // specify which PD this array belongs to
+    uint8_t pd_idx;
+    // number of available acgrp in the array
+    uint8_t grp_num;
+    // array of acgroups
+    acgrp_t array[32];
+} acgrp_array_t;
+
+typedef struct {
     // overall length of this region
     size_t len;
-    // 
-
-} acgrp_metadata_t;
+    // list of acgrp arrays
+    acgrp_array_t list[32];
+} acgrp_arr_list_t;
 
 
 #define PD_CAP_BITS     10

@@ -49,6 +49,9 @@ typedef struct {
 /* 4KB * 64 in size */
 tsldr_md_array_t tsldr_metadata_patched;
 
+
+acgrp_arr_list_t acgrp_metadata_patched;
+
 /*
  * A shared memory region with container, containing content from tsldr_metadata_patched
  * Will be init each time the container restarts by copying the data from above
@@ -58,7 +61,7 @@ uintptr_t tsldr_metadata;
 tsldr_md_t *tsldr_metadata_base = (tsldr_md_t *)0xffc0000;
 
 // base of all shared acgroup metadata regions
-acgrp_metadata_t *acgroup_metadata_base = (acgrp_metadata_t *)0x0ff80000;
+acgrp_arr_list_t *acgroup_metadata_base = (acgrp_arr_list_t *)0x0ff80000;
 
 seL4_Word system_hash;
 unsigned char public_key[PUBLIC_KEY_BYTES];
@@ -235,6 +238,31 @@ void monitor_call_debute_lower()
     }
     // choose an available container PD in here... 
 
+    acgrp_array_t *acg_arr_ptr;
+    size_t acg_num = acgrp_metadata_patched.len;
+    microkit_dbg_printf(PROGNAME "number of available PDs that have acg: %d\n", acg_num);
+    for (int i = 0; i < acg_num; ++i) {
+        acg_arr_ptr = &acgrp_metadata_patched.list[i];
+        microkit_dbg_printf(PROGNAME "[acg_arr] - PD idx: %d\n", acg_arr_ptr->pd_idx);
+        size_t grp_num = acg_arr_ptr->grp_num;
+        for (int j = 0; j < grp_num; ++j) {
+            acgrp_t *grp_ptr = &acg_arr_ptr->array[j];
+            if (grp_ptr->grp_init != false) {
+                microkit_dbg_printf(PROGNAME "[acg_arr][acg: %d]: grp id:   %d\n", j, grp_ptr->grp_idx);
+                microkit_dbg_printf(PROGNAME "[acg_arr][acg: %d]: grp type: %d\n", j, grp_ptr->grp_type);
+
+                // iterate all available mapings of this acg...
+                StrippedMapping *map_ptr = grp_ptr->mappings;
+                for (int k = 0; k < 16; ++k) {
+                    if (!map_ptr[k].vaddr) {
+                        continue;
+                    }
+                    microkit_dbg_printf(PROGNAME "  =>: mappings[%d] vaddr: 0x%x\n", k, map_ptr[k].vaddr);
+                }
+            }
+        }
+    }
+
     int cid = 1;
 
     // finished and picked one
@@ -264,8 +292,10 @@ void monitor_call_debute_lower()
 
     // fill access rights group metadata now for the payload...
     // then the trusted loader will revoke unnecessary capabilities beside the ones we can to establish...
-    acgrp_metadata_t *acg = (acgrp_metadata_t *)((unsigned char *)acgroup_metadata_base + 0x1000 * cid);
+    acgrp_arr_list_t *acg = (acgrp_arr_list_t *)((unsigned char *)acgroup_metadata_base + 0x1000 * cid);
     microkit_dbg_printf(PROGNAME "Curr acg addr: 0x%x, cid: %d\n", acg, cid);
+
+    // parse 
 
     acg->len = 4;
 
