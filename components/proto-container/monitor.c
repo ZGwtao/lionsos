@@ -404,6 +404,12 @@ void monitor_call_debute_lower()
     // we plan to use this information to find a matched child PD whose acgroup array can cover
     // 
 
+    // adjust global pointer
+    tsldr_metadata = (uintptr_t)(tsldr_metadata_base + cid);
+    // initialise the target tsldr_metadata
+    tsldr_init_metadata(&tsldr_metadata_patched, cid);
+
+
     int err = tsldr_grant_cspace_access(cid);
     if (err != seL4_NoError) {
         microkit_dbg_printf(PROGNAME "Failed to grant cspace access to target container PD\n");
@@ -629,8 +635,6 @@ seL4_MessageInfo_t monitor_call_debute(void)
     }
     microkit_dbg_printf(PROGNAME "Verified ELF header\n");
 
-    //arg_t arg1 = { .eh = ehdr, .elf_base = NULL };
-    //if (microkit_cothread_spawn(monitor_call_debute_lower, &arg1) == LIBMICROKITCO_NULL_HANDLE) {
     if (microkit_cothread_spawn(monitor_call_debute_lower, NULL) == LIBMICROKITCO_NULL_HANDLE) {
         microkit_dbg_printf(PROGNAME "Cannot initialise monitor cothread\n");
         microkit_internal_crash(-1);
