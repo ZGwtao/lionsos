@@ -80,6 +80,7 @@ typedef struct {
     // records how many connection a PD can have under a type
     int acg_per_type_num[MAX_PERC_AK_NUM];
     //
+    uintptr_t acg_attr[MAX_PERC_AK_NUM][MAX_PERK_NUM];
 } acg_req_t;
 
 /*
@@ -252,6 +253,10 @@ static int fetch_iface_section_info(void *elf_base, Elf64_Shdr *sh, acg_req_t *r
 
     const uint8_t *nums = &ib->t1_num;
     const pc_svc_iface_t *types = &ib->type1;
+    const uintptr_t (*ifaces[8])[PC_MAX_IFACE_NUM] = {
+        &ib->t1_iface, &ib->t2_iface, &ib->t3_iface, &ib->t4_iface,
+        &ib->t5_iface, &ib->t6_iface, &ib->t7_iface, &ib->t8_iface
+    };
 
     for (int i = 0; i < PC_MAX_IFACE_TYPE; ++i) {
         if (nums[i] == 0) { // pass...
@@ -264,6 +269,23 @@ static int fetch_iface_section_info(void *elf_base, Elf64_Shdr *sh, acg_req_t *r
             n = PC_MAX_IFACE_NUM;
         }
         req->acg_per_type_num[types[i]] = n;
+        // fetch interface array
+        const uintptr_t *arr = *ifaces[i];
+        // check interface type and establish connections...
+
+        switch(types[i]) {
+        case FS_IFACE:
+        case TIMER_IFACE:
+        case SERIAL_IFACE: {
+            for (uint8_t j = 0; j < n; ++j) {
+                req->acg_attr[types[i]][j] = arr[j];
+            }
+            break;
+        }
+        default:
+            microkit_dbg_printf(PROGNAME "Unsupported interface type: %d", types[i]);
+            break;
+        };
     }
 
     int cid = MAX_PERM_CL_NUM;
@@ -343,7 +365,7 @@ void monitor_call_debute_lower()
                     microkit_dbg_printf(PROGNAME "  =>: mappings[%d] vaddr: 0x%x, pn: %d, size: 0x%x\n",
                                         k, map_ptr[k].vaddr, map_ptr[k].number_of_pages, map_ptr[k].page_size);
                 }
-                seL4_Word *e_ptr = grp_ptr->channels;
+                uint8_t *e_ptr = grp_ptr->channels;
                 for (int k = 0; k < 16; ++k) {
                     if (e_ptr[k] >= 62) {
                         continue;
@@ -402,10 +424,6 @@ void monitor_call_debute_lower()
     custom_memcpy((void*)trampoline_base, (char *)ext_trampoline_elf, ELF_FILE_SIZE);
     microkit_dbg_printf(PROGNAME "Copied trampoline program to child PD's memory region\n");
 
-    // establish necessary connections for the payload (not really atm,)
-    err = patch_iface_sections((void *)payload_base, iface_sh);
-    assert(err == seL4_NoError);
-
     // fill access rights group metadata now for the payload...
     // then the trusted loader will revoke unnecessary capabilities beside the ones we can to establish...
     access_rights_table_t *acg = (access_rights_table_t *)((unsigned char *)acgroup_metadata_base + 0x1000 * cid);
@@ -437,7 +455,6 @@ void monitor_call_debute_lower()
         if (!req.acg_per_type_num[type]) {
             continue;
         }
-        req.acg_per_type_num[type]--;
         //
         for (int j = 0; j < 8; ++j) {
             if (grp_array[i].channels[j] >= 62) {
@@ -457,6 +474,13 @@ void monitor_call_debute_lower()
             }
             mappings[num_mappings++] = grp_array[i].mappings[j].vaddr;
         }
+        // update the payload with given data path...
+        patch_elf_connection((void *)payload_base, grp_array[i].data_path, req.acg_attr[type][req.acg_per_type_num[type] - 1]);
+
+        microkit_dbg_printf(PROGNAME "update section with offset: 0x%x with %s\n", req.acg_attr[type][req.acg_per_type_num[type] - 1], grp_array[i].data_path);
+
+        // update number of element under given type
+        req.acg_per_type_num[type]--;
     }
 
     acg->len = num_channels + num_irqs + num_mappings;

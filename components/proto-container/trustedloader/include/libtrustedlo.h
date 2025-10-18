@@ -88,11 +88,13 @@ typedef struct {
     // the type of this acg
     uint8_t grp_type;
     // channels
-    seL4_Word channels[8];
+    uint8_t channels[8];
     // irqs
-    seL4_Word irqs[8];
+    uint8_t irqs[8];
     // mappings
     StrippedMapping mappings[16];
+    // data_path
+    char data_path[64];
 } acgrp_t;
 
 typedef struct {
