@@ -137,9 +137,10 @@ seL4_Error tsldr_populate_rights(trusted_loader_t *loader, const unsigned char *
     }
     /* specify where to store access rights */
     AccessRights *rights = &loader->access_rights;
+    // clean up access rights at each trusted loading time...
     custom_memset((void *)rights, 0, sizeof(AccessRights));
 
-    acgrp_metadata_t *acg = (acgrp_metadata_t *)data;
+    acgrp_arr_list_t *acg = (acgrp_arr_list_t *)data;
     // init number of entries available...
     rights->num_entries = acg->len;
 
@@ -338,7 +339,7 @@ void tsldr_remove_caps(trusted_loader_t *loader, bool self_loading)
         if (error != seL4_NoError) {
             microkit_dbg_printf(LIB_NAME_MACRO "Failed to move vspace to current CNode for manipulation\n");
         }
-        microkit_dbg_printf(LIB_NAME_MACRO "Move target VSpace to current CNode for manipulation\n");
+        //microkit_dbg_printf(LIB_NAME_MACRO "Move target VSpace to current CNode for manipulation\n");
     }
 
     // Map only the allowed memory regions
@@ -352,46 +353,56 @@ void tsldr_remove_caps(trusted_loader_t *loader, bool self_loading)
         if (self_loading) {
             /* move target page from background CNode to current CNode */
             seL4_CPtr page_index = mapping->page;
-            error = seL4_CNode_Move(
-                CNODE_SELF_CAP, CNODE_BASE_MAPPING_CAP + page_index, PD_CAP_BITS,
-                CNODE_BACKGROUND_CAP, BACKGROUND_MAPPING_BASE_CAP + page_index, PD_CAP_BITS);
-            if (error != seL4_NoError) {
-                microkit_dbg_printf(LIB_NAME_MACRO "Failed to move target page to current CNode for mapping\n");
-            }
-            microkit_dbg_printf(LIB_NAME_MACRO "Move target page to current CNode for mapping\n");
+            for (int i = 0; i < mapping->number_of_pages; ++i) {
+                // for each mapping, map all pages in this region...
+                page_index = mapping->page + i;
+                // move a page to the working CNode...
+                error = seL4_CNode_Move(
+                    CNODE_SELF_CAP, CNODE_BASE_MAPPING_CAP + page_index, PD_CAP_BITS,
+                    CNODE_BACKGROUND_CAP, BACKGROUND_MAPPING_BASE_CAP + page_index, PD_CAP_BITS);
+                if (error != seL4_NoError) {
+                    microkit_dbg_printf(LIB_NAME_MACRO "Failed to move target page to current CNode for mapping\n");
+                }
+                //microkit_dbg_printf(LIB_NAME_MACRO "Move target page to current CNode for mapping\n");
 
-            /* map target page at current CNode */
-            error = seL4_ARM_Page_Map(
-                CNODE_BASE_MAPPING_CAP + page_index,
-                CNODE_VSPACE_CAP,
-                mapping->vaddr,
-                rights,
-                mapping->attrs
-            );
-            if (error != seL4_NoError) {
-                microkit_dbg_printf(LIB_NAME_MACRO "Failed to map memory: vaddr=0x%x error=%d\n", mapping->vaddr, error);
-                microkit_internal_crash(error);
-            }
+                /* map target page at current CNode */
+                error = seL4_ARM_Page_Map(
+                    CNODE_BASE_MAPPING_CAP + page_index,
+                    CNODE_VSPACE_CAP,
+                    mapping->vaddr + i * mapping->page_size,
+                    rights,
+                    mapping->attrs
+                );
+                if (error != seL4_NoError) {
+                    microkit_dbg_printf(LIB_NAME_MACRO "Failed to map memory: vaddr=0x%x error=%d\n", mapping->vaddr, error);
+                    microkit_internal_crash(error);
+                }
 
-            /* backing up the mapped page */
-            error = seL4_CNode_Move(
-                CNODE_BACKGROUND_CAP, BACKGROUND_MAPPING_BASE_CAP + page_index, PD_CAP_BITS,
-                CNODE_SELF_CAP, CNODE_BASE_MAPPING_CAP + page_index, PD_CAP_BITS);
-            if (error != seL4_NoError) {
-                microkit_dbg_printf(LIB_NAME_MACRO "Failed to move target page back to background CNode for backup\n");
+                /* backing up the mapped page */
+                error = seL4_CNode_Move(
+                    CNODE_BACKGROUND_CAP, BACKGROUND_MAPPING_BASE_CAP + page_index, PD_CAP_BITS,
+                    CNODE_SELF_CAP, CNODE_BASE_MAPPING_CAP + page_index, PD_CAP_BITS);
+                if (error != seL4_NoError) {
+                    microkit_dbg_printf(LIB_NAME_MACRO "Failed to move target page back to background CNode for backup\n");
+                }
+                microkit_dbg_printf(LIB_NAME_MACRO "Mapped page at vaddr: 0x%x with frame cap: %d\n", mapping->vaddr + i * mapping->page_size, page_index);
             }
-            microkit_dbg_printf(LIB_NAME_MACRO "Move target page back to background CNode for backup\n");
+            //microkit_dbg_printf(LIB_NAME_MACRO "Move target page back to background CNode for backup\n");
         } else {
-            error = seL4_ARM_Page_Map(
-                mapping->page,
-                PD_TEMPLATE_CHILD_VSPACE_BASE + loader->child_id,
-                mapping->vaddr,
-                rights,
-                mapping->attrs
-            );
-            if (error != seL4_NoError) {
-                microkit_dbg_printf(LIB_NAME_MACRO "Failed to map memory: vaddr=0x%x error=%d\n", mapping->vaddr, error);
-                microkit_internal_crash(error);
+            seL4_CPtr page_index;
+            for (int i = 0; i < mapping->number_of_pages; ++i) {
+                page_index = mapping->page + i;
+                error = seL4_ARM_Page_Map(
+                    page_index,
+                    PD_TEMPLATE_CHILD_VSPACE_BASE + loader->child_id,
+                    mapping->vaddr + i * mapping->page_size,
+                    rights,
+                    mapping->attrs
+                );
+                if (error != seL4_NoError) {
+                    microkit_dbg_printf(LIB_NAME_MACRO "Failed to map memory: vaddr=0x%x error=%d\n", mapping->vaddr + i * mapping->page_size, error);
+                    microkit_internal_crash(error);
+                }
             }
         }
         microkit_dbg_printf(LIB_NAME_MACRO "Mapped allowed memory: page=0x%x vaddr=0x%x\n", mapping->page, mapping->vaddr);

@@ -257,7 +257,15 @@ void monitor_call_debute_lower()
                     if (!map_ptr[k].vaddr) {
                         continue;
                     }
-                    microkit_dbg_printf(PROGNAME "  =>: mappings[%d] vaddr: 0x%x\n", k, map_ptr[k].vaddr);
+                    microkit_dbg_printf(PROGNAME "  =>: mappings[%d] vaddr: 0x%x, pn: %d, size: 0x%x\n",
+                                        k, map_ptr[k].vaddr, map_ptr[k].number_of_pages, map_ptr[k].page_size);
+                }
+                seL4_Word *e_ptr = grp_ptr->channels;
+                for (int k = 0; k < 16; ++k) {
+                    if (e_ptr[k] >= 62) {
+                        continue;
+                    }
+                    microkit_dbg_printf(PROGNAME "  =>: channel[%d]: %d\n", k, e_ptr[k]);
                 }
             }
         }
@@ -304,6 +312,8 @@ void monitor_call_debute_lower()
     mappings[1] = 0xfffe11000;
     mappings[2] = 0xfffe01000;
     mappings[3] = 0xfffe12000;
+
+    acg_arr_ptr = &acgrp_metadata_patched.list[cid];
     encode_access_rights_to((unsigned char *)acg + sizeof(size_t), NULL, 0, NULL, 0, mappings, 4);
 
     /* switch to trusted loader */
