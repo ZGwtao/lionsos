@@ -52,6 +52,36 @@ tsldr_md_array_t tsldr_metadata_patched;
 
 acgrp_arr_list_t acgrp_metadata_patched;
 
+// maximum per monitor client container number
+#define MAX_PERM_CL_NUM 32
+// maximum kinds of connection (acgroup kinds) each container has
+#define MAX_PERC_AK_NUM 8
+// maximum number of one connection in a container...
+#define MAX_PERK_NUM    8
+
+// the first level index is referenced by PD idx
+// the second level index is referenced by connection types
+//
+//      typedef enum {
+//         FS_IFACE = 0,
+//         SERIAL_IFACE,
+//         NETWORK_IFACE,
+//         TIMER_IFACE,
+//         I2C_IFACE,
+//         RESERVED, /* could be more than this... */
+//         UNUSED,
+//      } pc_svc_iface_t;
+//
+// stores the number of one kind of conn
+//
+int acg_stat_map[MAX_PERM_CL_NUM][MAX_PERC_AK_NUM];
+
+typedef struct {
+    // records how many connection a PD can have under a type
+    int acg_per_type_num[MAX_PERC_AK_NUM];
+    //
+} acg_req_t;
+
 /*
  * A shared memory region with container, containing content from tsldr_metadata_patched
  * Will be init each time the container restarts by copying the data from above
@@ -203,7 +233,7 @@ static int patch_iface_sections(void *elf_base, Elf64_Shdr *sh)
         }
         case SERIAL_IFACE: {
             for (uint8_t j = 0; j < n; ++j) {
-                patch_elf_connection(elf_base, "serial_client_sp0.data", arr[j]);
+                patch_elf_connection(elf_base, "serial_client_container.data", arr[j]);
             }
             break;
         }
@@ -213,6 +243,42 @@ static int patch_iface_sections(void *elf_base, Elf64_Shdr *sh)
         };
     }
     return 0;
+}
+
+static int fetch_iface_section_info(void *elf_base, Elf64_Shdr *sh, acg_req_t *req)
+{
+    // parse the interface section ...
+    template_pd_iface_t *ib = (template_pd_iface_t *)(elf_base + (uint64_t)sh->sh_offset);
+
+    const uint8_t *nums = &ib->t1_num;
+    const pc_svc_iface_t *types = &ib->type1;
+
+    for (int i = 0; i < PC_MAX_IFACE_TYPE; ++i) {
+        if (nums[i] == 0) { // pass...
+            continue;
+        }
+        // fetch the number of interfaces...
+        uint8_t n = nums[i];
+        // sanity checks (dump unused ones)
+        if (n > PC_MAX_IFACE_NUM) {
+            n = PC_MAX_IFACE_NUM;
+        }
+        req->acg_per_type_num[types[i]] = n;
+    }
+
+    int cid = MAX_PERM_CL_NUM;
+    // try to get available cid with subset match
+    for (int i = 0; i < MAX_PERM_CL_NUM; ++i) {
+        size_t b = 0;
+        for (int j = 0; j < MAX_PERC_AK_NUM; ++j) {
+            b |= (req->acg_per_type_num[j] > acg_stat_map[i][j]);
+        }
+        if (!b) {
+            cid = i;
+            break;
+        }
+    }
+    return cid;
 }
 
 void monitor_call_debute_lower()
@@ -239,15 +305,32 @@ void monitor_call_debute_lower()
     // choose an available container PD in here... 
 
     acgrp_array_t *acg_arr_ptr;
-    size_t acg_num = acgrp_metadata_patched.len;
-    microkit_dbg_printf(PROGNAME "number of available PDs that have acg: %d\n", acg_num);
-    for (int i = 0; i < acg_num; ++i) {
+    size_t pd_num = acgrp_metadata_patched.len;
+
+    microkit_dbg_printf(PROGNAME "number of available PDs that have acg: %d\n", pd_num);
+
+    for (int i = 0; i < pd_num; ++i) {
+        // fetch a client PD that contains acgroups
         acg_arr_ptr = &acgrp_metadata_patched.list[i];
-        microkit_dbg_printf(PROGNAME "[acg_arr] - PD idx: %d\n", acg_arr_ptr->pd_idx);
-        size_t grp_num = acg_arr_ptr->grp_num;
-        for (int j = 0; j < grp_num; ++j) {
+        //microkit_dbg_printf(PROGNAME "[acg_arr] - PD idx: %d\n", acg_arr_ptr->pd_idx);
+        assert(acg_arr_ptr->pd_idx <= MAX_PERM_CL_NUM);
+
+        for (int j = 0; j < acg_arr_ptr->grp_num; ++j) {
+            // check each acgroup
             acgrp_t *grp_ptr = &acg_arr_ptr->array[j];
+            // if this is a valid group (which means initiliased)
             if (grp_ptr->grp_init != false) {
+                // ensure this is a valid type...
+                assert(grp_ptr->grp_type <= MAX_PERC_AK_NUM);
+
+                int cur_num = acg_stat_map[acg_arr_ptr->pd_idx][grp_ptr->grp_type];
+                // check if we have enough connections of a type
+                if (cur_num >= MAX_PERK_NUM) {
+                    // halt...
+                    while (1);
+                }
+                acg_stat_map[acg_arr_ptr->pd_idx][grp_ptr->grp_type]++;
+
                 microkit_dbg_printf(PROGNAME "[acg_arr][acg: %d]: grp id:   %d\n", j, grp_ptr->grp_idx);
                 microkit_dbg_printf(PROGNAME "[acg_arr][acg: %d]: grp type: %d\n", j, grp_ptr->grp_type);
 
@@ -271,9 +354,34 @@ void monitor_call_debute_lower()
         }
     }
 
-    int cid = 1;
-
+    // we assume that all service of the same kind can match (if the connection structure is change, hard code it as well)
+    // MUST ADHERE TO WHAT THIS CONTAINER MONITOR EXPOSES TO THE OUTER WORLD!!
+    // one PD has at most 32 allowed acgroups (if one acgroup points to one service...)
+    //
+    // what the iface gives can be something like:
+    // <type1, 2>, <type2, 3>, <type3, 4>...
+    // we don't have to worry about the referenced address of each required service, just to find a good match here
+    // so we can have a map for one PD which contains acgroup
+    // type1, num: [acg id]
+    // type2, num: [acg id]
+    // ...
     // finished and picked one
+    //
+
+    // a request stat for the client payload...
+    acg_req_t req;
+
+    int cid = fetch_iface_section_info((void *)ext_payload_elf, iface_sh, &req);
+    if (cid >= MAX_PERM_CL_NUM && cid < 0) {
+        // halt...
+        while (1);
+    }
+    microkit_dbg_printf(PROGNAME "cid available: %d\n", cid);
+    //
+    // from the iface section, get how many kinds of service the client need, and the number of each kind
+    // we plan to use this information to find a matched child PD whose acgroup array can cover
+    // 
+
     int err = tsldr_grant_cspace_access(cid);
     if (err != seL4_NoError) {
         microkit_dbg_printf(PROGNAME "Failed to grant cspace access to target container PD\n");
@@ -300,21 +408,59 @@ void monitor_call_debute_lower()
 
     // fill access rights group metadata now for the payload...
     // then the trusted loader will revoke unnecessary capabilities beside the ones we can to establish...
-    acgrp_arr_list_t *acg = (acgrp_arr_list_t *)((unsigned char *)acgroup_metadata_base + 0x1000 * cid);
-    microkit_dbg_printf(PROGNAME "Curr acg addr: 0x%x, cid: %d\n", acg, cid);
+    access_rights_table_t *acg = (access_rights_table_t *)((unsigned char *)acgroup_metadata_base + 0x1000 * cid);
 
-    // parse 
+    // so the trusted loader will not care how these access rights entry sit
+    // all we have to do is specifying a number of total rights while put them after the number
+    // now the job is to collect all access rights from the acgroup from the given acg
+    // but still, we need to choose a subset from the acgroup ...
 
-    acg->len = 4;
-
-    uintptr_t mappings[100];
-    mappings[0] = 0xfffe00000;
-    mappings[1] = 0xfffe11000;
-    mappings[2] = 0xfffe01000;
-    mappings[3] = 0xfffe12000;
-
+    // this is the current alternative to choose a subset from...
     acg_arr_ptr = &acgrp_metadata_patched.list[cid];
-    encode_access_rights_to((unsigned char *)acg + sizeof(size_t), NULL, 0, NULL, 0, mappings, 4);
+
+    size_t num_channels = 0;
+    size_t num_mappings = 0;
+    size_t num_irqs = 0;
+
+    uint64_t channels[100];
+    uint64_t mappings[100];
+    uint64_t irqs[100];
+
+    // get the subset from the above according to the instructions given in req...
+    acgrp_t *grp_array = acg_arr_ptr->array;
+    // check all available acgroups...
+    for (int i = 0; i < acg_arr_ptr->grp_num; ++i) {
+        if (!grp_array[i].grp_init) {
+            continue;
+        }
+        uint8_t type = grp_array[i].grp_type;
+        if (!req.acg_per_type_num[type]) {
+            continue;
+        }
+        req.acg_per_type_num[type]--;
+        //
+        for (int j = 0; j < 8; ++j) {
+            if (grp_array[i].channels[j] >= 62) {
+                continue;
+            }
+            channels[num_channels++] = grp_array[i].channels[j];
+        }
+        //for (int j = 0; j < 8; ++j) {
+        //    if (grp_array[i].irqs[j] >= 62) {
+        //        continue;
+        //    }
+        //    irqs[num_irqs++] = grp_array[i].irqs[j];
+        //}
+        for (int j = 0; j < 16; ++j) {
+            if (!grp_array[i].mappings[j].vaddr) {
+                continue;
+            }
+            mappings[num_mappings++] = grp_array[i].mappings[j].vaddr;
+        }
+    }
+
+    acg->len = num_channels + num_irqs + num_mappings;
+    encode_access_rights_to((unsigned char *)acg + sizeof(size_t), channels, num_channels, irqs, num_irqs, mappings, num_mappings);
 
     /* switch to trusted loader */
     microkit_pd_restart(cid, entry);
@@ -401,6 +547,7 @@ void init(void)
         // initialise the target tsldr_metadata
         tsldr_init_metadata(&tsldr_metadata_patched, i);
     }
+    custom_memset(acg_stat_map, 0, sizeof(int) * MAX_PERM_CL_NUM * MAX_PERC_AK_NUM);
 
     stack_ptrs_arg_array_t costacks = {
         _worker_thread_stack_one,

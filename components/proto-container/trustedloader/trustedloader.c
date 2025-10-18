@@ -140,7 +140,7 @@ seL4_Error tsldr_populate_rights(trusted_loader_t *loader, const unsigned char *
     // clean up access rights at each trusted loading time...
     custom_memset((void *)rights, 0, sizeof(AccessRights));
 
-    acgrp_arr_list_t *acg = (acgrp_arr_list_t *)data;
+    access_rights_table_t *acg = (access_rights_table_t *)data;
     // init number of entries available...
     rights->num_entries = acg->len;
 

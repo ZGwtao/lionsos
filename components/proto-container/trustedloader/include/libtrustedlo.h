@@ -112,6 +112,14 @@ typedef struct {
 } acgrp_arr_list_t;
 
 
+// we use this to parse non-revokable capabilities
+typedef struct {
+    // number of available entries...
+    size_t len;
+    // ...
+} access_rights_table_t;
+
+
 #define PD_CAP_BITS     10
 
 /* access to child TCB from monitor */
