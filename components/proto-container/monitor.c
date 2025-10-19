@@ -363,7 +363,8 @@ void monitor_call_debute_lower()
     // 
 
     // adjust global pointer
-    tsldr_metadata = (uintptr_t)(tsldr_metadata_base + cid);
+    tsldr_metadata = (uintptr_t)((unsigned char *)tsldr_metadata_base + cid * 0x1000);
+    microkit_dbg_printf(PROGNAME "tsldr_metadata: 0x%x\n", tsldr_metadata);
     // initialise the target tsldr_metadata
     tsldr_init_metadata(&tsldr_metadata_patched, cid);
 
@@ -482,6 +483,7 @@ void init(void)
         }
         // adjust global pointer
         tsldr_metadata = (uintptr_t)(tsldr_metadata_base + i);
+        microkit_dbg_printf(PROGNAME "tsldr_metadata: 0x%x\n", tsldr_metadata);
         // initialise the target tsldr_metadata
         tsldr_init_metadata(&tsldr_metadata_patched, i);
     }

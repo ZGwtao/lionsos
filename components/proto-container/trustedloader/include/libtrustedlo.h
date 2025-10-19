@@ -50,7 +50,7 @@ typedef struct {
     seL4_Word page_size;
 } StrippedMapping;
 
-//#define TSLDR_MD_SIZE 0x1000
+
 typedef struct {
     size_t        child_id;
     seL4_Word     system_hash;
@@ -61,8 +61,7 @@ typedef struct {
     MemoryMapping mappings[MICROKIT_MAX_CHANNELS];
     bool          init;
 } tsldr_md_t;
-//_Static_assert(sizeof(tsldr_md_t) == TSLDR_MD_SIZE,
-//               "tsldr_md_t must be exactly one page");
+
 
 /* each template PD has one */
 typedef struct {
