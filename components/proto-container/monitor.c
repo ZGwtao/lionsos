@@ -331,6 +331,11 @@ void monitor_call_debute_lower()
     iface_sh = elf_find_section((void *)ext_payload_elf, IFACE_SECTION_NAME);
     if (!iface_sh) {
         microkit_dbg_printf(PROGNAME "Failed to restart container as no iface section specified\n");
+        ////
+        // FIXME:
+        //  try to signal frontend to print instruction for next step
+        //
+        microkit_notify(15);
         return;
     }
     // choose an available container PD in here... 
@@ -352,9 +357,14 @@ void monitor_call_debute_lower()
     acg_req_t req;
 
     int cid = fetch_iface_section_info((void *)ext_payload_elf, iface_sh, &req);
-    if (cid >= MAX_PERM_CL_NUM && cid < 0) {
-        // halt...
-        while (1);
+    if (cid >= MAX_PERM_CL_NUM || cid < 0) {
+        microkit_dbg_printf(PROGNAME "Failed to find suitable container for payload\n");
+        //
+        // FIXME:
+        //  try to signal frontend to print instruction for next step
+        //
+        microkit_notify(15);
+        return;
     }
     microkit_dbg_printf(PROGNAME "cid available: %d\n", cid);
     //
