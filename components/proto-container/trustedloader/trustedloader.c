@@ -41,12 +41,15 @@ MemoryMapping *tsldr_find_mapping_by_vaddr(trusted_loader_t *loader, seL4_Word v
     return NULL;
 }
 
-static seL4_Word find_channel_by_index(trusted_loader_t *loader, seL4_Word index_data)
+static seL4_Word find_channel_by_index(trusted_loader_t *loader, seL4_Word index_data, uint8_t *cstate)
 {
     tsldr_md_t *md = (tsldr_md_t *)tsldr_metadata;
     if (md->init != true || loader->flags.init != true) {
         microkit_dbg_printf(LIB_NAME_MACRO "Uninitialised trusted loader\n");
         return 0;
+    }
+    if (cstate != NULL) {
+        *cstate = md->cstate[index_data];
     }
     return md->channels[index_data];
 }
@@ -181,7 +184,7 @@ seL4_Error tsldr_populate_allowed(trusted_loader_t *loader)
         const AccessRightEntry *entry = &rights->entries[i];
         switch (entry->type) {
             case ACCESS_TYPE_CHANNEL:
-                if (entry->data < MICROKIT_MAX_CHANNELS && find_channel_by_index(loader, entry->data)) {
+                if (entry->data < MICROKIT_MAX_CHANNELS && find_channel_by_index(loader, entry->data, NULL)) {
                     loader->allowed_channels[entry->data] = true;
                     microkit_dbg_printf(LIB_NAME_MACRO "Allowed channel ID: %d\n", (unsigned long long)entry->data);
                 } else {
@@ -278,20 +281,28 @@ void tsldr_remove_caps(trusted_loader_t *loader, bool self_loading)
 
     // Delete disallowed channel capabilities
     for (seL4_Word channel_id = 0; channel_id < MICROKIT_MAX_CHANNELS; channel_id++) {
-        if (loader->allowed_channels[channel_id] || !find_channel_by_index(loader, channel_id)) {
+        // try to record channel state: pp or notification
+        uint8_t cstate = 0;
+        // ...
+        if (loader->allowed_channels[channel_id] || !find_channel_by_index(loader, channel_id, &cstate)) {
             continue;
+        }
+        seL4_Word channel_base_cap = CNODE_NTFN_BASE_CAP;
+        // if cstate is true, we should use ppc...
+        if (cstate) {
+            channel_base_cap = CNODE_PPC_BASE_CAP;
         }
 
         if (self_loading) {
             error = seL4_CNode_Delete(
                 CNODE_SELF_CAP,
-                CNODE_NTFN_BASE_CAP + channel_id,
+                channel_base_cap + channel_id,
                 PD_CAP_BITS
             );
         } else {
             error = seL4_CNode_Delete(
                 PD_TEMPLATE_CHILD_CSPACE_BASE + loader->child_id,
-                CNODE_NTFN_BASE_CAP + channel_id,
+                channel_base_cap + channel_id,
                 PD_CAP_BITS
             );
         }
@@ -437,8 +448,16 @@ void tsldr_restore_caps(trusted_loader_t *loader, bool self_loading)
 
     // Restore disallowed channel capabilities
     for (seL4_Word channel_id = 0; channel_id < MICROKIT_MAX_CHANNELS; channel_id++) {
-        if (loader->allowed_channels[channel_id] || !find_channel_by_index(loader, channel_id)) {
+        // try to record channel state: pp or notification
+        uint8_t cstate = 0;
+        // ...
+        if (loader->allowed_channels[channel_id] || !find_channel_by_index(loader, channel_id, &cstate)) {
             continue;
+        }
+        seL4_Word channel_base_cap = BACKGROUND_NTFN_BASE_CAP;
+        // if cstate is true, we should use ppc...
+        if (cstate) {
+            channel_base_cap = BACKGROUND_PPC_BASE_CAP;
         }
 
         if (self_loading) {
@@ -447,7 +466,7 @@ void tsldr_restore_caps(trusted_loader_t *loader, bool self_loading)
                 CNODE_NTFN_BASE_CAP + channel_id,
                 PD_CAP_BITS,
                 CNODE_BACKGROUND_CAP,
-                BACKGROUND_NTFN_BASE_CAP + channel_id,
+                channel_base_cap + channel_id,
                 PD_CAP_BITS,
                 seL4_AllRights
             );
@@ -457,7 +476,7 @@ void tsldr_restore_caps(trusted_loader_t *loader, bool self_loading)
                 CNODE_NTFN_BASE_CAP + channel_id,
                 PD_CAP_BITS,
                 PD_TEMPLATE_CHILD_BNODE_BASE + loader->child_id,
-                BACKGROUND_NTFN_BASE_CAP + channel_id,
+                channel_base_cap + channel_id,
                 PD_CAP_BITS,
                 seL4_AllRights
             );

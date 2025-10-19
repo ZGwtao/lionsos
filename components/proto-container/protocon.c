@@ -48,6 +48,7 @@ void init(void)
     if (!md->init) {
         microkit_internal_crash(-1);
     }
+    microkit_dbg_printf(PROGNAME "trusted loading metadata is ready...\n");
 
     tsldr_loading_prologue(&loader_context);
 
