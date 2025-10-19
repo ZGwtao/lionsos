@@ -247,28 +247,13 @@ static int fetch_iface_section_info(void *elf_base, Elf64_Shdr *sh, acg_req_t *r
     return cid;
 }
 
-void monitor_call_debute_lower()
+
+//
+// initialise the global acgroup state map
+//  => everything is read from the microkit patched metadata
+//
+static void init_acg_state_map(void)
 {
-    custom_memset(acg_stat_map, 0, sizeof(int) * MAX_PERM_CL_NUM * MAX_PERC_AK_NUM);
-
-    Elf64_Ehdr *ehdr = (Elf64_Ehdr *)ext_protocon_elf;
-
-    // FIXME: should not use shared memory to determine state...
-    Elf64_Ehdr *eh = (Elf64_Ehdr *)ext_payload_elf;
-    if (eh->e_shoff == 0 || eh->e_shnum == 0 || eh->e_shentsize != sizeof(Elf64_Shdr))
-        microkit_dbg_printf(PROGNAME "no section headers present or unexpected shentsize\n");
-    if (eh->e_shstrndx == SHN_UNDEF || eh->e_shstrndx >= eh->e_shnum)
-        microkit_dbg_printf(PROGNAME "invalid e_shstrndx");
-
-    // FIXME: should not use shared memory to determine state...
-    Elf64_Shdr *iface_sh;
-    iface_sh = elf_find_section((void *)ext_payload_elf, IFACE_SECTION_NAME);
-    if (!iface_sh) {
-        microkit_dbg_printf(PROGNAME "Failed to restart container as no iface section specified\n");
-        return;
-    }
-    // choose an available container PD in here... 
-
     acgrp_array_t *acg_arr_ptr;
     size_t pd_num = acgrp_metadata_patched.len;
 
@@ -319,7 +304,28 @@ void monitor_call_debute_lower()
             }
         }
     }
+}
 
+
+void monitor_call_debute_lower()
+{
+    Elf64_Ehdr *ehdr = (Elf64_Ehdr *)ext_protocon_elf;
+
+    // FIXME: should not use shared memory to determine state...
+    Elf64_Ehdr *eh = (Elf64_Ehdr *)ext_payload_elf;
+    if (eh->e_shoff == 0 || eh->e_shnum == 0 || eh->e_shentsize != sizeof(Elf64_Shdr))
+        microkit_dbg_printf(PROGNAME "no section headers present or unexpected shentsize\n");
+    if (eh->e_shstrndx == SHN_UNDEF || eh->e_shstrndx >= eh->e_shnum)
+        microkit_dbg_printf(PROGNAME "invalid e_shstrndx");
+
+    // FIXME: should not use shared memory to determine state...
+    Elf64_Shdr *iface_sh;
+    iface_sh = elf_find_section((void *)ext_payload_elf, IFACE_SECTION_NAME);
+    if (!iface_sh) {
+        microkit_dbg_printf(PROGNAME "Failed to restart container as no iface section specified\n");
+        return;
+    }
+    // choose an available container PD in here... 
     // we assume that all service of the same kind can match (if the connection structure is change, hard code it as well)
     // MUST ADHERE TO WHAT THIS CONTAINER MONITOR EXPOSES TO THE OUTER WORLD!!
     // one PD has at most 32 allowed acgroups (if one acgroup points to one service...)
@@ -384,7 +390,7 @@ void monitor_call_debute_lower()
     // but still, we need to choose a subset from the acgroup ...
 
     // this is the current alternative to choose a subset from...
-    acg_arr_ptr = &acgrp_metadata_patched.list[cid];
+    acgrp_array_t *acg_arr_ptr = &acgrp_metadata_patched.list[cid];
 
     size_t num_channels = 0;
     size_t num_mappings = 0;
@@ -466,6 +472,7 @@ void init(void)
         tsldr_init_metadata(&tsldr_metadata_patched, i);
     }
     custom_memset(acg_stat_map, 0, sizeof(int) * MAX_PERM_CL_NUM * MAX_PERC_AK_NUM);
+    init_acg_state_map();
 
     stack_ptrs_arg_array_t costacks = {
         _worker_thread_stack_one,
