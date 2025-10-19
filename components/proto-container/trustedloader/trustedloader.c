@@ -454,16 +454,18 @@ void tsldr_restore_caps(trusted_loader_t *loader, bool self_loading)
         if (loader->allowed_channels[channel_id] || !find_channel_by_index(loader, channel_id, &cstate)) {
             continue;
         }
+        seL4_Word channel_dest_base_cap = CNODE_NTFN_BASE_CAP;
         seL4_Word channel_base_cap = BACKGROUND_NTFN_BASE_CAP;
         // if cstate is true, we should use ppc...
         if (cstate) {
+            channel_dest_base_cap = CNODE_PPC_BASE_CAP;
             channel_base_cap = BACKGROUND_PPC_BASE_CAP;
         }
 
         if (self_loading) {
             error = seL4_CNode_Copy(
                 CNODE_SELF_CAP,
-                CNODE_NTFN_BASE_CAP + channel_id,
+                channel_dest_base_cap + channel_id,
                 PD_CAP_BITS,
                 CNODE_BACKGROUND_CAP,
                 channel_base_cap + channel_id,
@@ -473,7 +475,7 @@ void tsldr_restore_caps(trusted_loader_t *loader, bool self_loading)
         } else {
             error = seL4_CNode_Copy(
                 PD_TEMPLATE_CHILD_CSPACE_BASE + loader->child_id,
-                CNODE_NTFN_BASE_CAP + channel_id,
+                channel_dest_base_cap + channel_id,
                 PD_CAP_BITS,
                 PD_TEMPLATE_CHILD_BNODE_BASE + loader->child_id,
                 channel_base_cap + channel_id,
