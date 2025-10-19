@@ -249,6 +249,8 @@ static int fetch_iface_section_info(void *elf_base, Elf64_Shdr *sh, acg_req_t *r
 
 void monitor_call_debute_lower()
 {
+    custom_memset(acg_stat_map, 0, sizeof(int) * MAX_PERM_CL_NUM * MAX_PERC_AK_NUM);
+
     Elf64_Ehdr *ehdr = (Elf64_Ehdr *)ext_protocon_elf;
 
     // FIXME: should not use shared memory to determine state...
@@ -290,7 +292,8 @@ void monitor_call_debute_lower()
                 // check if we have enough connections of a type
                 if (cur_num >= MAX_PERK_NUM) {
                     // halt...
-                    while (1);
+                    microkit_dbg_printf(PROGNAME "current number of %d type acg in PD%d is %d\n", grp_ptr->grp_type, i, cur_num);
+                    microkit_internal_crash(-1);
                 }
                 acg_stat_map[acg_arr_ptr->pd_idx][grp_ptr->grp_type]++;
 
