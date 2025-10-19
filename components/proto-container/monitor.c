@@ -71,6 +71,10 @@ acgrp_arr_list_t acgrp_metadata_patched;
 //
 int acg_stat_map[MAX_PERM_CL_NUM][MAX_PERC_AK_NUM];
 
+// availability of current PDs...
+int client_stat[MAX_PERM_CL_NUM];
+
+
 typedef struct {
     // records how many connection a PD can have under a type
     int acg_per_type_num[MAX_PERC_AK_NUM];
@@ -235,6 +239,10 @@ static int fetch_iface_section_info(void *elf_base, Elf64_Shdr *sh, acg_req_t *r
     int cid = MAX_PERM_CL_NUM;
     // try to get available cid with subset match
     for (int i = 0; i < MAX_PERM_CL_NUM; ++i) {
+        if (client_stat[i]) {
+            // iterate the PD list to find next available cid...
+            continue;
+        }
         size_t b = 0;
         for (int j = 0; j < MAX_PERC_AK_NUM; ++j) {
             b |= (req->acg_per_type_num[j] > acg_stat_map[i][j]);
@@ -442,6 +450,12 @@ void monitor_call_debute_lower()
     acg->len = num_channels + num_irqs + num_mappings;
     encode_access_rights_to((unsigned char *)acg + sizeof(size_t), channels, num_channels, irqs, num_irqs, mappings, num_mappings);
 
+    //
+    // set the client PD to restart as exclusive... 
+    // mark current client[cid] PD in use
+    //
+    client_stat[cid] = 1;
+
     /* switch to trusted loader */
     microkit_pd_restart(cid, entry);
     microkit_dbg_printf(PROGNAME "Started child PD at entrypoint address: 0x%x\n", (unsigned long long)entry);
@@ -472,7 +486,10 @@ void init(void)
         tsldr_init_metadata(&tsldr_metadata_patched, i);
     }
     custom_memset(acg_stat_map, 0, sizeof(int) * MAX_PERM_CL_NUM * MAX_PERC_AK_NUM);
+    // global acgroup state initialisation...
     init_acg_state_map();
+    // global client state initialisation...
+    custom_memset(client_stat, 0, sizeof(int) * MAX_PERM_CL_NUM);
 
     stack_ptrs_arg_array_t costacks = {
         _worker_thread_stack_one,
@@ -540,9 +557,20 @@ seL4_MessageInfo_t monitor_call_debute(void)
     return microkit_msginfo_new(seL4_NoError, 0);
 }
 
-seL4_MessageInfo_t monitor_call_restore(void)
+seL4_MessageInfo_t monitor_call_restore(microkit_channel ch)
 {
+    // sanity check for the channel ID
+    if (ch < 24 || ch >= 56) {
+        microkit_dbg_printf(PROGNAME "Received signal from non-client PD that tries to uninstantiate client PD!\n");
+        return microkit_msginfo_new(-1, 0);
+    }
+    assert(client_stat[ch - 24]);
+
+    // restore client PD state...
+    client_stat[ch - 24] = 0;
+
     // TODO
+    // => call frontend's shell to dump instructions for switching work env
     microkit_notify(15);
 
     return microkit_msginfo_new(seL4_NoError, 0);
@@ -570,7 +598,7 @@ seL4_MessageInfo_t protected(microkit_channel ch, microkit_msginfo msginfo)
     //    break;
     case 0x100:
         microkit_dbg_printf(PROGNAME "Exit to uninstantiated container\n");
-        ret = monitor_call_restore();
+        ret = monitor_call_restore(ch);
         break;
     default:
         /* do nothing for now */
