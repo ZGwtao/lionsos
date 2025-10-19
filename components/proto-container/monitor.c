@@ -40,11 +40,6 @@ buffer_metadata_t buffer_metadata[FS_QUEUE_CAPACITY];
 
 bool fs_init;
 
-// argument passing structure to worker cothread
-typedef struct {
-    Elf64_Ehdr *eh;
-    uint64_t elf_base;
-} arg_t;
 
 /* 4KB * 64 in size */
 tsldr_md_array_t tsldr_metadata_patched;
@@ -194,57 +189,6 @@ static void patch_elf_connection(void *elf_base, char data_file[], uintptr_t vad
     }
 }
 
-static int patch_iface_sections(void *elf_base, Elf64_Shdr *sh)
-{
-    // parse the interface section ...
-    template_pd_iface_t *ib = (template_pd_iface_t *)(elf_base + (uint64_t)sh->sh_offset);
-
-    const uint8_t *nums = &ib->t1_num;
-    const pc_svc_iface_t *types = &ib->type1;
-    const uintptr_t (*ifaces[8])[PC_MAX_IFACE_NUM] = {
-        &ib->t1_iface, &ib->t2_iface, &ib->t3_iface, &ib->t4_iface,
-        &ib->t5_iface, &ib->t6_iface, &ib->t7_iface, &ib->t8_iface
-    };
-
-    for (int i = 0; i < PC_MAX_IFACE_TYPE; ++i) {
-        if (nums[i] == 0) { // pass...
-            continue;
-        }
-        // fetch the number of interfaces...
-        uint8_t n = nums[i];
-        // sanity checks (dump unused ones)
-        if (n > PC_MAX_IFACE_NUM) {
-            n = PC_MAX_IFACE_NUM;
-        }
-        // fetch interface array
-        const uintptr_t *arr = *ifaces[i];
-        // check interface type and establish connections...
-        switch(types[i]) {
-        case FS_IFACE: {
-            for (uint8_t j = 0; j < n; ++j) {
-                patch_elf_connection(elf_base, "fs_client_container.data", arr[j]);
-            }
-            break;
-        }
-        case TIMER_IFACE: {
-            for (uint8_t j = 0; j < 1; ++j) {
-                patch_elf_connection(elf_base, "timer_client_container.data", arr[j]);
-            }
-            break;
-        }
-        case SERIAL_IFACE: {
-            for (uint8_t j = 0; j < n; ++j) {
-                patch_elf_connection(elf_base, "serial_client_container.data", arr[j]);
-            }
-            break;
-        }
-        default:
-            microkit_dbg_printf(PROGNAME "Unsupported interface type: %d", types[i]);
-            break;
-        };
-    }
-    return 0;
-}
 
 static int fetch_iface_section_info(void *elf_base, Elf64_Shdr *sh, acg_req_t *req)
 {
@@ -305,10 +249,7 @@ static int fetch_iface_section_info(void *elf_base, Elf64_Shdr *sh, acg_req_t *r
 
 void monitor_call_debute_lower()
 {
-    //arg_t *arg_ptr = (arg_t *) microkit_cothread_my_arg();
-    //arg_t my_owned_args = *arg_ptr;
-
-    Elf64_Ehdr *ehdr = (Elf64_Ehdr *)ext_protocon_elf; //my_owned_args.eh;
+    Elf64_Ehdr *ehdr = (Elf64_Ehdr *)ext_protocon_elf;
 
     // FIXME: should not use shared memory to determine state...
     Elf64_Ehdr *eh = (Elf64_Ehdr *)ext_payload_elf;
@@ -498,62 +439,6 @@ void monitor_call_debute_lower()
 }
 
 
-void monitor_call_restart_lower()
-{
-    arg_t *arg_ptr = (arg_t *) microkit_cothread_my_arg();
-    arg_t my_owned_args = *arg_ptr;
-
-    Elf64_Ehdr *eh = my_owned_args.eh;
-    void *elf_base = (void *)my_owned_args.elf_base;
-
-    if (eh->e_shoff == 0 || eh->e_shnum == 0 || eh->e_shentsize != sizeof(Elf64_Shdr))
-        microkit_dbg_printf(PROGNAME "no section headers present or unexpected shentsize\n");
-    if (eh->e_shstrndx == SHN_UNDEF || eh->e_shstrndx >= eh->e_shnum)
-        microkit_dbg_printf(PROGNAME "invalid e_shstrndx");
-
-    Elf64_Shdr *iface_sh;
-    iface_sh = elf_find_section(elf_base, IFACE_SECTION_NAME);
-    if (!iface_sh) {
-        microkit_dbg_printf(PROGNAME "Failed to restart container as no iface section specified!\n");
-        return;
-    }
-    // choose an available container PD in here... 
-
-    int cid = 1;
-
-    // finished and picked one
-    int err = tsldr_grant_cspace_access(cid);
-    if (err != seL4_NoError) {
-        microkit_dbg_printf(PROGNAME "Failed to grant cspace access to target container PD\n");
-        return;
-    }
-    err = patch_iface_sections(elf_base, iface_sh);
-    assert(err == seL4_NoError);
-
-    /* switch to trusted loader */
-    Elf64_Ehdr *ehdr = (Elf64_Ehdr *)ext_protocon_elf;
-    /* set a flag for the trusted loader to check whether to boot or to restart... */
-    microkit_dbg_printf(PROGNAME "Restart template PD without reloading trusted loader\n");
-    seL4_UserContext ctxt = {0};
-    ctxt.pc = ehdr->e_entry;
-    ctxt.sp = 0x01000000000;
-    err = seL4_TCB_WriteRegisters(
-              BASE_TCB_CAP + cid,
-              seL4_True,
-              0, /* No flags */
-              1, /* writing 1 register */
-              &ctxt
-          );
-
-    if (err != seL4_NoError) {
-        microkit_dbg_puts("microkit_pd_restart: error writing TCB registers\n");
-        microkit_internal_crash(err);
-    }
-    microkit_dbg_printf(PROGNAME "Started child PD at entrypoint address: 0x%x\n", (unsigned long long)ehdr->e_entry);
-}
-
-
-
 void init(void)
 {
     microkit_dbg_puts("Hello from monitor\n");
@@ -645,29 +530,6 @@ seL4_MessageInfo_t monitor_call_debute(void)
     return microkit_msginfo_new(seL4_NoError, 0);
 }
 
-
-seL4_MessageInfo_t monitor_call_restart(void)
-{
-    /* reload the trusted loader to the target place */
-    Elf64_Ehdr *ehdr = (Elf64_Ehdr *)ext_protocon_elf;
-
-    load_elf((void*)trusted_loader_exec, ehdr);
-    microkit_dbg_printf(PROGNAME "Copied trusted loader to child PD's memory region\n");
-
-    custom_memcpy((void*)container_elf, (char *)ext_payload_elf, ELF_FILE_SIZE);
-    microkit_dbg_printf(PROGNAME "Copied client program to child PD's memory region\n");
-
-    arg_t arg1 = { .eh = (Elf64_Ehdr *)container_elf, .elf_base = container_elf };
-    if (microkit_cothread_spawn(monitor_call_restart_lower, &arg1) == LIBMICROKITCO_NULL_HANDLE) {
-        microkit_dbg_printf(PROGNAME "Cannot initialise monitor cothread\n");
-        microkit_internal_crash(-1);
-    }
-    microkit_cothread_yield();
-
-    microkit_dbg_printf(PROGNAME "finished with loading data files\n");
-    return microkit_msginfo_new(seL4_NoError, 0);
-}
-
 seL4_MessageInfo_t monitor_call_restore(void)
 {
     // TODO
@@ -692,10 +554,10 @@ seL4_MessageInfo_t protected(microkit_channel ch, microkit_msginfo msginfo)
         microkit_dbg_printf(PROGNAME "Loading trusted loader and the first client\n");
         ret = monitor_call_debute();
         break;
-    case 2:
-        microkit_dbg_printf(PROGNAME "Restart trusted loader and a new client\n");
-        ret = monitor_call_restart();
-        break;
+    //case 2:
+    //    microkit_dbg_printf(PROGNAME "Restart trusted loader and a new client\n");
+    //    ret = monitor_call_restart(ch - 15);
+    //    break;
     case 0x100:
         microkit_dbg_printf(PROGNAME "Exit to uninstantiated container\n");
         ret = monitor_call_restore();
