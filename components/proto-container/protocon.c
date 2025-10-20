@@ -50,7 +50,11 @@ void init(void)
     }
     microkit_dbg_printf(PROGNAME "trusted loading metadata is ready...\n");
 
-    tsldr_loading_prologue(&loader_context);
+    seL4_Error error = tsldr_loading_prologue(&loader_context);
+    if (error != seL4_NoError) {
+        microkit_dbg_printf(PROGNAME "trusted loading prologue fails!\n");
+        microkit_internal_crash(error);
+    }
 
     /* initialise the real trusted loader... */
     if (loader_context.flags.init != true) {
@@ -60,8 +64,6 @@ void init(void)
         /* loader is now initialised... */
         loader_context.flags.init = true;
     }
-
-    seL4_Error error;
 #if 1
     /* start to parse client elf information */
     Elf64_Ehdr *ehdr = (Elf64_Ehdr *)container_elf;
