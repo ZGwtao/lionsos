@@ -606,9 +606,23 @@ seL4_Error tsldr_loading_epilogue(uintptr_t client_exec, uintptr_t client_stack)
     }
     microkit_dbg_printf(LIB_NAME_MACRO "Move target VSpace to current CNode for manipulation\n");
 
+    seL4_CPtr tsldr_context = -1;
+    for (int i = 0; i < MICROKIT_MAX_CHANNELS; ++i) {
+        if (((tsldr_md_t *)tsldr_metadata)->mappings[i].vaddr == 0xE00000) {
+            tsldr_context = ((tsldr_md_t *)tsldr_metadata)->mappings[i].page;
+            microkit_dbg_printf(LIB_NAME_MACRO "Find trusted loading context page\n");
+            break;
+        }
+    }
+    if (tsldr_context == -1) {
+        microkit_dbg_printf(LIB_NAME_MACRO "Unable to find trusted loading context page!\n");
+        return -1;
+    }
+    tsldr_context += BACKGROUND_MAPPING_BASE_CAP;
+
     error = seL4_CNode_Move(
         CNODE_SELF_CAP, CNODE_TSLDR_CONTEXT_CAP, PD_CAP_BITS,
-        CNODE_BACKGROUND_CAP, BACKGROUND_TSLDR_CONTEXT_CAP, PD_CAP_BITS);
+        CNODE_BACKGROUND_CAP, tsldr_context, PD_CAP_BITS);
     if (error != seL4_NoError) {
         microkit_dbg_printf(LIB_NAME_MACRO "Failed to move target page to current CNode for unmapping\n");
         return error;
@@ -623,7 +637,7 @@ seL4_Error tsldr_loading_epilogue(uintptr_t client_exec, uintptr_t client_stack)
 
     /* backing up the mapped page */
     error = seL4_CNode_Move(
-        CNODE_BACKGROUND_CAP, BACKGROUND_TSLDR_CONTEXT_CAP, PD_CAP_BITS,
+        CNODE_BACKGROUND_CAP, tsldr_context, PD_CAP_BITS,
         CNODE_SELF_CAP, CNODE_TSLDR_CONTEXT_CAP, PD_CAP_BITS);
     if (error != seL4_NoError) {
         microkit_dbg_printf(LIB_NAME_MACRO "Failed to move target page back to background CNode for backup\n");
@@ -678,9 +692,23 @@ seL4_Error tsldr_loading_prologue(trusted_loader_t *loader)
     }
     microkit_dbg_printf(LIB_NAME_MACRO "Move target VSpace to current CNode for manipulation\n");
 
+    seL4_CPtr tsldr_context = -1;
+    for (int i = 0; i < MICROKIT_MAX_CHANNELS; ++i) {
+        if (((tsldr_md_t *)tsldr_metadata)->mappings[i].vaddr == 0xE00000) {
+            tsldr_context = ((tsldr_md_t *)tsldr_metadata)->mappings[i].page;
+            microkit_dbg_printf(LIB_NAME_MACRO "Find trusted loading context page\n");
+            break;
+        }
+    }
+    if (tsldr_context == -1) {
+        microkit_dbg_printf(LIB_NAME_MACRO "Unable to find trusted loading context page!\n");
+        return -1;
+    }
+    tsldr_context += BACKGROUND_MAPPING_BASE_CAP;
+
     error = seL4_CNode_Move(
         CNODE_SELF_CAP, CNODE_TSLDR_CONTEXT_CAP, PD_CAP_BITS,
-        CNODE_BACKGROUND_CAP, BACKGROUND_TSLDR_CONTEXT_CAP, PD_CAP_BITS);
+        CNODE_BACKGROUND_CAP, tsldr_context, PD_CAP_BITS);
     if (error != seL4_NoError) {
         microkit_dbg_printf(LIB_NAME_MACRO "Failed to move target page to current CNode for unmapping\n");
         return error;
@@ -706,7 +734,7 @@ seL4_Error tsldr_loading_prologue(trusted_loader_t *loader)
         CNODE_VSPACE_CAP,
         0xE00000,
         seL4_AllRights,
-        2
+        seL4_ARM_Default_VMAttributes
     );
     if (error != seL4_NoError) {
         microkit_dbg_printf(LIB_NAME_MACRO "Failed to map context to initialise loader\n");
@@ -715,7 +743,7 @@ seL4_Error tsldr_loading_prologue(trusted_loader_t *loader)
 
     /* backing up the mapped page */
     error = seL4_CNode_Move(
-        CNODE_BACKGROUND_CAP, BACKGROUND_TSLDR_CONTEXT_CAP, PD_CAP_BITS,
+        CNODE_BACKGROUND_CAP, tsldr_context, PD_CAP_BITS,
         CNODE_SELF_CAP, CNODE_TSLDR_CONTEXT_CAP, PD_CAP_BITS);
     if (error != seL4_NoError) {
         microkit_dbg_printf(LIB_NAME_MACRO "Failed to move target page back to background CNode for backup\n");
@@ -739,10 +767,7 @@ seL4_Error tsldr_loading_prologue(trusted_loader_t *loader)
 
     } else {
         microkit_dbg_printf(LIB_NAME_MACRO "Restart trusted loader\n");
-
-
     }
-
     return seL4_NoError;
 }
 

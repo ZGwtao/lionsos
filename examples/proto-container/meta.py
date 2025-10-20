@@ -58,6 +58,7 @@ def container_connect(mpd: SystemDescription.ProtectionDomain, cpd: SystemDescri
     tsldr_exec = MemoryRegion(name_prefix + "tsldr/exec", 0x800000)
     tsldr_data = MemoryRegion(name_prefix + "tsldr/data", 0x1000)
     acgroup_data = MemoryRegion(name_prefix + "acgroup/data", 0x1000)
+    tsldr_context = MemoryRegion(name_prefix + "tsldr/context", 0x1000)
 
     sdf.add_mr(container_elf)
     sdf.add_mr(trampoline_elf)
@@ -65,6 +66,7 @@ def container_connect(mpd: SystemDescription.ProtectionDomain, cpd: SystemDescri
     sdf.add_mr(tsldr_exec)
     sdf.add_mr(tsldr_data)
     sdf.add_mr(acgroup_data)
+    sdf.add_mr(tsldr_context)
 
     mpd.add_map(Map(acgroup_data,   0x0ff80000 + cid * 0x1000,   perms="rw", cached="true"))
     mpd.add_map(Map(tsldr_data,     0x0ffc0000 + cid * 0x1000,   perms="rw", cached="true"))
@@ -74,6 +76,7 @@ def container_connect(mpd: SystemDescription.ProtectionDomain, cpd: SystemDescri
 
     cpd.add_map(Map(tsldr_exec,         0x0200000, perms="rwx", cached="true"))
     cpd.add_map(Map(tsldr_data,         0x0A00000, perms="rw", cached="true"))
+    cpd.add_map(Map(tsldr_context,      0x0E00000, perms="rw", cached="true", optional="true"))
     cpd.add_map(Map(acgroup_data,       0x0A01000, perms="rw", cached="true"))
     cpd.add_map(Map(trampoline_elf,     0x1000000, perms="rwx", cached="true"))
     cpd.add_map(Map(trampoline_exec,    0x1800000, perms="rwx", cached="true"))
