@@ -253,17 +253,13 @@ void tsldr_init_metadata(tsldr_md_array_t *array, size_t id)
     microkit_dbg_printf(LIB_NAME_MACRO "child_id: %d\n", ((tsldr_md_t *)tsldr_metadata)->child_id);
 }
 
-void tsldr_init(trusted_loader_t *loader, size_t id, crypto_verify_fn fn, seL4_Word hash_val, size_t hash_len, size_t signature_len)
+void tsldr_init(trusted_loader_t *loader, size_t id)
 {
     if (!loader) {
         microkit_dbg_puts(LIB_NAME_MACRO "Try to init null loader\n");
         return;
     }
     loader->child_id = id;
-    //loader->verify_func = fn;
-    //loader->system_hash = hash_val;
-    //loader->hash_len = hash_len;
-    //loader->signature_len = signature_len;
 }
 
 void tsldr_remove_caps(trusted_loader_t *loader, bool self_loading)

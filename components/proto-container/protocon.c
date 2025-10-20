@@ -59,8 +59,7 @@ void init(void)
     /* initialise the real trusted loader... */
     if (loader_context.flags.init != true) {
         microkit_dbg_printf(PROGNAME "Init loader context\n");
-        tsldr_init(&loader_context, md->child_id, ed25519_verify, md->system_hash, sizeof(seL4_Word), 64);
-        //custom_memcpy(loader_context.public_key, md->public_key, sizeof(md->public_key));
+        tsldr_init(&loader_context, md->child_id);
         /* loader is now initialised... */
         loader_context.flags.init = true;
     }
