@@ -170,12 +170,12 @@ $(SYSTEM_FILE): $(METAPROGRAM) $(IMAGES) $(DTB)
 	$(CP) $(BUILD_DIR)/fat.elf $(BUILD_DIR)/monitor_fs.elf
 	$(CP) $(BUILD_DIR)/fat.elf $(BUILD_DIR)/sp0_fs.elf
 	$(CP) $(BUILD_DIR)/fat.elf $(BUILD_DIR)/sp1_fs.elf
-	$(CP) $(BUILD_DIR)/fat.elf $(BUILD_DIR)/sp2_fs.elf
-	$(CP) $(BUILD_DIR)/fat.elf $(BUILD_DIR)/sp3_fs.elf
-	$(CP) $(BUILD_DIR)/fat.elf $(BUILD_DIR)/sp4_fs.elf
-	$(CP) $(BUILD_DIR)/fat.elf $(BUILD_DIR)/sp5_fs.elf
-	$(CP) $(BUILD_DIR)/fat.elf $(BUILD_DIR)/sp6_fs.elf
-	$(CP) $(BUILD_DIR)/fat.elf $(BUILD_DIR)/sp7_fs.elf
+#	$(CP) $(BUILD_DIR)/fat.elf $(BUILD_DIR)/sp2_fs.elf
+#	$(CP) $(BUILD_DIR)/fat.elf $(BUILD_DIR)/sp3_fs.elf
+#	$(CP) $(BUILD_DIR)/fat.elf $(BUILD_DIR)/sp4_fs.elf
+#	$(CP) $(BUILD_DIR)/fat.elf $(BUILD_DIR)/sp5_fs.elf
+#	$(CP) $(BUILD_DIR)/fat.elf $(BUILD_DIR)/sp6_fs.elf
+#	$(CP) $(BUILD_DIR)/fat.elf $(BUILD_DIR)/sp7_fs.elf
 	$(PYTHON) $(METAPROGRAM) --sddf $(SDDF) --board $(MICROKIT_BOARD) --dtb $(DTB) --output . --sdf $(SYSTEM_FILE)
 	$(OBJCOPY) --update-section .device_resources=serial_driver_device_resources.data serial_driver.elf
 	$(OBJCOPY) --update-section .serial_driver_config=serial_driver_config.data serial_driver.elf
@@ -192,12 +192,14 @@ $(SYSTEM_FILE): $(METAPROGRAM) $(IMAGES) $(DTB)
 #	$(OBJCOPY) --update-section .fs_client_config=fs_client_container.data			micropython.elf
 	$(OBJCOPY) --update-section .blk_driver_config=blk_driver.data blk_driver.elf
 	$(OBJCOPY) --update-section .blk_virt_config=blk_virt.data blk_virt.elf
-	$(OBJCOPY) --update-section .blk_client_config=blk_client_fatfs.data fat.elf
-	$(OBJCOPY) --update-section .blk_client_config=blk_client_container_fs.data container_fs.elf
-	$(OBJCOPY) --update-section .blk_client_config=blk_client_monitor_fs.data monitor_fs.elf
-	$(OBJCOPY) --update-section .fs_server_config=fs_server_fatfs.data fat.elf
-	$(OBJCOPY) --update-section .fs_server_config=fs_server_container_fs.data container_fs.elf
-	$(OBJCOPY) --update-section .fs_server_config=fs_server_monitor_fs.data monitor_fs.elf
+	$(OBJCOPY) --update-section .blk_client_config=blk_client_frontend_fs.data		frontend_fs.elf
+	$(OBJCOPY) --update-section .blk_client_config=blk_client_monitor_fs.data 		monitor_fs.elf
+	$(OBJCOPY) --update-section .blk_client_config=blk_client_sp0_fs.data 			sp0_fs.elf
+	$(OBJCOPY) --update-section .blk_client_config=blk_client_sp1_fs.data	 		sp1_fs.elf
+	$(OBJCOPY) --update-section .fs_server_config=fs_server_frontend_fs.data		frontend_fs.elf
+	$(OBJCOPY) --update-section .fs_server_config=fs_server_monitor_fs.data 		monitor_fs.elf
+	$(OBJCOPY) --update-section .fs_server_config=fs_server_sp0_fs.data 			sp0_fs.elf
+	$(OBJCOPY) --update-section .fs_server_config=fs_server_sp1_fs.data 			sp1_fs.elf
 
 $(IMAGE_FILE) $(REPORT_FILE): $(IMAGES) $(SYSTEM_FILE)
 	$(MICROKIT_TOOL) $(SYSTEM_FILE) \
@@ -205,7 +207,8 @@ $(IMAGE_FILE) $(REPORT_FILE): $(IMAGES) $(SYSTEM_FILE)
 		--config $(MICROKIT_CONFIG) -o $(IMAGE_FILE) -r $(REPORT_FILE)
 
 qemu_disk:
-	$(LIONSOS)/dep/sddf/tools/mkvirtdisk $@ 3 512 16777216
+	$(LIONSOS)/dep/sddf/tools/mkvirtdisk $@ 4 512 16777216
+#	$(LIONSOS)/dep/sddf/tools/mkvirtdisk-gpt $@ 8 512 8388608
 
 qemu: ${IMAGE_FILE} qemu_disk
 	$(QEMU) -machine virt,virtualization=on \

@@ -162,8 +162,8 @@ def generate(sdf_path: str, output_dir: str, dtb: DeviceTree):
     sp3 = ProtectionDomain("sp3", priority=53)
     sp4 = ProtectionDomain("sp4", priority=53)
     sp5 = ProtectionDomain("sp5", priority=53)
-    sp6 = ProtectionDomain("sp6", priority=53)
-    sp7 = ProtectionDomain("sp7", priority=53)
+    # sp6 = ProtectionDomain("sp6", priority=53)
+    # sp7 = ProtectionDomain("sp7", priority=53)
 
     _ = pd_monitor.add_child_pd(sp0, child_id=0)
     _ = pd_monitor.add_child_pd(sp1, child_id=1)
@@ -171,8 +171,8 @@ def generate(sdf_path: str, output_dir: str, dtb: DeviceTree):
     _ = pd_monitor.add_child_pd(sp3, child_id=3)
     _ = pd_monitor.add_child_pd(sp4, child_id=4)
     _ = pd_monitor.add_child_pd(sp5, child_id=5)
-    _ = pd_monitor.add_child_pd(sp6, child_id=6)
-    _ = pd_monitor.add_child_pd(sp7, child_id=7)
+    # _ = pd_monitor.add_child_pd(sp6, child_id=6)
+    # _ = pd_monitor.add_child_pd(sp7, child_id=7)
 
     container_connect(pd_monitor, sp0, 0)
     container_connect(pd_monitor, sp1, 1)
@@ -180,33 +180,33 @@ def generate(sdf_path: str, output_dir: str, dtb: DeviceTree):
     container_connect(pd_monitor, sp3, 3)
     container_connect(pd_monitor, sp4, 4)
     container_connect(pd_monitor, sp5, 5)
-    container_connect(pd_monitor, sp6, 6)
-    container_connect(pd_monitor, sp7, 7)
+    # container_connect(pd_monitor, sp6, 6)
+    # container_connect(pd_monitor, sp7, 7)
 
     pd_fs_sp0 = ProtectionDomain("sp0_fs", "sp0_fs.elf", priority=96)
     pd_fs_sp1 = ProtectionDomain("sp1_fs", "sp1_fs.elf", priority=96)
-    pd_fs_sp2 = ProtectionDomain("sp2_fs", "sp2_fs.elf", priority=96)
-    pd_fs_sp3 = ProtectionDomain("sp3_fs", "sp3_fs.elf", priority=96)
-    pd_fs_sp4 = ProtectionDomain("sp4_fs", "sp4_fs.elf", priority=96)
-    pd_fs_sp5 = ProtectionDomain("sp5_fs", "sp5_fs.elf", priority=96)
-    pd_fs_sp6 = ProtectionDomain("sp6_fs", "sp6_fs.elf", priority=96)
-    pd_fs_sp7 = ProtectionDomain("sp7_fs", "sp7_fs.elf", priority=96)
+    # pd_fs_sp2 = ProtectionDomain("sp2_fs", "sp2_fs.elf", priority=96)
+    # pd_fs_sp3 = ProtectionDomain("sp3_fs", "sp3_fs.elf", priority=96)
+    # pd_fs_sp4 = ProtectionDomain("sp4_fs", "sp4_fs.elf", priority=96)
+    # pd_fs_sp5 = ProtectionDomain("sp5_fs", "sp5_fs.elf", priority=96)
+    # pd_fs_sp6 = ProtectionDomain("sp6_fs", "sp6_fs.elf", priority=96)
+    # pd_fs_sp7 = ProtectionDomain("sp7_fs", "sp7_fs.elf", priority=96)
 
     sp0_fs = LionsOs.FileSystem.Fat(sdf, pd_fs_sp0, sp0, blk=blk_system, partition=0)
     sp1_fs = LionsOs.FileSystem.Fat(sdf, pd_fs_sp1, sp1, blk=blk_system, partition=1)
-    sp2_fs = LionsOs.FileSystem.Fat(sdf, pd_fs_sp2, sp2, blk=blk_system, partition=2)
-    sp3_fs = LionsOs.FileSystem.Fat(sdf, pd_fs_sp3, sp3, blk=blk_system, partition=3)
-    sp4_fs = LionsOs.FileSystem.Fat(sdf, pd_fs_sp4, sp4, blk=blk_system, partition=4)
-    sp5_fs = LionsOs.FileSystem.Fat(sdf, pd_fs_sp5, sp5, blk=blk_system, partition=5)
-    sp6_fs = LionsOs.FileSystem.Fat(sdf, pd_fs_sp6, sp6, blk=blk_system, partition=6)
-    sp7_fs = LionsOs.FileSystem.Fat(sdf, pd_fs_sp7, sp7, blk=blk_system, partition=7)
+    # sp2_fs = LionsOs.FileSystem.Fat(sdf, pd_fs_sp2, sp2, blk=blk_system, partition=2)
+    # sp3_fs = LionsOs.FileSystem.Fat(sdf, pd_fs_sp3, sp3, blk=blk_system, partition=3)
+    # sp4_fs = LionsOs.FileSystem.Fat(sdf, pd_fs_sp4, sp4, blk=blk_system, partition=4)
+    # sp5_fs = LionsOs.FileSystem.Fat(sdf, pd_fs_sp5, sp5, blk=blk_system, partition=5)
+    # sp6_fs = LionsOs.FileSystem.Fat(sdf, pd_fs_sp6, sp6, blk=blk_system, partition=6)
+    # sp7_fs = LionsOs.FileSystem.Fat(sdf, pd_fs_sp7, sp7, blk=blk_system, partition=7)
 
 
     pd_fs_frontend = ProtectionDomain("frontend_fs", "frontend_fs.elf", priority=96)
-    frontend_fs = LionsOs.FileSystem.Fat(sdf, pd_fs_frontend, pd_frontend, blk=blk_system, partition=9)
+    frontend_fs = LionsOs.FileSystem.Fat(sdf, pd_fs_frontend, pd_frontend, blk=blk_system, partition=2)
 
     pd_fs_monitor = ProtectionDomain("monitor_fs", "monitor_fs.elf", priority=96)
-    monitor_fs = LionsOs.FileSystem.Fat(sdf, pd_fs_monitor, pd_monitor, blk=blk_system, partition=8)
+    monitor_fs = LionsOs.FileSystem.Fat(sdf, pd_fs_monitor, pd_monitor, blk=blk_system, partition=3)
 
 
     serial_system.add_client(pd_frontend)
@@ -218,8 +218,8 @@ def generate(sdf_path: str, output_dir: str, dtb: DeviceTree):
     serial_system.add_client(sp3, optional=True)
     serial_system.add_client(sp4, optional=True)
     serial_system.add_client(sp5, optional=True)
-    serial_system.add_client(sp6, optional=True)
-    serial_system.add_client(sp7, optional=True)
+    # serial_system.add_client(sp6, optional=True)
+    # serial_system.add_client(sp7, optional=True)
 
     timer_system.add_client(sp0, optional=True)
     timer_system.add_client(sp1, optional=True)
@@ -227,8 +227,8 @@ def generate(sdf_path: str, output_dir: str, dtb: DeviceTree):
     timer_system.add_client(sp3, optional=True)
     timer_system.add_client(sp4, optional=True)
     timer_system.add_client(sp5, optional=True)
-    timer_system.add_client(sp6, optional=True)
-    timer_system.add_client(sp7, optional=True)
+    # timer_system.add_client(sp6, optional=True)
+    # timer_system.add_client(sp7, optional=True)
 
 
     if board.name =="maaxboard":
@@ -244,12 +244,12 @@ def generate(sdf_path: str, output_dir: str, dtb: DeviceTree):
         pd_fs_monitor,
         pd_fs_sp0,
         pd_fs_sp1,
-        pd_fs_sp2,
-        pd_fs_sp3,
-        pd_fs_sp4,
-        pd_fs_sp5,
-        pd_fs_sp6,
-        pd_fs_sp7,
+        # pd_fs_sp2,
+        # pd_fs_sp3,
+        # pd_fs_sp4,
+        # pd_fs_sp5,
+        # pd_fs_sp6,
+        # pd_fs_sp7,
         timer_driver,
         blk_driver,
         blk_virt,
@@ -266,19 +266,19 @@ def generate(sdf_path: str, output_dir: str, dtb: DeviceTree):
     assert sp0_fs.serialise_config(output_dir)
     assert sp1_fs.connect(optional=True)
     assert sp1_fs.serialise_config(output_dir)
-    assert sp2_fs.connect(optional=True)
-    assert sp2_fs.serialise_config(output_dir)
-    assert sp3_fs.connect(optional=True)
-    assert sp3_fs.serialise_config(output_dir)
-    assert sp4_fs.connect(optional=True)
-    assert sp4_fs.serialise_config(output_dir)
-    assert sp5_fs.connect(optional=True)
-    assert sp5_fs.serialise_config(output_dir)
-    assert sp6_fs.connect(optional=True)
-    assert sp6_fs.serialise_config(output_dir)
-    assert sp7_fs.connect(optional=True)
-    assert sp7_fs.serialise_config(output_dir)
-
+    # assert sp2_fs.connect(optional=True)
+    # assert sp2_fs.serialise_config(output_dir)
+    # assert sp3_fs.connect(optional=True)
+    # assert sp3_fs.serialise_config(output_dir)
+    # assert sp4_fs.connect(optional=True)
+    # assert sp4_fs.serialise_config(output_dir)
+    # assert sp5_fs.connect(optional=True)
+    # assert sp5_fs.serialise_config(output_dir)
+    # assert sp6_fs.connect(optional=True)
+    # assert sp6_fs.serialise_config(output_dir)
+    # assert sp7_fs.connect(optional=True)
+    # assert sp7_fs.serialise_config(output_dir)
+ 
     assert serial_system.connect()
     assert serial_system.serialise_config(output_dir)
     assert timer_system.connect()
