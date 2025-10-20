@@ -208,7 +208,7 @@ seL4_Error tsldr_populate_allowed(trusted_loader_t *loader)
                     seL4_Word vaddr = entry->data;
                     MemoryMapping *mapping = tsldr_find_mapping_by_vaddr(loader, vaddr, true, (void *)tsldr_metadata);
                     if (mapping != NULL) {
-                        loader->allowed_mappings[loader->num_allowed_mappings++] = *mapping;
+                        loader->allowed_mappings[loader->num_allowed_mappings++] = mapping;
                         microkit_dbg_printf(LIB_NAME_MACRO "Allowed memory vaddr: 0x%x\n", (unsigned long long)vaddr);
                     } else {
                         microkit_dbg_printf(LIB_NAME_MACRO "Mapping not found for vaddr: 0x%x\n", (unsigned long long)vaddr);
@@ -260,10 +260,10 @@ void tsldr_init(trusted_loader_t *loader, size_t id, crypto_verify_fn fn, seL4_W
         return;
     }
     loader->child_id = id;
-    loader->verify_func = fn;
-    loader->system_hash = hash_val;
-    loader->hash_len = hash_len;
-    loader->signature_len = signature_len;
+    //loader->verify_func = fn;
+    //loader->system_hash = hash_val;
+    //loader->hash_len = hash_len;
+    //loader->signature_len = signature_len;
 }
 
 void tsldr_remove_caps(trusted_loader_t *loader, bool self_loading)
@@ -355,7 +355,7 @@ void tsldr_remove_caps(trusted_loader_t *loader, bool self_loading)
 
     // Map only the allowed memory regions
     for (seL4_Word i = 0; i < loader->num_allowed_mappings; i++) {
-        const MemoryMapping *mapping = &loader->allowed_mappings[i];
+        const MemoryMapping *mapping = loader->allowed_mappings[i];
         microkit_dbg_printf(LIB_NAME_MACRO "Mapping allowed memory: vaddr=0x%x\n", mapping->vaddr);
 
         seL4_CapRights_t rights = seL4_AllRights;
@@ -539,7 +539,7 @@ void tsldr_restore_caps(trusted_loader_t *loader, bool self_loading)
 
     // Unmapped allowed memory mappings
     for (seL4_Word i = 0; i < loader->num_allowed_mappings; i++) {
-        const MemoryMapping *mapping = &loader->allowed_mappings[i];
+        const MemoryMapping *mapping = loader->allowed_mappings[i];
         microkit_dbg_printf(LIB_NAME_MACRO "Unmapping mapping: vaddr=0x%x\n", mapping->vaddr);
 
         if (self_loading){

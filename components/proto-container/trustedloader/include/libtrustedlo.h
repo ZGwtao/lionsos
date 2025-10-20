@@ -29,7 +29,7 @@ typedef struct {
 
 // Structure to hold all access rights
 typedef struct {
-    seL4_Word system_hash;
+    //seL4_Word system_hash;
     uint32_t num_entries;
     AccessRightEntry entries[MAX_ACCESS_RIGHTS];
 } AccessRights;
@@ -165,7 +165,7 @@ typedef struct {
      */
     bool          allowed_channels[MICROKIT_MAX_CHANNELS];
     bool          allowed_irqs[MICROKIT_MAX_CHANNELS];
-    MemoryMapping allowed_mappings[MICROKIT_MAX_CHANNELS];
+    MemoryMapping *allowed_mappings[MICROKIT_MAX_CHANNELS];
 
     /* Mapping bookkeeping */
     int num_allowed_mappings;   /* 32-bit, but promotes with padding to 64-bit boundary */
@@ -178,15 +178,6 @@ typedef struct {
         bool init;
         /* compiler will pad this group to 8 bytes */
     } flags;
-
-    /* Crypto / verification */
-    seL4_Word     system_hash;               /* 8 bytes */
-    size_t        hash_len;                  /* 8 bytes */
-    size_t        signature_len;             /* 8 bytes */
-    unsigned char public_key[PUBLIC_KEY_BYTES];
-
-    /* Hook for signature verification function */
-    crypto_verify_fn verify_func;
 } trusted_loader_t;
 
 
