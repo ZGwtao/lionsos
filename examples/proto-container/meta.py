@@ -115,7 +115,7 @@ def frontend_connect(mpd: SystemDescription.ProtectionDomain, fpd: SystemDescrip
     fpd.add_map(Map(ext_protocon_elf, 0x4000000, perms="rw", cached="true"))
     fpd.add_map(Map(ext_client_elf, 0xB000000, perms="rw", cached="true"))
 
-    sdf.add_channel(Channel(a=mpd, b=fpd, a_id=2, b_id=1, pp_b=True))
+    sdf.add_channel(Channel(a=mpd, b=fpd, a_id=50, b_id=1, pp_b=True))
     sdf.add_channel(Channel(a=mpd, b=fpd, a_id=15, b_id=30))
 
 def corountine_setup(pd: SystemDescription.ProtectionDomain):
@@ -148,55 +148,88 @@ def generate(sdf_path: str, output_dir: str, dtb: DeviceTree):
     blk_virt = ProtectionDomain("blk_virt", "blk_virt.elf", priority=199, stack_size=0x2000)
     blk_system = Sddf.Blk(sdf, blk_node, blk_driver, blk_virt)
 
+    pd_monitor = ProtectionDomain("monitor", "monitor.elf", priority=54, template=True)
+    pd_frontend = ProtectionDomain("frontend", "frontend.elf", priority=50)
+
+    frontend_connect(pd_monitor, pd_frontend)
+
+    corountine_setup(pd_frontend)
+    corountine_setup(pd_monitor)
+
     sp0 = ProtectionDomain("sp0", priority=53)
-    container = ProtectionDomain("container", priority=53)
-    monitor = ProtectionDomain("monitor", "monitor.elf", priority=54, template=True)
-    _ = monitor.add_child_pd(container, child_id=0)
-    _ = monitor.add_child_pd(sp0, child_id=1)
-    container_connect(monitor, container, 0)
-    container_connect(monitor, sp0, 1)
+    sp1 = ProtectionDomain("sp1", priority=53)
+    sp2 = ProtectionDomain("sp2", priority=53)
+    sp3 = ProtectionDomain("sp3", priority=53)
+    sp4 = ProtectionDomain("sp4", priority=53)
+    sp5 = ProtectionDomain("sp5", priority=53)
+    sp6 = ProtectionDomain("sp6", priority=53)
+    sp7 = ProtectionDomain("sp7", priority=53)
 
-    frontend = ProtectionDomain("frontend", "frontend.elf", priority=50)
-    frontend_connect(monitor, frontend)
+    _ = pd_monitor.add_child_pd(sp0, child_id=0)
+    _ = pd_monitor.add_child_pd(sp1, child_id=1)
+    _ = pd_monitor.add_child_pd(sp2, child_id=2)
+    _ = pd_monitor.add_child_pd(sp3, child_id=3)
+    _ = pd_monitor.add_child_pd(sp4, child_id=4)
+    _ = pd_monitor.add_child_pd(sp5, child_id=5)
+    _ = pd_monitor.add_child_pd(sp6, child_id=6)
+    _ = pd_monitor.add_child_pd(sp7, child_id=7)
 
-    corountine_setup(frontend)
-    corountine_setup(monitor)
+    container_connect(pd_monitor, sp0, 0)
+    container_connect(pd_monitor, sp1, 1)
+    container_connect(pd_monitor, sp2, 2)
+    container_connect(pd_monitor, sp3, 3)
+    container_connect(pd_monitor, sp4, 4)
+    container_connect(pd_monitor, sp5, 5)
+    container_connect(pd_monitor, sp6, 6)
+    container_connect(pd_monitor, sp7, 7)
 
-    serial_system.add_client(frontend)
-    # timer_system.add_client(frontend)
+    pd_fs_sp0 = ProtectionDomain("sp0_fs", "sp0_fs.elf", priority=96)
+    pd_fs_sp1 = ProtectionDomain("sp1_fs", "sp1_fs.elf", priority=96)
+    pd_fs_sp2 = ProtectionDomain("sp2_fs", "sp2_fs.elf", priority=96)
+    pd_fs_sp3 = ProtectionDomain("sp3_fs", "sp3_fs.elf", priority=96)
+    pd_fs_sp4 = ProtectionDomain("sp4_fs", "sp4_fs.elf", priority=96)
+    pd_fs_sp5 = ProtectionDomain("sp5_fs", "sp5_fs.elf", priority=96)
+    pd_fs_sp6 = ProtectionDomain("sp6_fs", "sp6_fs.elf", priority=96)
+    pd_fs_sp7 = ProtectionDomain("sp7_fs", "sp7_fs.elf", priority=96)
 
-    fatfs = ProtectionDomain("fatfs", "fat.elf", priority=96)
+    sp0_fs = LionsOs.FileSystem.Fat(sdf, pd_fs_sp0, sp0, blk=blk_system, partition=0)
+    sp1_fs = LionsOs.FileSystem.Fat(sdf, pd_fs_sp1, sp1, blk=blk_system, partition=1)
+    sp2_fs = LionsOs.FileSystem.Fat(sdf, pd_fs_sp2, sp2, blk=blk_system, partition=2)
+    sp3_fs = LionsOs.FileSystem.Fat(sdf, pd_fs_sp3, sp3, blk=blk_system, partition=3)
+    sp4_fs = LionsOs.FileSystem.Fat(sdf, pd_fs_sp4, sp4, blk=blk_system, partition=4)
+    sp5_fs = LionsOs.FileSystem.Fat(sdf, pd_fs_sp5, sp5, blk=blk_system, partition=5)
+    sp6_fs = LionsOs.FileSystem.Fat(sdf, pd_fs_sp6, sp6, blk=blk_system, partition=6)
+    sp7_fs = LionsOs.FileSystem.Fat(sdf, pd_fs_sp7, sp7, blk=blk_system, partition=7)
 
-    fs = LionsOs.FileSystem.Fat(
-        sdf,
-        fatfs,
-        frontend,
-        blk=blk_system,
-        partition=board.blk_partition
-    )
 
-    serial_system.add_client(container, optional=True)
-    timer_system.add_client(container, optional=True)
+    pd_fs_frontend = ProtectionDomain("frontend_fs", "frontend_fs.elf", priority=96)
+    frontend_fs = LionsOs.FileSystem.Fat(sdf, pd_fs_frontend, pd_frontend, blk=blk_system, partition=9)
+
+    pd_fs_monitor = ProtectionDomain("monitor_fs", "monitor_fs.elf", priority=96)
+    monitor_fs = LionsOs.FileSystem.Fat(sdf, pd_fs_monitor, pd_monitor, blk=blk_system, partition=8)
+
+
+    serial_system.add_client(pd_frontend)
+    serial_system.add_client(pd_monitor)
 
     serial_system.add_client(sp0, optional=True)
+    serial_system.add_client(sp1, optional=True)
+    serial_system.add_client(sp2, optional=True)
+    serial_system.add_client(sp3, optional=True)
+    serial_system.add_client(sp4, optional=True)
+    serial_system.add_client(sp5, optional=True)
+    serial_system.add_client(sp6, optional=True)
+    serial_system.add_client(sp7, optional=True)
 
-    container_fs = ProtectionDomain("container_fs", "container_fs.elf", priority=96)
-    cfs = LionsOs.FileSystem.Fat(
-        sdf,
-        container_fs,
-        container,
-        blk=blk_system,
-        partition=1
-    ) 
+    timer_system.add_client(sp0, optional=True)
+    timer_system.add_client(sp1, optional=True)
+    timer_system.add_client(sp2, optional=True)
+    timer_system.add_client(sp3, optional=True)
+    timer_system.add_client(sp4, optional=True)
+    timer_system.add_client(sp5, optional=True)
+    timer_system.add_client(sp6, optional=True)
+    timer_system.add_client(sp7, optional=True)
 
-    monitor_fs = ProtectionDomain("monitor_fs", "monitor_fs.elf", priority=96)
-    mfs = LionsOs.FileSystem.Fat(
-        sdf,
-        monitor_fs,
-        monitor,
-        blk=blk_system,
-        partition=2
-    )
 
     if board.name =="maaxboard":
         timer_system.add_client(blk_driver)
@@ -205,11 +238,18 @@ def generate(sdf_path: str, output_dir: str, dtb: DeviceTree):
         serial_driver,
         serial_virt_tx,
         serial_virt_rx,
-        monitor,
-        frontend,
-        fatfs,
-        container_fs,
-        monitor_fs,
+        pd_monitor,
+        pd_frontend,
+        pd_fs_frontend,
+        pd_fs_monitor,
+        pd_fs_sp0,
+        pd_fs_sp1,
+        pd_fs_sp2,
+        pd_fs_sp3,
+        pd_fs_sp4,
+        pd_fs_sp5,
+        pd_fs_sp6,
+        pd_fs_sp7,
         timer_driver,
         blk_driver,
         blk_virt,
@@ -217,12 +257,28 @@ def generate(sdf_path: str, output_dir: str, dtb: DeviceTree):
     for pd in pds:
         sdf.add_pd(pd)
 
-    assert fs.connect()
-    assert fs.serialise_config(output_dir)
-    assert cfs.connect(optional=True)
-    assert cfs.serialise_config(output_dir)
-    assert mfs.connect()
-    assert mfs.serialise_config(output_dir)
+    assert frontend_fs.connect()
+    assert frontend_fs.serialise_config(output_dir)
+    assert monitor_fs.connect()
+    assert monitor_fs.serialise_config(output_dir)
+
+    assert sp0_fs.connect(optional=True)
+    assert sp0_fs.serialise_config(output_dir)
+    assert sp1_fs.connect(optional=True)
+    assert sp1_fs.serialise_config(output_dir)
+    assert sp2_fs.connect(optional=True)
+    assert sp2_fs.serialise_config(output_dir)
+    assert sp3_fs.connect(optional=True)
+    assert sp3_fs.serialise_config(output_dir)
+    assert sp4_fs.connect(optional=True)
+    assert sp4_fs.serialise_config(output_dir)
+    assert sp5_fs.connect(optional=True)
+    assert sp5_fs.serialise_config(output_dir)
+    assert sp6_fs.connect(optional=True)
+    assert sp6_fs.serialise_config(output_dir)
+    assert sp7_fs.connect(optional=True)
+    assert sp7_fs.serialise_config(output_dir)
+
     assert serial_system.connect()
     assert serial_system.serialise_config(output_dir)
     assert timer_system.connect()

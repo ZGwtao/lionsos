@@ -166,8 +166,16 @@ $(DTB): $(DTS)
 	$(DTC) -q -I dts -O dtb $(DTS) > $(DTB)
 
 $(SYSTEM_FILE): $(METAPROGRAM) $(IMAGES) $(DTB)
-	$(CP) $(BUILD_DIR)/fat.elf $(BUILD_DIR)/container_fs.elf
-	$(CP) $(BUILD_DIR)/container_fs.elf $(BUILD_DIR)/monitor_fs.elf
+	$(CP) $(BUILD_DIR)/fat.elf $(BUILD_DIR)/frontend_fs.elf
+	$(CP) $(BUILD_DIR)/fat.elf $(BUILD_DIR)/monitor_fs.elf
+	$(CP) $(BUILD_DIR)/fat.elf $(BUILD_DIR)/sp0_fs.elf
+	$(CP) $(BUILD_DIR)/fat.elf $(BUILD_DIR)/sp1_fs.elf
+	$(CP) $(BUILD_DIR)/fat.elf $(BUILD_DIR)/sp2_fs.elf
+	$(CP) $(BUILD_DIR)/fat.elf $(BUILD_DIR)/sp3_fs.elf
+	$(CP) $(BUILD_DIR)/fat.elf $(BUILD_DIR)/sp4_fs.elf
+	$(CP) $(BUILD_DIR)/fat.elf $(BUILD_DIR)/sp5_fs.elf
+	$(CP) $(BUILD_DIR)/fat.elf $(BUILD_DIR)/sp6_fs.elf
+	$(CP) $(BUILD_DIR)/fat.elf $(BUILD_DIR)/sp7_fs.elf
 	$(PYTHON) $(METAPROGRAM) --sddf $(SDDF) --board $(MICROKIT_BOARD) --dtb $(DTB) --output . --sdf $(SYSTEM_FILE)
 	$(OBJCOPY) --update-section .device_resources=serial_driver_device_resources.data serial_driver.elf
 	$(OBJCOPY) --update-section .serial_driver_config=serial_driver_config.data serial_driver.elf
