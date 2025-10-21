@@ -35,12 +35,13 @@ typedef void (*entry_fn_t)(void);
  * vaddr: 0xE00000
  * Should not be static because it needs to be patched externally
  */
-trusted_loader_t loader_context;
+trusted_loader_t *loader_context;
 
 
 void init(void)
 {
     __sel4_ipc_buffer = (seL4_IPCBuffer *)0x100000;
+    loader_context = (trusted_loader_t *)0xE00000;
 
     microkit_dbg_printf(PROGNAME "Entered init\n");
 
@@ -50,18 +51,18 @@ void init(void)
     }
     microkit_dbg_printf(PROGNAME "trusted loading metadata is ready...\n");
 
-    seL4_Error error = tsldr_loading_prologue(&loader_context);
+    seL4_Error error = tsldr_loading_prologue(loader_context);
     if (error != seL4_NoError) {
         microkit_dbg_printf(PROGNAME "trusted loading prologue fails!\n");
         microkit_internal_crash(error);
     }
 
     /* initialise the real trusted loader... */
-    if (loader_context.flags.init != true) {
+    if (loader_context->flags.init != true) {
         microkit_dbg_printf(PROGNAME "Init loader context\n");
-        tsldr_init(&loader_context, md->child_id);
+        tsldr_init(loader_context, md->child_id);
         /* loader is now initialised... */
-        loader_context.flags.init = true;
+        loader_context->flags.init = true;
     }
 #if 1
     /* start to parse client elf information */
@@ -95,21 +96,21 @@ void init(void)
     }
 #endif
     /* populate the access rights to the loader */
-    error = tsldr_populate_rights(&loader_context, (unsigned char *)section, section_size);
+    error = tsldr_populate_rights(loader_context, (unsigned char *)section, section_size);
     if (error) {
         microkit_internal_crash(-1);
     }
     microkit_dbg_printf(PROGNAME "Finished up access rights integrity checking\n");
 
-    tsldr_restore_caps(&loader_context, true);
+    tsldr_restore_caps(loader_context, true);
 
     /* (really) populate allowed access rights */
-    error = tsldr_populate_allowed(&loader_context);
+    error = tsldr_populate_allowed(loader_context);
     if (error != seL4_NoError) {
         microkit_internal_crash(-1);
     }
 
-    tsldr_remove_caps(&loader_context, true);
+    tsldr_remove_caps(loader_context, true);
 
     tsldr_loading_epilogue(container_exec, (uintptr_t)0x0);
 

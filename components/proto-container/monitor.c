@@ -82,6 +82,9 @@ typedef struct {
     uintptr_t acg_attr[MAX_PERC_AK_NUM][MAX_PERK_NUM];
 } acg_req_t;
 
+
+trusted_loader_t loader_context[MAX_PERM_CL_NUM];
+
 /*
  * A shared memory region with container, containing content from tsldr_metadata_patched
  * Will be init each time the container restarts by copying the data from above
@@ -378,6 +381,13 @@ void monitor_call_debute_lower()
     // initialise the target tsldr_metadata
     tsldr_init_metadata(&tsldr_metadata_patched, cid);
 
+    // bring back target trusted loader context...
+    trusted_loader_t *context;
+    // fetch target trusted loading context...
+    context = (trusted_loader_t *)((unsigned char *)0x0ff40000 + cid * 0x1000);
+
+    // backup trusted loading context in target slot..
+    custom_memcpy(context, &loader_context[cid], sizeof(trusted_loader_t));
 
     int err = tsldr_grant_cspace_access(cid);
     if (err != seL4_NoError) {
@@ -502,6 +512,8 @@ void init(void)
     init_acg_state_map();
     // global client state initialisation...
     custom_memset(client_stat, 0, sizeof(int) * MAX_PERM_CL_NUM);
+    // clean all loader context...
+    custom_memset(loader_context, 0, sizeof(trusted_loader_t) * MAX_PERM_CL_NUM);
 
     stack_ptrs_arg_array_t costacks = {
         _worker_thread_stack_one,
@@ -589,6 +601,25 @@ seL4_MessageInfo_t monitor_call_restore(microkit_channel ch)
 }
 
 
+seL4_MessageInfo_t monitor_call_backup_tsldr_context(microkit_channel ch)
+{
+    // sanity check for the channel ID
+    if (ch < 24 || ch >= 56) {
+        microkit_dbg_printf(PROGNAME "Received signal from non-client PD that tries to uninstantiate client PD!\n");
+        return microkit_msginfo_new(-1, 0);
+    }
+
+    trusted_loader_t *context;
+    // fetch target trusted loading context...
+    context = (trusted_loader_t *)((unsigned char *)0x0ff40000 + (ch - 24) * 0x1000);
+
+    // backup trusted loading context in target slot..
+    custom_memcpy(&loader_context[ch - 24], context, sizeof(trusted_loader_t));
+
+    return microkit_msginfo_new(seL4_NoError, 0);
+}
+
+
 seL4_MessageInfo_t protected(microkit_channel ch, microkit_msginfo msginfo)
 {
     microkit_dbg_printf(PROGNAME "Received protected message on channel: %d\n", ch);
@@ -608,6 +639,10 @@ seL4_MessageInfo_t protected(microkit_channel ch, microkit_msginfo msginfo)
     //    microkit_dbg_printf(PROGNAME "Restart trusted loader and a new client\n");
     //    ret = monitor_call_restart(ch - 15);
     //    break;
+    case 20:
+        microkit_dbg_printf(PROGNAME "Exit to uninstantiated container\n");
+        ret = monitor_call_backup_tsldr_context(ch);
+        break;
     case 0x100:
         microkit_dbg_printf(PROGNAME "Exit to uninstantiated container\n");
         ret = monitor_call_restore(ch);

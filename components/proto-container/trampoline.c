@@ -10,6 +10,7 @@ void init(void)
     uintptr_t acgroup_metadata  = 0xA01000;
     uintptr_t tsldr_metadata    = 0xA00000;
     uintptr_t tsldr_program     = 0x200000;
+    uintptr_t tsldr_context     = 0xE00000;
     uintptr_t tsldr_stack_bottom        = 0x0FFFFFFF000;
     uintptr_t container_stack_bottom    = 0x00FFFBFF000;
     uintptr_t container_stack_top       = 0x00FFFC00000;
@@ -32,6 +33,17 @@ void init(void)
 
     /* clean up container stack... */
     custom_memset((void *)container_stack_bottom, 0, 0x1000);
+
+    // syscall for tsldr_context cleanup
+    microkit_mr_set(0, 20);
+    // try to call the monitor to backup trusted loading context
+    microkit_msginfo info = microkit_ppcall(15, microkit_msginfo_new(0, 1));
+    seL4_Error error = microkit_msginfo_get_label(info);
+    if (error != seL4_NoError) {
+        microkit_internal_crash(error);
+    }
+    // clean up trusted loading context...
+    custom_memset((void *)tsldr_context, 0, 0x1000);
 
     /* at this point we dont have access to the data section of tsldr */
     microkit_dbg_puts("[@trampoline] Exit of trampoline.\n");
