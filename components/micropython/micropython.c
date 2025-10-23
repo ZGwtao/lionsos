@@ -128,8 +128,7 @@ start_repl:
         }
 
         sddf_lwip_init(&lib_sddf_lwip_config, &net_config, &timer_config, net_rx_handle,
-            net_tx_handle, NULL, printf, netif_status_callback, NULL,
-            NULL, NULL);
+            net_tx_handle, printf, netif_status_callback, NULL);
 
         sddf_lwip_maybe_notify();
     }
