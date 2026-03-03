@@ -8,3 +8,24 @@
     -> valid at each trust loading time
     -> reset at each restart
     
+for each child of a template PD, acgroups are defined within its PD XML structure
+-> but we want the template PD to know all acgroups tagging with the child ID
+
+<all acgrp in .systems file should have the same format if they have the same type>
+<and we need to check this for ensurrance in microkit tools>
+1. number of type1 acgrp, type, 
+2. number of type2 acgrp, type
+3. ...
+...
+8. number of type8 acgrp, type
+<>
+
+-> tsldr_md_t => all available optional resources (channel/irq/mappings)
+              => trusted loader uses it to get all background information
+-> acg_data   => shared memory recording available optional resources
+              => (revokable resource) = tsdlr_md - acg_data
+
+-> acg_arr_list => mappings from high-level abstraction to low-level abstraction
+                => 
+-> iface        => required high-level abstraction
+                => specified by the user to let monitor know what it wants
