@@ -66,8 +66,8 @@ typedef struct {
 /* each template PD has one */
 typedef struct {
     uint8_t avails;
-    /* maximum is 64 per monitor */
-    tsldr_md_t md_array[64];
+    /* maximum is 16 per monitor */
+    tsldr_md_t md_array[16];
 } tsldr_md_array_t;
 
 
@@ -79,11 +79,11 @@ typedef struct {
     // the type of this acg
     uint8_t grp_type;
     // channels
-    uint8_t channels[8];
+    uint8_t channels[4];
     // irqs
-    uint8_t irqs[8];
+    uint8_t irqs[4];
     // mappings
-    StrippedMapping mappings[16];
+    StrippedMapping mappings[4];
     // data_path
     char data_path[64];
 } acgrp_t;
@@ -94,14 +94,14 @@ typedef struct {
     // number of available acgrp in the array
     uint8_t grp_num;
     // array of acgroups
-    acgrp_t array[32];
+    acgrp_t array[16];
 } acgrp_array_t;
 
 typedef struct {
     // overall length of this region
     size_t len;
     // list of acgrp arrays
-    acgrp_array_t list[32];
+    acgrp_array_t list[16];
 } acgrp_arr_list_t;
 
 
@@ -113,29 +113,29 @@ typedef struct {
 } access_rights_table_t;
 
 
-#define PD_CAP_BITS     10
+#define PD_CAP_BITS    64 
 
-/* access to child TCB from monitor */
-#define PD_TEMPLATE_CHILD_TCB   1
 /* for monitor to access the cnode of container */
-#define PD_TEMPLATE_CHILD_CSPACE_BASE   (650)
+#define PD_TEMPLATE_CHILD_CSPACE_BASE   (458)
 /* for monitor to access the vspace of container */
-#define PD_TEMPLATE_CHILD_VSPACE_BASE   (650 + 64)
+#define PD_TEMPLATE_CHILD_VSPACE_BASE   (490)
 /* for monitor to access the background CNode of its child */
-#define PD_TEMPLATE_CHILD_BNODE_BASE    (650 - 64)
+#define PD_TEMPLATE_CHILD_BNODE_BASE    (474)
 /* for monitor to access it's own cspace */
-#define PD_TEMPLATE_CNODE_ROOT  9
+#define PD_TEMPLATE_CNODE_ROOT          (506)
 
-#define CNODE_BACKGROUND_CAP    588
-#define CNODE_SELF_CAP          589
+#define CNODE_SELF_CAP          506
+#define CNODE_BACKGROUND_CAP    (CNODE_SELF_CAP + 1)
+#define CNODE_VSPACE_CAP        (CNODE_BACKGROUND_CAP + 1)
+
 #define CNODE_NTFN_BASE_CAP     (10)
 #define CNODE_PPC_BASE_CAP      (CNODE_NTFN_BASE_CAP + 64)
 #define CNODE_IRQ_BASE_CAP      (CNODE_PPC_BASE_CAP + 64)
+// FIXME
+#define CNODE_BASE_MAPPING_CAP  (458)
 
 #define CNODE_TSLDR_CONTEXT_CAP (500)
 /* put it in somewhere in the middle of no where... */
-#define CNODE_VSPACE_CAP        (750)
-#define CNODE_BASE_MAPPING_CAP  (CNODE_VSPACE_CAP + 1)
 
 #define BACKGROUND_VSPACE_CAP       9
 #define BACKGROUND_NTFN_BASE_CAP    10

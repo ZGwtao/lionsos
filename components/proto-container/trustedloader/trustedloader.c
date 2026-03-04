@@ -355,7 +355,8 @@ void tsldr_remove_caps(trusted_loader_t *loader, bool self_loading)
         microkit_dbg_printf(LIB_NAME_MACRO "Mapping allowed memory: vaddr=0x%x\n", mapping->vaddr);
 
         seL4_CapRights_t rights = seL4_AllRights;
-        rights.words[0] = mapping->rights;
+        // FIXME
+        //rights.words[0] = mapping->rights;
 
         if (self_loading) {
             /* move target page from background CNode to current CNode */
@@ -369,6 +370,7 @@ void tsldr_remove_caps(trusted_loader_t *loader, bool self_loading)
                     CNODE_BACKGROUND_CAP, BACKGROUND_MAPPING_BASE_CAP + page_index, PD_CAP_BITS);
                 if (error != seL4_NoError) {
                     microkit_dbg_printf(LIB_NAME_MACRO "Failed to move target page to current CNode for mapping\n");
+                   microkit_dbg_printf(LIB_NAME_MACRO "Error page index: %d\n", page_index);
                 }
                 //microkit_dbg_printf(LIB_NAME_MACRO "Move target page to current CNode for mapping\n");
 
@@ -643,6 +645,7 @@ seL4_Error tsldr_grant_cspace_access(size_t child_id)
         CNODE_SELF_CAP,
         PD_CAP_BITS
     );
+
     error = seL4_CNode_Delete(
         PD_TEMPLATE_CHILD_CSPACE_BASE + child_id,
         CNODE_BACKGROUND_CAP,

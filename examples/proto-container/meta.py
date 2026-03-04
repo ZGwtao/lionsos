@@ -152,7 +152,7 @@ def generate(sdf_path: str, output_dir: str, dtb: DeviceTree):
     blk_virt = ProtectionDomain("blk_virt", "blk_virt.elf", priority=199, stack_size=0x2000)
     blk_system = Sddf.Blk(sdf, blk_node, blk_driver, blk_virt)
 
-    pd_monitor = ProtectionDomain("monitor", "monitor.elf", priority=54, template=True)
+    pd_monitor = ProtectionDomain("container_monitor", "monitor.elf", priority=54, template=True)
     pd_frontend = ProtectionDomain("frontend", "frontend.elf", priority=50)
 
     frontend_connect(pd_monitor, pd_frontend)

@@ -200,9 +200,12 @@ static void patch_elf_connection(void *elf_base, char data_file[], uintptr_t vad
 static int fetch_iface_section_info(void *elf_base, Elf64_Shdr *sh, acg_req_t *req)
 {
     // parse the interface section ...
+    // i.e., get the user-defined section for declaring what acgroups are wanted
     template_pd_iface_t *ib = (template_pd_iface_t *)(elf_base + (uint64_t)sh->sh_offset);
 
+    // the list of numbers of requested acgroups
     const uint8_t *nums = &ib->t1_num;
+    // the corresponding types which map to the above list of numbers
     const pc_svc_iface_t *types = &ib->type1;
     const uintptr_t (*ifaces[8])[PC_MAX_IFACE_NUM] = {
         &ib->t1_iface, &ib->t2_iface, &ib->t3_iface, &ib->t4_iface,
@@ -242,14 +245,23 @@ static int fetch_iface_section_info(void *elf_base, Elf64_Shdr *sh, acg_req_t *r
     int cid = MAX_PERM_CL_NUM;
     // try to get available cid with subset match
     for (int i = 0; i < MAX_PERM_CL_NUM; ++i) {
+        // if true, the client is occupied, need to find next empty template PD
         if (client_stat[i]) {
             // iterate the PD list to find next available cid...
             continue;
         }
         size_t b = 0;
+        // for every access_control_group type, see if the available number is larger
+        // than the requested number.
+        // if requested number is larger, b will be true, making it not a valid alternative
+        // if requested number is smaller, b will be false
+        // if be at the end of the loop is still false,
+        // we are now sure that we have found one available empty template PD.
         for (int j = 0; j < MAX_PERC_AK_NUM; ++j) {
             b |= (req->acg_per_type_num[j] > acg_stat_map[i][j]);
+            //microkit_dbg_printf(PROGNAME "requested type: %d, num: %d\n", j, req->acg_per_type_num[j]);
         }
+        // if b is false, return the id of the child PD, which represents an available alternative
         if (!b) {
             cid = i;
             break;
@@ -265,14 +277,17 @@ static int fetch_iface_section_info(void *elf_base, Elf64_Shdr *sh, acg_req_t *r
 //
 static void init_acg_state_map(void)
 {
+    acgrp_arr_list_t *ptr_spec_ar = (acgrp_arr_list_t *)microkit_template_spec_ar;
+    microkit_dbg_printf(PROGNAME "%d\n", ptr_spec_ar->len);
+
     acgrp_array_t *acg_arr_ptr;
-    size_t pd_num = acgrp_metadata_patched.len;
+    size_t pd_num = ptr_spec_ar->len;
 
     microkit_dbg_printf(PROGNAME "number of available PDs that have acg: %d\n", pd_num);
 
     for (int i = 0; i < pd_num; ++i) {
         // fetch a client PD that contains acgroups
-        acg_arr_ptr = &acgrp_metadata_patched.list[i];
+        acg_arr_ptr = &ptr_spec_ar->list[i];
         //microkit_dbg_printf(PROGNAME "[acg_arr] - PD idx: %d\n", acg_arr_ptr->pd_idx);
         assert(acg_arr_ptr->pd_idx <= MAX_PERM_CL_NUM);
 
@@ -298,7 +313,7 @@ static void init_acg_state_map(void)
 
                 // iterate all available mapings of this acg...
                 StrippedMapping *map_ptr = grp_ptr->mappings;
-                for (int k = 0; k < 16; ++k) {
+                for (int k = 0; k < 4; ++k) {
                     if (!map_ptr[k].vaddr) {
                         continue;
                     }
@@ -306,7 +321,7 @@ static void init_acg_state_map(void)
                                         k, map_ptr[k].vaddr, map_ptr[k].number_of_pages, map_ptr[k].page_size);
                 }
                 uint8_t *e_ptr = grp_ptr->channels;
-                for (int k = 0; k < 16; ++k) {
+                for (int k = 0; k < 4; ++k) {
                     if (e_ptr[k] >= 62) {
                         continue;
                     }
@@ -362,6 +377,7 @@ void monitor_call_debute_lower()
     int cid = fetch_iface_section_info((void *)ext_payload_elf, iface_sh, &req);
     if (cid >= MAX_PERM_CL_NUM || cid < 0) {
         microkit_dbg_printf(PROGNAME "Failed to find suitable container for payload\n");
+        microkit_dbg_printf(PROGNAME "Fetched cid number is: %d\n", cid);
         //
         // FIXME:
         //  try to signal frontend to print instruction for next step
@@ -379,7 +395,7 @@ void monitor_call_debute_lower()
     tsldr_metadata = (uintptr_t)((unsigned char *)tsldr_metadata_base + cid * 0x1000);
     microkit_dbg_printf(PROGNAME "tsldr_metadata: 0x%x\n", tsldr_metadata);
     // initialise the target tsldr_metadata
-    tsldr_init_metadata(&tsldr_metadata_patched, cid);
+    tsldr_init_metadata((tsldr_md_array_t *)microkit_template_spec, cid);
 
     // bring back target trusted loader context...
     trusted_loader_t *context;
@@ -419,7 +435,9 @@ void monitor_call_debute_lower()
     // but still, we need to choose a subset from the acgroup ...
 
     // this is the current alternative to choose a subset from...
-    acgrp_array_t *acg_arr_ptr = &acgrp_metadata_patched.list[cid];
+    acgrp_array_t *acg_arr_ptr = &((acgrp_arr_list_t *)microkit_template_spec_ar)->list[cid];
+    microkit_dbg_printf(PROGNAME "pd index of the given acg arr: %d\n", acg_arr_ptr->pd_idx);
+    microkit_dbg_printf(PROGNAME "number of acgs in the acg arr: %d\n", acg_arr_ptr->grp_num);
 
     size_t num_channels = 0;
     size_t num_mappings = 0;
@@ -441,7 +459,7 @@ void monitor_call_debute_lower()
             continue;
         }
         //
-        for (int j = 0; j < 8; ++j) {
+        for (int j = 0; j < 4; ++j) {
             if (grp_array[i].channels[j] >= 62) {
                 continue;
             }
@@ -453,7 +471,7 @@ void monitor_call_debute_lower()
         //    }
         //    irqs[num_irqs++] = grp_array[i].irqs[j];
         //}
-        for (int j = 0; j < 16; ++j) {
+        for (int j = 0; j < 4; ++j) {
             if (!grp_array[i].mappings[j].vaddr) {
                 continue;
             }
@@ -494,22 +512,28 @@ void init(void)
     fs_share = fs_config.server.share.vaddr;
     fs_init = false;
 
-    // practically we use 32 indices...
-    for (int i = 0; i < tsldr_metadata_patched.avails; ++i) {
+    tsldr_md_array_t *ptr_spec_trusted_loader = (tsldr_md_array_t *)microkit_template_spec;
+    microkit_dbg_printf(PROGNAME "%d\n", ptr_spec_trusted_loader->avails);
+    microkit_dbg_printf(PROGNAME "%s\n", microkit_name);
+
+    // practically we use 16 indices...
+    for (int i = 0; i < ptr_spec_trusted_loader->avails; ++i) {
         // must provide valid hash to 
-        if (tsldr_metadata_patched.md_array[i].system_hash != system_hash) {
+        if (ptr_spec_trusted_loader->md_array[i].system_hash != 0xffff) {
             // do not initialise unspecified tsldr metadata
             continue;
         }
         // adjust global pointer
-        tsldr_metadata = (uintptr_t)(tsldr_metadata_base + i);
+        tsldr_metadata = (uintptr_t)((char *)tsldr_metadata_base + i * 0x1000);
         microkit_dbg_printf(PROGNAME "tsldr_metadata: 0x%x\n", tsldr_metadata);
         // initialise the target tsldr_metadata
-        tsldr_init_metadata(&tsldr_metadata_patched, i);
+        tsldr_init_metadata(ptr_spec_trusted_loader, i);
     }
     custom_memset(acg_stat_map, 0, sizeof(int) * MAX_PERM_CL_NUM * MAX_PERC_AK_NUM);
+
     // global acgroup state initialisation...
     init_acg_state_map();
+
     // global client state initialisation...
     custom_memset(client_stat, 0, sizeof(int) * MAX_PERM_CL_NUM);
     // clean all loader context...
