@@ -239,13 +239,16 @@ void tsldr_init_metadata(tsldr_md_array_t *array, size_t id)
         microkit_dbg_printf(LIB_NAME_MACRO "Invalid template PD child ID given: %d\n", id);
         return;
     }
+    microkit_dbg_printf(LIB_NAME_MACRO "=>>\n");
     tsldr_md_t *target_md = &array->md_array[id];
     //microkit_dbg_printf(LIB_NAME_MACRO "%d %d\n", target_md->child_id, target_md->system_hash);
+    microkit_dbg_printf(LIB_NAME_MACRO "=>>\n");
 
     /* initialise trusted loader metadata */
     custom_memset((tsldr_md_t *)tsldr_metadata, 0, sizeof(tsldr_md_t));
     custom_memcpy((tsldr_md_t *)tsldr_metadata, target_md, sizeof(tsldr_md_t));
 
+    microkit_dbg_printf(LIB_NAME_MACRO "=>>\n");
     // one trusted loader in a proto-container may work for this container solely...
     /* copy corresponding metadata context for the trusted loader lib */
     ((tsldr_md_t *)tsldr_metadata)->init = true;
@@ -366,17 +369,17 @@ void tsldr_remove_caps(trusted_loader_t *loader, bool self_loading)
                 page_index = mapping->page + i;
                 // move a page to the working CNode...
                 error = seL4_CNode_Move(
-                    CNODE_SELF_CAP, CNODE_BASE_MAPPING_CAP + page_index, PD_CAP_BITS,
+                    CNODE_SELF_CAP, CNODE_BASE_MAPPING_CAP, PD_CAP_BITS,
                     CNODE_BACKGROUND_CAP, BACKGROUND_MAPPING_BASE_CAP + page_index, PD_CAP_BITS);
                 if (error != seL4_NoError) {
                     microkit_dbg_printf(LIB_NAME_MACRO "Failed to move target page to current CNode for mapping\n");
-                   microkit_dbg_printf(LIB_NAME_MACRO "Error page index: %d\n", page_index);
+                   microkit_dbg_printf(LIB_NAME_MACRO "Error page index: %d, i: %d\n", page_index, i);
                 }
                 //microkit_dbg_printf(LIB_NAME_MACRO "Move target page to current CNode for mapping\n");
 
                 /* map target page at current CNode */
                 error = seL4_ARM_Page_Map(
-                    CNODE_BASE_MAPPING_CAP + page_index,
+                    CNODE_BASE_MAPPING_CAP,
                     CNODE_VSPACE_CAP,
                     mapping->vaddr + i * mapping->page_size,
                     rights,
@@ -390,7 +393,7 @@ void tsldr_remove_caps(trusted_loader_t *loader, bool self_loading)
                 /* backing up the mapped page */
                 error = seL4_CNode_Move(
                     CNODE_BACKGROUND_CAP, BACKGROUND_MAPPING_BASE_CAP + page_index, PD_CAP_BITS,
-                    CNODE_SELF_CAP, CNODE_BASE_MAPPING_CAP + page_index, PD_CAP_BITS);
+                    CNODE_SELF_CAP, CNODE_BASE_MAPPING_CAP, PD_CAP_BITS);
                 if (error != seL4_NoError) {
                     microkit_dbg_printf(LIB_NAME_MACRO "Failed to move target page back to background CNode for backup\n");
                 }
@@ -544,14 +547,14 @@ void tsldr_restore_caps(trusted_loader_t *loader, bool self_loading)
             /* move target page from background CNode to current CNode */
             seL4_CPtr page_index = mapping->page;
             error = seL4_CNode_Move(
-                CNODE_SELF_CAP, CNODE_BASE_MAPPING_CAP + page_index, PD_CAP_BITS,
+                CNODE_SELF_CAP, CNODE_BASE_MAPPING_CAP, PD_CAP_BITS,
                 CNODE_BACKGROUND_CAP, BACKGROUND_MAPPING_BASE_CAP + page_index, PD_CAP_BITS);
             if (error != seL4_NoError) {
                 microkit_dbg_printf(LIB_NAME_MACRO "Failed to move target page to current CNode for unmapping\n");
             }
             microkit_dbg_printf(LIB_NAME_MACRO "Move target page to current CNode for unmapping\n");
 
-            error = seL4_ARM_Page_Unmap(CNODE_BASE_MAPPING_CAP + page_index);
+            error = seL4_ARM_Page_Unmap(CNODE_BASE_MAPPING_CAP);
             if (error != seL4_NoError) {
                 microkit_dbg_printf(LIB_NAME_MACRO "Failed to unmap mapping: vaddr=0x%x error=%d\n", mapping->vaddr, error);
                 microkit_internal_crash(error);
@@ -561,7 +564,7 @@ void tsldr_restore_caps(trusted_loader_t *loader, bool self_loading)
             /* backing up the mapped page */
             error = seL4_CNode_Move(
                 CNODE_BACKGROUND_CAP, BACKGROUND_MAPPING_BASE_CAP + page_index, PD_CAP_BITS,
-                CNODE_SELF_CAP, CNODE_BASE_MAPPING_CAP + page_index, PD_CAP_BITS);
+                CNODE_SELF_CAP, CNODE_BASE_MAPPING_CAP, PD_CAP_BITS);
             if (error != seL4_NoError) {
                 microkit_dbg_printf(LIB_NAME_MACRO "Failed to move target page back to background CNode for backup\n");
             }

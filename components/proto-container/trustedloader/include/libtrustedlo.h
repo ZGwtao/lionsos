@@ -132,6 +132,8 @@ typedef struct {
 #define CNODE_PPC_BASE_CAP      (CNODE_NTFN_BASE_CAP + 64)
 #define CNODE_IRQ_BASE_CAP      (CNODE_PPC_BASE_CAP + 64)
 // FIXME
+// Looks like with current mapping method, we need only one slot for mapping
+// and too much slots will cause problems with overlapping cslots
 #define CNODE_BASE_MAPPING_CAP  (458)
 
 #define CNODE_TSLDR_CONTEXT_CAP (500)

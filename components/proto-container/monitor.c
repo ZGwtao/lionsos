@@ -48,7 +48,7 @@ tsldr_md_array_t tsldr_metadata_patched;
 acgrp_arr_list_t acgrp_metadata_patched;
 
 // maximum per monitor client container number
-#define MAX_PERM_CL_NUM 32
+#define MAX_PERM_CL_NUM 16
 // maximum kinds of connection (acgroup kinds) each container has
 #define MAX_PERC_AK_NUM 8
 // maximum number of one connection in a container...
@@ -259,7 +259,7 @@ static int fetch_iface_section_info(void *elf_base, Elf64_Shdr *sh, acg_req_t *r
         // we are now sure that we have found one available empty template PD.
         for (int j = 0; j < MAX_PERC_AK_NUM; ++j) {
             b |= (req->acg_per_type_num[j] > acg_stat_map[i][j]);
-            //microkit_dbg_printf(PROGNAME "requested type: %d, num: %d\n", j, req->acg_per_type_num[j]);
+            microkit_dbg_printf(PROGNAME "i: %d, requested type: %d, req num: %d, avail num: %d\n", i, j, req->acg_per_type_num[j], acg_stat_map[i][j]);
         }
         // if b is false, return the id of the child PD, which represents an available alternative
         if (!b) {
@@ -288,7 +288,7 @@ static void init_acg_state_map(void)
     for (int i = 0; i < pd_num; ++i) {
         // fetch a client PD that contains acgroups
         acg_arr_ptr = &ptr_spec_ar->list[i];
-        //microkit_dbg_printf(PROGNAME "[acg_arr] - PD idx: %d\n", acg_arr_ptr->pd_idx);
+        microkit_dbg_printf(PROGNAME "[acg_arr] - PD idx: %d\n", acg_arr_ptr->pd_idx);
         assert(acg_arr_ptr->pd_idx <= MAX_PERM_CL_NUM);
 
         for (int j = 0; j < acg_arr_ptr->grp_num; ++j) {
@@ -299,14 +299,16 @@ static void init_acg_state_map(void)
                 // ensure this is a valid type...
                 assert(grp_ptr->grp_type <= MAX_PERC_AK_NUM);
 
-                int cur_num = acg_stat_map[acg_arr_ptr->pd_idx][grp_ptr->grp_type];
+                // FIXME here..
+                int cur_num = acg_stat_map[i][grp_ptr->grp_type];
                 // check if we have enough connections of a type
                 if (cur_num >= MAX_PERK_NUM) {
                     // halt...
                     microkit_dbg_printf(PROGNAME "current number of %d type acg in PD%d is %d\n", grp_ptr->grp_type, i, cur_num);
                     microkit_internal_crash(-1);
                 }
-                acg_stat_map[acg_arr_ptr->pd_idx][grp_ptr->grp_type]++;
+                // FIXME here...
+                acg_stat_map[i][grp_ptr->grp_type]++;
 
                 microkit_dbg_printf(PROGNAME "[acg_arr][acg: %d]: grp id:   %d\n", j, grp_ptr->grp_idx);
                 microkit_dbg_printf(PROGNAME "[acg_arr][acg: %d]: grp type: %d\n", j, grp_ptr->grp_type);
@@ -397,6 +399,7 @@ void monitor_call_debute_lower()
     // initialise the target tsldr_metadata
     tsldr_init_metadata((tsldr_md_array_t *)microkit_template_spec, cid);
 
+    microkit_dbg_printf(PROGNAME "=>>> 0x%x\n", tsldr_metadata);
     // bring back target trusted loader context...
     trusted_loader_t *context;
     // fetch target trusted loading context...
