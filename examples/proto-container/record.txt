@@ -29,3 +29,7 @@ for each child of a template PD, acgroups are defined within its PD XML structur
                 => 
 -> iface        => required high-level abstraction
                 => specified by the user to let monitor know what it wants
+
+ISSUE:
+    -> microkit runtime vars are not patched properly for late-loading elfs
+
