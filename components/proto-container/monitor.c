@@ -60,15 +60,6 @@ int acg_stat_map[MAX_PERM_CL_NUM][MAX_PERC_AK_NUM];
 // availability of current PDs...
 int client_stat[MAX_PERM_CL_NUM];
 
-
-typedef struct {
-    // records how many connection a PD can have under a type
-    int acg_per_type_num[MAX_PERC_AK_NUM];
-    //
-    uintptr_t acg_attr[MAX_PERC_AK_NUM][MAX_PERK_NUM];
-} acg_req_t;
-
-
 trusted_loader_t loader_context[MAX_PERM_CL_NUM];
 
 /*
@@ -349,70 +340,7 @@ void monitor_call_debute_lower()
     custom_memcpy((void*)trampoline_base, (char *)ext_trampoline_elf, ELF_FILE_SIZE);
     microkit_dbg_printf(PROGNAME "Copied trampoline program to child PD's memory region\n");
 
-    // fill access rights group metadata now for the payload...
-    // then the trusted loader will revoke unnecessary capabilities beside the ones we can to establish...
-    access_rights_table_t *acg = (access_rights_table_t *)((unsigned char *)acgroup_metadata_base + 0x1000 * cid);
-
-    // so the trusted loader will not care how these access rights entry sit
-    // all we have to do is specifying a number of total rights while put them after the number
-    // now the job is to collect all access rights from the acgroup from the given acg
-    // but still, we need to choose a subset from the acgroup ...
-
-    // this is the current alternative to choose a subset from...
-    acgrp_array_t *acg_arr_ptr = &((acgrp_arr_list_t *)microkit_template_spec_ar)->list[cid];
-    microkit_dbg_printf(PROGNAME "pd index of the given acg arr: %d\n", acg_arr_ptr->pd_idx);
-    microkit_dbg_printf(PROGNAME "number of acgs in the acg arr: %d\n", acg_arr_ptr->grp_num);
-
-    size_t num_channels = 0;
-    size_t num_mappings = 0;
-    size_t num_irqs = 0;
-
-    uint64_t channels[100];
-    uint64_t mappings[100];
-    uint64_t irqs[100];
-
-    // get the subset from the above according to the instructions given in req...
-    acgrp_t *grp_array = acg_arr_ptr->array;
-    // check all available acgroups...
-    for (int i = 0; i < acg_arr_ptr->grp_num; ++i) {
-        if (!grp_array[i].grp_init) {
-            continue;
-        }
-        uint8_t type = grp_array[i].grp_type;
-        if (!req.acg_per_type_num[type]) {
-            continue;
-        }
-        //
-        for (int j = 0; j < 4; ++j) {
-            if (grp_array[i].channels[j] >= 62) {
-                continue;
-            }
-            channels[num_channels++] = grp_array[i].channels[j];
-        }
-        //for (int j = 0; j < 8; ++j) {
-        //    if (grp_array[i].irqs[j] >= 62) {
-        //        continue;
-        //    }
-        //    irqs[num_irqs++] = grp_array[i].irqs[j];
-        //}
-        for (int j = 0; j < 4; ++j) {
-            if (!grp_array[i].mappings[j].vaddr) {
-                continue;
-            }
-            mappings[num_mappings++] = grp_array[i].mappings[j].vaddr;
-        }
-        // update the payload with given data path...
-        patch_elf_connection((void *)payload_base, grp_array[i].data_path, req.acg_attr[type][req.acg_per_type_num[type] - 1]);
-
-        microkit_dbg_printf(PROGNAME "update section with offset: 0x%x with %s\n", req.acg_attr[type][req.acg_per_type_num[type] - 1], grp_array[i].data_path);
-
-        // update number of element under given type
-        req.acg_per_type_num[type]--;
-    }
-
-    acg->len = num_channels + num_irqs + num_mappings;
-    encode_access_rights_to((unsigned char *)acg + sizeof(size_t), channels, num_channels, irqs, num_irqs, mappings, num_mappings);
-
+    funq(cid, &req, payload_base, patch_elf_connection);
     //
     // set the client PD to restart as exclusive... 
     // mark current client[cid] PD in use

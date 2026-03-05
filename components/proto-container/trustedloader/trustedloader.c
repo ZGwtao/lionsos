@@ -132,6 +132,7 @@ void encode_access_rights_to(void *base,
 }
 
 
+/* move the access rights information to the loader context */
 seL4_Error tsldr_populate_rights(trusted_loader_t *loader, const unsigned char *data, size_t len)
 {
     if (!loader) {

@@ -5,6 +5,9 @@
 #define LIB_NAME_MACRO "    => [@trustedlo] "
 
 extern int acg_stat_map[MAX_PERM_CL_NUM][MAX_PERC_AK_NUM];
+
+extern acgrp_arr_list_t *acgroup_metadata_base;
+
 //
 // initialise the global acgroup state map
 //  => everything is read from the microkit patched metadata
@@ -66,4 +69,68 @@ void init_acg_state_map(void)
             }
         }
     }
+}
+
+typedef void (*patch_elf_connection_fn)(void *elf_base, char data_file[], uintptr_t vaddr);
+
+void funq(int cid, acg_req_t *req, uintptr_t payload_base, patch_elf_connection_fn fn)
+{
+    // fill access rights group metadata now for the payload...
+    // then the trusted loader will revoke unnecessary capabilities beside the ones we can to establish...
+    access_rights_table_t *acg = (access_rights_table_t *)((unsigned char *)acgroup_metadata_base + 0x1000 * cid);
+
+    // so the trusted loader will not care how these access rights entry sit
+    // all we have to do is specifying a number of total rights while put them after the number
+    // now the job is to collect all access rights from the acgroup from the given acg
+    // but still, we need to choose a subset from the acgroup ...
+
+    // this is the current alternative to choose a subset from...
+    acgrp_array_t *acg_arr_ptr = &((acgrp_arr_list_t *)microkit_template_spec_ar)->list[cid];
+    microkit_dbg_printf(LIB_NAME_MACRO "pd index of the given acg arr: %d\n", acg_arr_ptr->pd_idx);
+    microkit_dbg_printf(LIB_NAME_MACRO "number of acgs in the acg arr: %d\n", acg_arr_ptr->grp_num);
+
+    size_t num_channels = 0;
+    size_t num_mappings = 0;
+    // IRQ TODO
+
+    seL4_Word channels[100];
+    seL4_Word mappings[100];
+    // IRQ TODO
+
+    // get the subset from the above according to the instructions given in req...
+    acgrp_t *grp_array = acg_arr_ptr->array;
+    // check all available acgroups...
+    for (int i = 0; i < acg_arr_ptr->grp_num; ++i) {
+        if (!grp_array[i].grp_init) {
+            continue;
+        }
+        uint8_t type = grp_array[i].grp_type;
+        if (!req->acg_per_type_num[type]) {
+            continue;
+        }
+        //
+        for (int j = 0; j < 4; ++j) {
+            if (grp_array[i].channels[j] >= 62) {
+                continue;
+            }
+            channels[num_channels++] = grp_array[i].channels[j];
+        }
+        // IRQ TODO
+        for (int j = 0; j < 4; ++j) {
+            if (!grp_array[i].mappings[j].vaddr) {
+                continue;
+            }
+            mappings[num_mappings++] = grp_array[i].mappings[j].vaddr;
+        }
+        // update the payload with given data path...
+        fn((void *)payload_base, grp_array[i].data_path, req->acg_attr[type][req->acg_per_type_num[type] - 1]);
+
+        microkit_dbg_printf(LIB_NAME_MACRO "update section with offset: 0x%x with %s\n", req->acg_attr[type][req->acg_per_type_num[type] - 1], grp_array[i].data_path);
+
+        // update number of element under given type
+        req->acg_per_type_num[type]--;
+    }
+
+    acg->len = num_channels + num_mappings;
+    encode_access_rights_to((unsigned char *)acg + sizeof(size_t), channels, num_channels, NULL, 0, mappings, num_mappings);
 }

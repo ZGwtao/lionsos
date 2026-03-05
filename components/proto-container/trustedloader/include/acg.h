@@ -59,4 +59,18 @@ typedef struct {
 } access_rights_table_t;
 
 
+
+typedef struct {
+    // records how many connection a PD can have under a type
+    int acg_per_type_num[MAX_PERC_AK_NUM];
+    //
+    uintptr_t acg_attr[MAX_PERC_AK_NUM][MAX_PERK_NUM];
+} acg_req_t;
+
+
 void init_acg_state_map(void);
+
+
+typedef void (*patch_elf_connection_fn)(void *elf_base, char data_file[], uintptr_t vaddr);
+
+void funq(int cid, acg_req_t *req, uintptr_t payload_base, patch_elf_connection_fn fn);
