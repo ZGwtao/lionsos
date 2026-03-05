@@ -73,9 +73,6 @@ tsldr_md_t *tsldr_metadata_base = (tsldr_md_t *)0xffc0000;
 // base of all shared acgroup metadata regions
 acgrp_arr_list_t *acgroup_metadata_base = (acgrp_arr_list_t *)0x0ff80000;
 
-seL4_Word system_hash;
-unsigned char public_key[PUBLIC_KEY_BYTES];
-
 fs_queue_t *fs_command_queue;
 fs_queue_t *fs_completion_queue;
 char *fs_share;
