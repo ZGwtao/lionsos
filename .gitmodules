@@ -23,3 +23,6 @@
 [submodule "libmicrokitco"]
 	path = dep/libmicrokitco
 	url = https://github.com/au-ts/libmicrokitco.git
+[submodule "libtrustedlo"]
+	path = dep/libtrustedlo
+	url = https://github.com/ZGwtao/libtrustedlo.git
