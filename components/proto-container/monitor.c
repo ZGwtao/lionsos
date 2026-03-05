@@ -60,6 +60,14 @@ int acg_stat_map[MAX_PERM_CL_NUM][MAX_PERC_AK_NUM];
 // availability of current PDs...
 int client_stat[MAX_PERM_CL_NUM];
 
+#define SMALL_PAGE_SIZE     0x1000
+
+#define TSLDR_CONTEXT_BASE  0xff40000
+#define TSLDR_CONTEXT_SIZE  SMALL_PAGE_SIZE
+
+#define TSLDR_METADATA_BASE 0xffc0000
+#define TSLDR_METADATA_SIZE SMALL_PAGE_SIZE
+
 trusted_loader_t loader_context[MAX_PERM_CL_NUM];
 
 /*
@@ -67,8 +75,6 @@ trusted_loader_t loader_context[MAX_PERM_CL_NUM];
  * Will be init each time the container restarts by copying the data from above
  */
 uintptr_t tsldr_metadata;
-// base of all shared metadata regions
-tsldr_md_t *tsldr_metadata_base = (tsldr_md_t *)0xffc0000;
 
 // base of all shared acgroup metadata regions
 acgrp_arr_list_t *acgroup_metadata_base = (acgrp_arr_list_t *)0x0ff80000;
@@ -230,7 +236,7 @@ void monitor_call_debute_lower()
     // 
 
     // adjust global pointer
-    tsldr_metadata = (uintptr_t)((unsigned char *)tsldr_metadata_base + cid * 0x1000);
+    tsldr_metadata = (uintptr_t)((unsigned char *)TSLDR_METADATA_BASE + cid * TSLDR_METADATA_SIZE);
     microkit_dbg_printf(PROGNAME "tsldr_metadata: 0x%x\n", tsldr_metadata);
     // initialise the target tsldr_metadata
     tsldr_init_metadata((tsldr_md_array_t *)microkit_template_spec, cid);
@@ -239,7 +245,7 @@ void monitor_call_debute_lower()
     // bring back target trusted loader context...
     trusted_loader_t *context;
     // fetch target trusted loading context...
-    context = (trusted_loader_t *)((unsigned char *)0x0ff40000 + cid * 0x1000);
+    context = (trusted_loader_t *)((unsigned char *)TSLDR_CONTEXT_BASE + cid * TSLDR_CONTEXT_SIZE);
 
     // backup trusted loading context in target slot..
     custom_memcpy(context, &loader_context[cid], sizeof(trusted_loader_t));
@@ -250,9 +256,9 @@ void monitor_call_debute_lower()
         return;
     }
 
-    uintptr_t payload_base = container_elf + 0x800000 * cid;
-    uintptr_t protocon_base = trusted_loader_exec + 0x800000 * cid;
-    uintptr_t trampoline_base = trampoline_elf + 0x800000 * cid;
+    uintptr_t payload_base = container_elf + ELF_FILE_SIZE * cid;
+    uintptr_t protocon_base = trusted_loader_exec + ELF_FILE_SIZE * cid;
+    uintptr_t trampoline_base = trampoline_elf + ELF_FILE_SIZE * cid;
     uintptr_t entry = ehdr->e_entry;
 
     load_elf((void*)protocon_base, ehdr);
@@ -300,7 +306,7 @@ void init(void)
             continue;
         }
         // adjust global pointer
-        tsldr_metadata = (uintptr_t)((char *)tsldr_metadata_base + i * 0x1000);
+        tsldr_metadata = (uintptr_t)((char *)TSLDR_METADATA_BASE + i * TSLDR_METADATA_SIZE);
         microkit_dbg_printf(PROGNAME "tsldr_metadata: 0x%x\n", tsldr_metadata);
         // initialise the target tsldr_metadata
         tsldr_init_metadata(ptr_spec_trusted_loader, i);
@@ -411,7 +417,7 @@ seL4_MessageInfo_t monitor_call_backup_tsldr_context(microkit_channel ch)
 
     trusted_loader_t *context;
     // fetch target trusted loading context...
-    context = (trusted_loader_t *)((unsigned char *)0x0ff40000 + (ch - 24) * 0x1000);
+    context = (trusted_loader_t *)((unsigned char *)TSLDR_CONTEXT_BASE + (ch - 24) * TSLDR_CONTEXT_SIZE);
 
     // backup trusted loading context in target slot..
     custom_memcpy(&loader_context[ch - 24], context, sizeof(trusted_loader_t));
