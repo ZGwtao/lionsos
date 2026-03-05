@@ -1,8 +1,6 @@
-#include <stddef.h>
-#include <stdbool.h>
-#include <stdint.h>
-#include <microkit.h>
+
 #include <elf_utils.h>
+#include <acg.h>
 
 /* use ED25519 algorithm for encryption now */
 #define PUBLIC_KEY_BYTES        32
@@ -44,12 +42,6 @@ typedef struct {
     seL4_Word attrs;
 } MemoryMapping;
 
-typedef struct {
-    seL4_Word vaddr;
-    seL4_Word number_of_pages;
-    seL4_Word page_size;
-} StrippedMapping;
-
 
 typedef struct {
     size_t        child_id;
@@ -69,49 +61,6 @@ typedef struct {
     /* maximum is 16 per monitor */
     tsldr_md_t md_array[16];
 } tsldr_md_array_t;
-
-
-typedef struct {
-    // whether or not a valid acg
-    bool grp_init;
-    // corresponding to the XML gid
-    uint8_t grp_idx;
-    // the type of this acg
-    uint8_t grp_type;
-    // channels
-    uint8_t channels[4];
-    // irqs
-    uint8_t irqs[4];
-    // mappings
-    StrippedMapping mappings[4];
-    // data_path
-    char data_path[64];
-} acgrp_t;
-
-typedef struct {
-    // specify which PD this array belongs to
-    uint8_t pd_idx;
-    // number of available acgrp in the array
-    uint8_t grp_num;
-    // array of acgroups
-    acgrp_t array[16];
-} acgrp_array_t;
-
-typedef struct {
-    // overall length of this region
-    size_t len;
-    // list of acgrp arrays
-    acgrp_array_t list[16];
-} acgrp_arr_list_t;
-
-
-// we use this to parse non-revokable capabilities
-typedef struct {
-    // number of available entries...
-    size_t len;
-    // ...
-} access_rights_table_t;
-
 
 #define PD_CAP_BITS    64 
 
