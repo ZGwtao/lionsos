@@ -12,29 +12,20 @@ MemoryMapping *tsldr_find_mapping_by_vaddr(trusted_loader_t *loader, seL4_Word v
         microkit_dbg_printf(LIB_NAME_MACRO "Invalid data pointer given\n");
         return NULL;
     }
-    /* self-loading */
-    if (sldr) {
-        if (!loader) {
-            microkit_dbg_printf(LIB_NAME_MACRO "Invalid loader pointer given\n");
-            return NULL;
-        }
-        /* tsldr metadata */
-        tsldr_md_t *md = (tsldr_md_t *)data;
-        if (md->init != true || loader->flags.init != true) {
-            microkit_dbg_printf(LIB_NAME_MACRO "Uninitialised trusted loader\n");
-            return NULL;
-        }
-        for (seL4_Word i = 0; i < MICROKIT_MAX_CHANNELS; i++) {
-            if (md->mappings[i].vaddr == vaddr) {
-                return &md->mappings[i];
-            }
-        }
-    } else { /* loading from monitor */
-        MemoryMapping *mappings = (MemoryMapping *)data;
-        for (seL4_Word i = 0; i < MICROKIT_MAX_CHANNELS; i++) {
-            if (mappings[i].vaddr == vaddr) {
-                return mappings + i;
-            }
+
+    if (!loader) {
+        microkit_dbg_printf(LIB_NAME_MACRO "Invalid loader pointer given\n");
+        return NULL;
+    }
+    /* tsldr metadata */
+    tsldr_md_t *md = (tsldr_md_t *)data;
+    if (md->init != true || loader->flags.init != true) {
+        microkit_dbg_printf(LIB_NAME_MACRO "Uninitialised trusted loader\n");
+        return NULL;
+    }
+    for (seL4_Word i = 0; i < MICROKIT_MAX_CHANNELS; i++) {
+        if (md->mappings[i].vaddr == vaddr) {
+            return &md->mappings[i];
         }
     }
 
@@ -293,19 +284,11 @@ void tsldr_remove_caps(trusted_loader_t *loader, bool self_loading)
             channel_base_cap = CNODE_PPC_BASE_CAP;
         }
 
-        if (self_loading) {
-            error = seL4_CNode_Delete(
-                CNODE_SELF_CAP,
-                channel_base_cap + channel_id,
-                PD_CAP_BITS
-            );
-        } else {
-            error = seL4_CNode_Delete(
-                PD_TEMPLATE_CHILD_CSPACE_BASE + loader->child_id,
-                channel_base_cap + channel_id,
-                PD_CAP_BITS
-            );
-        }
+        error = seL4_CNode_Delete(
+            CNODE_SELF_CAP,
+            channel_base_cap + channel_id,
+            PD_CAP_BITS
+        );
 
         if (error != seL4_NoError) {
             microkit_dbg_printf(LIB_NAME_MACRO "Failed to delete channel cap: channel_id=%d error=%d\n", channel_id, error);
@@ -321,19 +304,11 @@ void tsldr_remove_caps(trusted_loader_t *loader, bool self_loading)
             continue;
         }
 
-        if (self_loading) {
-            error = seL4_CNode_Delete(
-                CNODE_SELF_CAP,
-                CNODE_IRQ_BASE_CAP + irq_id,
-                PD_CAP_BITS
-            );
-        } else {
-            error = seL4_CNode_Delete(
-                PD_TEMPLATE_CHILD_CSPACE_BASE + loader->child_id,
-                CNODE_IRQ_BASE_CAP + irq_id,
-                PD_CAP_BITS
-            );
-        }
+        error = seL4_CNode_Delete(
+            CNODE_SELF_CAP,
+            CNODE_IRQ_BASE_CAP + irq_id,
+            PD_CAP_BITS
+        );
 
         if (error != seL4_NoError) {
             microkit_dbg_printf(LIB_NAME_MACRO "Failed to delete IRQ cap: irq_id=%d error=%d\n", irq_id, error);
@@ -343,14 +318,11 @@ void tsldr_remove_caps(trusted_loader_t *loader, bool self_loading)
         microkit_dbg_printf(LIB_NAME_MACRO "Deleted IRQ cap: irq_id=%d\n", irq_id);
     }
 
-    if (self_loading) {
-        error = seL4_CNode_Move(
-            CNODE_SELF_CAP, CNODE_VSPACE_CAP, PD_CAP_BITS,
-            CNODE_BACKGROUND_CAP, BACKGROUND_VSPACE_CAP, PD_CAP_BITS);
-        if (error != seL4_NoError) {
-            microkit_dbg_printf(LIB_NAME_MACRO "Failed to move vspace to current CNode for manipulation\n");
-        }
-        //microkit_dbg_printf(LIB_NAME_MACRO "Move target VSpace to current CNode for manipulation\n");
+    error = seL4_CNode_Move(
+        CNODE_SELF_CAP, CNODE_VSPACE_CAP, PD_CAP_BITS,
+        CNODE_BACKGROUND_CAP, BACKGROUND_VSPACE_CAP, PD_CAP_BITS);
+    if (error != seL4_NoError) {
+        microkit_dbg_printf(LIB_NAME_MACRO "Failed to move vspace to current CNode for manipulation\n");
     }
 
     // Map only the allowed memory regions
@@ -362,74 +334,54 @@ void tsldr_remove_caps(trusted_loader_t *loader, bool self_loading)
         // FIXME
         //rights.words[0] = mapping->rights;
 
-        if (self_loading) {
-            /* move target page from background CNode to current CNode */
-            seL4_CPtr page_index = mapping->page;
-            for (int i = 0; i < mapping->number_of_pages; ++i) {
-                // for each mapping, map all pages in this region...
-                page_index = mapping->page + i;
-                // move a page to the working CNode...
-                error = seL4_CNode_Move(
-                    CNODE_SELF_CAP, CNODE_BASE_MAPPING_CAP, PD_CAP_BITS,
-                    CNODE_BACKGROUND_CAP, BACKGROUND_MAPPING_BASE_CAP + page_index, PD_CAP_BITS);
-                if (error != seL4_NoError) {
-                    microkit_dbg_printf(LIB_NAME_MACRO "Failed to move target page to current CNode for mapping\n");
-                   microkit_dbg_printf(LIB_NAME_MACRO "Error page index: %d, i: %d\n", page_index, i);
-                }
-                //microkit_dbg_printf(LIB_NAME_MACRO "Move target page to current CNode for mapping\n");
-
-                /* map target page at current CNode */
-                error = seL4_ARM_Page_Map(
-                    CNODE_BASE_MAPPING_CAP,
-                    CNODE_VSPACE_CAP,
-                    mapping->vaddr + i * mapping->page_size,
-                    rights,
-                    mapping->attrs
-                );
-                if (error != seL4_NoError) {
-                    microkit_dbg_printf(LIB_NAME_MACRO "Failed to map memory: vaddr=0x%x error=%d\n", mapping->vaddr, error);
-                    microkit_internal_crash(error);
-                }
-
-                /* backing up the mapped page */
-                error = seL4_CNode_Move(
-                    CNODE_BACKGROUND_CAP, BACKGROUND_MAPPING_BASE_CAP + page_index, PD_CAP_BITS,
-                    CNODE_SELF_CAP, CNODE_BASE_MAPPING_CAP, PD_CAP_BITS);
-                if (error != seL4_NoError) {
-                    microkit_dbg_printf(LIB_NAME_MACRO "Failed to move target page back to background CNode for backup\n");
-                }
-                microkit_dbg_printf(LIB_NAME_MACRO "Mapped page at vaddr: 0x%x with frame cap: %d\n", mapping->vaddr + i * mapping->page_size, page_index);
+        /* move target page from background CNode to current CNode */
+        seL4_CPtr page_index = mapping->page;
+        for (int i = 0; i < mapping->number_of_pages; ++i) {
+            // for each mapping, map all pages in this region...
+            page_index = mapping->page + i;
+            // move a page to the working CNode...
+            error = seL4_CNode_Move(
+                CNODE_SELF_CAP, CNODE_BASE_MAPPING_CAP, PD_CAP_BITS,
+                CNODE_BACKGROUND_CAP, BACKGROUND_MAPPING_BASE_CAP + page_index, PD_CAP_BITS);
+            if (error != seL4_NoError) {
+                microkit_dbg_printf(LIB_NAME_MACRO "Failed to move target page to current CNode for mapping\n");
+               microkit_dbg_printf(LIB_NAME_MACRO "Error page index: %d, i: %d\n", page_index, i);
             }
-            //microkit_dbg_printf(LIB_NAME_MACRO "Move target page back to background CNode for backup\n");
-        } else {
-            seL4_CPtr page_index;
-            for (int i = 0; i < mapping->number_of_pages; ++i) {
-                page_index = mapping->page + i;
-                error = seL4_ARM_Page_Map(
-                    page_index,
-                    PD_TEMPLATE_CHILD_VSPACE_BASE + loader->child_id,
-                    mapping->vaddr + i * mapping->page_size,
-                    rights,
-                    mapping->attrs
-                );
-                if (error != seL4_NoError) {
-                    microkit_dbg_printf(LIB_NAME_MACRO "Failed to map memory: vaddr=0x%x error=%d\n", mapping->vaddr + i * mapping->page_size, error);
-                    microkit_internal_crash(error);
-                }
+            //microkit_dbg_printf(LIB_NAME_MACRO "Move target page to current CNode for mapping\n");
+
+            /* map target page at current CNode */
+            error = seL4_ARM_Page_Map(
+                CNODE_BASE_MAPPING_CAP,
+                CNODE_VSPACE_CAP,
+                mapping->vaddr + i * mapping->page_size,
+                rights,
+                mapping->attrs
+            );
+            if (error != seL4_NoError) {
+                microkit_dbg_printf(LIB_NAME_MACRO "Failed to map memory: vaddr=0x%x error=%d\n", mapping->vaddr, error);
+                microkit_internal_crash(error);
             }
+
+            /* backing up the mapped page */
+            error = seL4_CNode_Move(
+                CNODE_BACKGROUND_CAP, BACKGROUND_MAPPING_BASE_CAP + page_index, PD_CAP_BITS,
+                CNODE_SELF_CAP, CNODE_BASE_MAPPING_CAP, PD_CAP_BITS);
+            if (error != seL4_NoError) {
+                microkit_dbg_printf(LIB_NAME_MACRO "Failed to move target page back to background CNode for backup\n");
+            }
+            microkit_dbg_printf(LIB_NAME_MACRO "Mapped page at vaddr: 0x%x with frame cap: %d\n", mapping->vaddr + i * mapping->page_size, page_index);
         }
+
         microkit_dbg_printf(LIB_NAME_MACRO "Mapped allowed memory: page=0x%x vaddr=0x%x\n", mapping->page, mapping->vaddr);
     }
 
-    if (self_loading) {
-        error = seL4_CNode_Move(
-            CNODE_BACKGROUND_CAP, BACKGROUND_VSPACE_CAP, PD_CAP_BITS,
-            CNODE_SELF_CAP, CNODE_VSPACE_CAP, PD_CAP_BITS);
-        if (error != seL4_NoError) {
-            microkit_dbg_printf(LIB_NAME_MACRO "Failed to move vspace back to background CNode for backup\n");
-        }
-        microkit_dbg_printf(LIB_NAME_MACRO "Move target VSpace to background CNode for backup\n");
+    error = seL4_CNode_Move(
+        CNODE_BACKGROUND_CAP, BACKGROUND_VSPACE_CAP, PD_CAP_BITS,
+        CNODE_SELF_CAP, CNODE_VSPACE_CAP, PD_CAP_BITS);
+    if (error != seL4_NoError) {
+        microkit_dbg_printf(LIB_NAME_MACRO "Failed to move vspace back to background CNode for backup\n");
     }
+    microkit_dbg_printf(LIB_NAME_MACRO "Move target VSpace to background CNode for backup\n");
 }
 
 void tsldr_restore_caps(trusted_loader_t *loader, bool self_loading)
@@ -464,27 +416,16 @@ void tsldr_restore_caps(trusted_loader_t *loader, bool self_loading)
             channel_base_cap = BACKGROUND_PPC_BASE_CAP;
         }
 
-        if (self_loading) {
-            error = seL4_CNode_Copy(
-                CNODE_SELF_CAP,
-                channel_dest_base_cap + channel_id,
-                PD_CAP_BITS,
-                CNODE_BACKGROUND_CAP,
-                channel_base_cap + channel_id,
-                PD_CAP_BITS,
-                seL4_AllRights
-            );
-        } else {
-            error = seL4_CNode_Copy(
-                PD_TEMPLATE_CHILD_CSPACE_BASE + loader->child_id,
-                channel_dest_base_cap + channel_id,
-                PD_CAP_BITS,
-                PD_TEMPLATE_CHILD_BNODE_BASE + loader->child_id,
-                channel_base_cap + channel_id,
-                PD_CAP_BITS,
-                seL4_AllRights
-            );
-        }
+        error = seL4_CNode_Copy(
+            CNODE_SELF_CAP,
+            channel_dest_base_cap + channel_id,
+            PD_CAP_BITS,
+            CNODE_BACKGROUND_CAP,
+            channel_base_cap + channel_id,
+            PD_CAP_BITS,
+            seL4_AllRights
+        );
+
         if (error != seL4_NoError) {
             microkit_dbg_printf(LIB_NAME_MACRO "Failed to restore channel cap: channel_id=%d error=%d\n", channel_id, error);
             microkit_internal_crash(error);
@@ -499,28 +440,15 @@ void tsldr_restore_caps(trusted_loader_t *loader, bool self_loading)
             continue;
         }
 
-        if (self_loading) {
-            error = seL4_CNode_Copy(
-                CNODE_SELF_CAP,
-                CNODE_IRQ_BASE_CAP + irq_id,
-                PD_CAP_BITS,
-                CNODE_BACKGROUND_CAP,
-                BACKGROUND_IRQ_BASE_CAP + irq_id,
-                PD_CAP_BITS,
-                seL4_AllRights
-            );
-        } else {
-            error = seL4_CNode_Copy(
-                PD_TEMPLATE_CHILD_CSPACE_BASE + loader->child_id,
-                CNODE_IRQ_BASE_CAP + irq_id,
-                PD_CAP_BITS,
-                PD_TEMPLATE_CHILD_BNODE_BASE + loader->child_id,
-                BACKGROUND_IRQ_BASE_CAP + irq_id,
-                PD_CAP_BITS,
-                seL4_AllRights
-            );
-        }
-
+        error = seL4_CNode_Copy(
+            CNODE_SELF_CAP,
+            CNODE_IRQ_BASE_CAP + irq_id,
+            PD_CAP_BITS,
+            CNODE_BACKGROUND_CAP,
+            BACKGROUND_IRQ_BASE_CAP + irq_id,
+            PD_CAP_BITS,
+            seL4_AllRights
+        );
         if (error != seL4_NoError) {
             microkit_dbg_printf(LIB_NAME_MACRO "Failed to restore IRQ cap: irq_id=%d error=%d\n", irq_id, error);
             microkit_internal_crash(error);
@@ -529,66 +457,56 @@ void tsldr_restore_caps(trusted_loader_t *loader, bool self_loading)
         microkit_dbg_printf(LIB_NAME_MACRO "Restored IRQ cap: irq_id=%d\n", irq_id);
     }
 
-    if (self_loading) {
-        error = seL4_CNode_Move(
-            CNODE_SELF_CAP, CNODE_VSPACE_CAP, PD_CAP_BITS,
-            CNODE_BACKGROUND_CAP, BACKGROUND_VSPACE_CAP, PD_CAP_BITS);
-        if (error != seL4_NoError) {
-            microkit_dbg_printf(LIB_NAME_MACRO "Failed to move vspace to current CNode for manipulation\n");
-        }
-        microkit_dbg_printf(LIB_NAME_MACRO "Move target VSpace to current CNode for manipulation\n");
+    error = seL4_CNode_Move(
+        CNODE_SELF_CAP, CNODE_VSPACE_CAP, PD_CAP_BITS,
+        CNODE_BACKGROUND_CAP, BACKGROUND_VSPACE_CAP, PD_CAP_BITS);
+    if (error != seL4_NoError) {
+        microkit_dbg_printf(LIB_NAME_MACRO "Failed to move vspace to current CNode for manipulation\n");
     }
+    microkit_dbg_printf(LIB_NAME_MACRO "Move target VSpace to current CNode for manipulation\n");
 
     // Unmapped allowed memory mappings
     for (seL4_Word i = 0; i < loader->num_allowed_mappings; i++) {
         const MemoryMapping *mapping = loader->allowed_mappings[i];
         microkit_dbg_printf(LIB_NAME_MACRO "Unmapping mapping: vaddr=0x%x\n", mapping->vaddr);
 
-        if (self_loading){
-            /* move target page from background CNode to current CNode */
-            seL4_CPtr page_index = mapping->page;
-            error = seL4_CNode_Move(
-                CNODE_SELF_CAP, CNODE_BASE_MAPPING_CAP, PD_CAP_BITS,
-                CNODE_BACKGROUND_CAP, BACKGROUND_MAPPING_BASE_CAP + page_index, PD_CAP_BITS);
-            if (error != seL4_NoError) {
-                microkit_dbg_printf(LIB_NAME_MACRO "Failed to move target page to current CNode for unmapping\n");
-            }
-            microkit_dbg_printf(LIB_NAME_MACRO "Move target page to current CNode for unmapping\n");
-
-            error = seL4_ARM_Page_Unmap(CNODE_BASE_MAPPING_CAP);
-            if (error != seL4_NoError) {
-                microkit_dbg_printf(LIB_NAME_MACRO "Failed to unmap mapping: vaddr=0x%x error=%d\n", mapping->vaddr, error);
-                microkit_internal_crash(error);
-            }
-            microkit_dbg_printf(LIB_NAME_MACRO "Unmap succeed\n");
-
-            /* backing up the mapped page */
-            error = seL4_CNode_Move(
-                CNODE_BACKGROUND_CAP, BACKGROUND_MAPPING_BASE_CAP + page_index, PD_CAP_BITS,
-                CNODE_SELF_CAP, CNODE_BASE_MAPPING_CAP, PD_CAP_BITS);
-            if (error != seL4_NoError) {
-                microkit_dbg_printf(LIB_NAME_MACRO "Failed to move target page back to background CNode for backup\n");
-            }
-            microkit_dbg_printf(LIB_NAME_MACRO "Move target page back to background CNode for backup\n");
-        } else {
-            error = seL4_ARM_Page_Unmap(mapping->page);
-            if (error != seL4_NoError) {
-                microkit_dbg_printf(LIB_NAME_MACRO "Failed to unmap mapping: vaddr=0x%x error=%d\n", mapping->vaddr, error);
-                microkit_internal_crash(error);
-            }
+        /* move target page from background CNode to current CNode */
+        seL4_CPtr page_index = mapping->page;
+        error = seL4_CNode_Move(
+            CNODE_SELF_CAP, CNODE_BASE_MAPPING_CAP, PD_CAP_BITS,
+            CNODE_BACKGROUND_CAP, BACKGROUND_MAPPING_BASE_CAP + page_index, PD_CAP_BITS);
+        if (error != seL4_NoError) {
+            microkit_dbg_printf(LIB_NAME_MACRO "Failed to move target page to current CNode for unmapping\n");
         }
+        microkit_dbg_printf(LIB_NAME_MACRO "Move target page to current CNode for unmapping\n");
+
+        error = seL4_ARM_Page_Unmap(CNODE_BASE_MAPPING_CAP);
+        if (error != seL4_NoError) {
+            microkit_dbg_printf(LIB_NAME_MACRO "Failed to unmap mapping: vaddr=0x%x error=%d\n", mapping->vaddr, error);
+            microkit_internal_crash(error);
+        }
+        microkit_dbg_printf(LIB_NAME_MACRO "Unmap succeed\n");
+
+        /* backing up the mapped page */
+        error = seL4_CNode_Move(
+            CNODE_BACKGROUND_CAP, BACKGROUND_MAPPING_BASE_CAP + page_index, PD_CAP_BITS,
+            CNODE_SELF_CAP, CNODE_BASE_MAPPING_CAP, PD_CAP_BITS);
+        if (error != seL4_NoError) {
+            microkit_dbg_printf(LIB_NAME_MACRO "Failed to move target page back to background CNode for backup\n");
+        }
+        microkit_dbg_printf(LIB_NAME_MACRO "Move target page back to background CNode for backup\n");
+
         microkit_dbg_printf(LIB_NAME_MACRO "Unmapped mapping: vaddr=0x%x\n", mapping->vaddr);
     }
 
-    if (self_loading) {
-        error = seL4_CNode_Move(
-            CNODE_BACKGROUND_CAP, BACKGROUND_VSPACE_CAP, PD_CAP_BITS,
-            CNODE_SELF_CAP, CNODE_VSPACE_CAP, PD_CAP_BITS);
-        if (error != seL4_NoError) {
-            microkit_dbg_printf(LIB_NAME_MACRO "Failed to move vspace back to background CNode for backup\n");
-        }
-        microkit_dbg_printf(LIB_NAME_MACRO "Move target VSpace to background CNode for backup\n");
-    }
+     error = seL4_CNode_Move(
+         CNODE_BACKGROUND_CAP, BACKGROUND_VSPACE_CAP, PD_CAP_BITS,
+         CNODE_SELF_CAP, CNODE_VSPACE_CAP, PD_CAP_BITS);
+     if (error != seL4_NoError) {
+         microkit_dbg_printf(LIB_NAME_MACRO "Failed to move vspace back to background CNode for backup\n");
+     }
+     microkit_dbg_printf(LIB_NAME_MACRO "Move target VSpace to background CNode for backup\n");
+
     microkit_dbg_printf(LIB_NAME_MACRO "Exit of caps restore\n");
 }
 
