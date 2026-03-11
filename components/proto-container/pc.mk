@@ -92,8 +92,8 @@ trampoline.elf: $(PC_TRAMPOLINE_OBJS) $(LIBEXTELF)
 
 
 client.elf: LIBS += $(LIBGCC)
-client.elf: LDFLAGS += -L$(BOARD_DIR)/lib
-client.elf: $(PC_CLIENT_OBJS) libsddf_util.a
+client.elf: LDFLAGS += -L$(BOARD_DIR)/lib -L$(LIBTSLDR_BUILD_DIR)
+client.elf: $(PC_CLIENT_OBJS) libsddf_util.a $(LIBTSLDR)
 	$(LD) $(LDFLAGS) -Ttext=0x2800000 $^ $(LIBS) -o $@
 
 

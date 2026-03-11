@@ -1,6 +1,7 @@
 
 #include <elf_utils.h>
 #include <acg.h>
+#include <caputils.h>
 
 /* use ED25519 algorithm for encryption now */
 #define PUBLIC_KEY_BYTES        32
@@ -62,39 +63,6 @@ typedef struct {
     tsldr_md_t md_array[16];
 } tsldr_md_array_t;
 
-#define PD_CAP_BITS    64 
-
-/* for monitor to access the cnode of container */
-#define PD_TEMPLATE_CHILD_CSPACE_BASE   (458)
-/* for monitor to access the vspace of container */
-#define PD_TEMPLATE_CHILD_VSPACE_BASE   (490)
-/* for monitor to access the background CNode of its child */
-#define PD_TEMPLATE_CHILD_BNODE_BASE    (474)
-/* for monitor to access it's own cspace */
-#define PD_TEMPLATE_CNODE_ROOT          (506)
-
-#define CNODE_SELF_CAP          506
-#define CNODE_BACKGROUND_CAP    (CNODE_SELF_CAP + 1)
-#define CNODE_VSPACE_CAP        (CNODE_BACKGROUND_CAP + 1)
-
-#define CNODE_NTFN_BASE_CAP     (10)
-#define CNODE_PPC_BASE_CAP      (CNODE_NTFN_BASE_CAP + 64)
-#define CNODE_IRQ_BASE_CAP      (CNODE_PPC_BASE_CAP + 64)
-// FIXME
-// Looks like with current mapping method, we need only one slot for mapping
-// and too much slots will cause problems with overlapping cslots
-#define CNODE_BASE_MAPPING_CAP  (458)
-
-#define CNODE_TSLDR_CONTEXT_CAP (500)
-/* put it in somewhere in the middle of no where... */
-
-#define BACKGROUND_VSPACE_CAP       9
-#define BACKGROUND_NTFN_BASE_CAP    10
-#define BACKGROUND_IRQ_BASE_CAP     (BACKGROUND_NTFN_BASE_CAP + 64)
-#define BACKGROUND_PPC_BASE_CAP     (BACKGROUND_IRQ_BASE_CAP + 64)
-#define BACKGROUND_MAPPING_BASE_CAP (BACKGROUND_PPC_BASE_CAP + 64)
-
-#define BACKGROUND_TSLDR_CONTEXT_CAP    (500)
 
 typedef int (*crypto_verify_fn)(const unsigned char *signature,
                                 const unsigned char *data,

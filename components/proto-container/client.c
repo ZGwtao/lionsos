@@ -8,6 +8,8 @@
 #include <sddf/util/printf.h>
 #include <pc_config.h>
 
+#include <libtrustedlo.h>
+
 __attribute__((__section__(".serial_client_config"))) serial_client_config_t serial_config;
 __attribute__((__section__(".timer_client_config"))) timer_client_config_t timer_config;
 __attribute__((__section__(".fs_client_config"))) fs_client_config_t fs_config;
