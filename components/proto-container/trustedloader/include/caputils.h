@@ -42,12 +42,15 @@
 
 
 void tsldr_caputil_delete_cap(seL4_Word cap_idx);
+void tsldr_caputil_delete_cap_from_cnode(seL4_Word cap_idx, seL4_Word cnode_idx);
 void tsldr_caputil_load_cap_from_backup_cnode(seL4_Word dest_idx, seL4_Word src_idx);
 void tsldr_caputil_store_cap_to_backup_cnode(seL4_Word dest_idx, seL4_Word src_idx);
 void tsldr_caputil_copy_cap_from_backup_cnode(seL4_Word dest_idx, seL4_Word src_idx, seL4_CapRights_t rights);
+void tsldr_caputil_copy_cap_between_cnode(seL4_Word cap_dest, seL4_Word cnode_dest, seL4_Word cap_src, seL4_Word cnode_src);
 
 
 void tsldr_caputil_pd_deprivilege(void);
+void tsldr_caputil_pd_privilege(seL4_Word pd_idx);
 void tsldr_caputil_pd_grant_vspace_access(void);
 void tsldr_caputil_pd_revoke_vspace_access(void);
 void tsldr_caputil_pd_page_map(seL4_Word page_idx, uintptr_t vaddr, seL4_CapRights_t rights, seL4_Word attrs);

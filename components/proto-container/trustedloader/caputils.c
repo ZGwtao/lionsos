@@ -14,6 +14,21 @@ void tsldr_caputil_delete_cap(seL4_Word cap_idx)
     }
 }
 
+void tsldr_caputil_delete_cap_from_cnode(seL4_Word cap_idx, seL4_Word cnode_idx)
+{
+    seL4_Word err = seL4_CNode_Delete(cnode_idx, cap_idx, PD_CAP_BITS);
+    if (err != seL4_NoError) {
+        microkit_dbg_puts(" tsldr_caputil_delete_cap_from_cnode:\n");
+        microkit_dbg_puts(" failed to delete cap_idx '");
+        microkit_dbg_put32(cap_idx);
+        microkit_dbg_puts("' from cnode: '");
+        microkit_dbg_put32(cnode_idx);
+        microkit_dbg_puts("'\n");
+        /* let it crash here */
+        microkit_internal_crash(err);
+    }
+}
+
 void tsldr_caputil_load_cap_from_backup_cnode(seL4_Word dest_idx, seL4_Word src_idx)
 {
     seL4_Word err = seL4_CNode_Move(
@@ -63,12 +78,36 @@ void tsldr_caputil_copy_cap_from_backup_cnode(seL4_Word dest_idx, seL4_Word src_
     }
 }
 
+void tsldr_caputil_copy_cap_between_cnode(seL4_Word cap_dest, seL4_Word cnode_dest, seL4_Word cap_src, seL4_Word cnode_src)
+{
+    // FIXME: copy rights
+    seL4_Word err = seL4_CNode_Copy(cnode_dest, cap_dest, PD_CAP_BITS, cnode_src, cap_src, PD_CAP_BITS, seL4_AllRights);
+    if (err != seL4_NoError) {
+        microkit_dbg_puts(" tsldr_caputil_copy_cap_between_cnode:\n");
+        //microkit_dbg_puts(" failed to copy cap_idx from backup cnode '");
+        //microkit_dbg_put32(cap_idx);
+        microkit_dbg_puts("'\n");
+        /* let it crash here */
+        microkit_internal_crash(err);
+    }
+}
+
+
 void tsldr_caputil_pd_deprivilege(void)
 {
     tsldr_caputil_delete_cap(CNODE_BACKGROUND_CAP);
 
     tsldr_caputil_delete_cap(CNODE_SELF_CAP);
 }
+
+void tsldr_caputil_pd_privilege(seL4_Word pd_idx)
+{
+    tsldr_caputil_delete_cap_from_cnode(CNODE_SELF_CAP, PD_TEMPLATE_CHILD_CSPACE_BASE + pd_idx);
+    tsldr_caputil_delete_cap_from_cnode(CNODE_BACKGROUND_CAP, PD_TEMPLATE_CHILD_CSPACE_BASE + pd_idx);
+    tsldr_caputil_copy_cap_between_cnode(CNODE_SELF_CAP, PD_TEMPLATE_CHILD_CSPACE_BASE + pd_idx, PD_TEMPLATE_CHILD_CSPACE_BASE + pd_idx, PD_TEMPLATE_CNODE_ROOT);
+    tsldr_caputil_copy_cap_between_cnode(CNODE_BACKGROUND_CAP, PD_TEMPLATE_CHILD_CSPACE_BASE + pd_idx, PD_TEMPLATE_CHILD_BNODE_BASE + pd_idx, PD_TEMPLATE_CNODE_ROOT);
+}
+
 
 
 void tsldr_caputil_pd_grant_vspace_access(void)

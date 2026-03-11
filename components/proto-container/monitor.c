@@ -250,11 +250,7 @@ void monitor_call_debute_lower()
     // backup trusted loading context in target slot..
     custom_memcpy(context, &loader_context[cid], sizeof(trusted_loader_t));
 
-    int err = tsldr_grant_cspace_access(cid);
-    if (err != seL4_NoError) {
-        microkit_dbg_printf(PROGNAME "Failed to grant cspace access to target container PD\n");
-        return;
-    }
+    tsldr_caputil_pd_privilege(cid);
 
     uintptr_t payload_base = container_elf + ELF_FILE_SIZE * cid;
     uintptr_t protocon_base = trusted_loader_exec + ELF_FILE_SIZE * cid;
