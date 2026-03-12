@@ -142,10 +142,10 @@ void tsldr_init_metadata(tsldr_md_array_t *array, size_t id);
 void tsldr_init(trusted_loader_t *loader, size_t id);
 
 
-void tsldr_restore_caps(trusted_loader_t *loader, bool self_loading);
+void tsldr_restore_caps(trusted_loader_t *loader);
 
 
-void tsldr_remove_caps(trusted_loader_t *loader, bool self_loading);
+void tsldr_remove_caps(trusted_loader_t *loader);
 
 
 // FIXME: this function refresh the regions where the client elf should live

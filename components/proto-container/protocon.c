@@ -102,7 +102,7 @@ void init(void)
     }
     microkit_dbg_printf(PROGNAME "Finished up access rights integrity checking\n");
 
-    tsldr_restore_caps(loader_context, true);
+    tsldr_restore_caps(loader_context);
 
     /* (really) populate allowed access rights */
     error = tsldr_populate_allowed(loader_context);
@@ -110,7 +110,7 @@ void init(void)
         microkit_internal_crash(-1);
     }
 
-    tsldr_remove_caps(loader_context, true);
+    tsldr_remove_caps(loader_context);
 
     tsldr_loading_epilogue(container_exec, (uintptr_t)0x0);
 

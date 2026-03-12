@@ -211,7 +211,7 @@ void tsldr_init(trusted_loader_t *loader, size_t id)
     loader->child_id = id;
 }
 
-void tsldr_remove_caps(trusted_loader_t *loader, bool self_loading)
+void tsldr_remove_caps(trusted_loader_t *loader)
 {
     if (!loader) {
         microkit_dbg_printf(LIB_NAME_MACRO "Invalid loader pointer given\n");
@@ -228,7 +228,7 @@ void tsldr_remove_caps(trusted_loader_t *loader, bool self_loading)
 
 }
 
-void tsldr_restore_caps(trusted_loader_t *loader, bool self_loading)
+void tsldr_restore_caps(trusted_loader_t *loader)
 {
     microkit_dbg_printf(LIB_NAME_MACRO "Entry of caps restore\n");
     if (!loader) {
