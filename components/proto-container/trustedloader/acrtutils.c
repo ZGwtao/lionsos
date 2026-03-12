@@ -54,7 +54,7 @@ void tsldr_acrtutil_restore_channels(void *data)
         if (tsldr_acrtutil_check_channel(channel, &is_ppc) == false) {
             continue;
         }
-        if (is_ppc == true)
+        if (is_ppc)
             tsldr_caputil_restore_ppc_cap(channel);
         else
             tsldr_caputil_restore_notification_cap(channel);
@@ -92,7 +92,88 @@ void tsldr_acrtutil_restore_irqs(void *data)
     }
 }
 
+void tsldr_acrtutil_restore_mappings(void *data)
+{
+    /* initialise trusted loader context */
+    trusted_loader_t *loader = (trusted_loader_t *)data;
 
+    tsldr_caputil_pd_grant_vspace_access();
+
+    for (seL4_Word i = 0; i < loader->num_allowed_mappings; i++) {
+        const MemoryMapping *m = loader->allowed_mappings[i];
+
+        seL4_CapRights_t rights = seL4_AllRights;
+        // FIXME
+        // rights.words[0] = mapping->rights;
+        for (int i = 0; i < m->number_of_pages; ++i) {
+            tsldr_caputil_pd_grant_page_access(m->page + i, m->vaddr + i * m->page_size, rights, m->attrs);
+        }
+
+        microkit_dbg_puts(" tsldr_acrtutil_restore_mappings:\n");
+        microkit_dbg_puts(" restore (map) mapping '");
+        microkit_dbg_put32(m->page);
+        microkit_dbg_puts("' at vaddr '");
+        // TODO: add put64 here for vaddr
+        microkit_dbg_puts("'\n");
+    }
+
+    tsldr_caputil_pd_revoke_vspace_access();
+
+}
+
+
+void tsldr_acrtutil_revoke_channels(void *data)
+{
+    /* initialise trusted loader context */
+    trusted_loader_t *loader = (trusted_loader_t *)data;
+
+    for (seL4_Word channel = 0; channel < MICROKIT_MAX_CHANNELS; channel++) {
+
+        /*  If the channel is allowed, keep it */
+        if (loader->allowed_channels[channel]) {
+            continue;
+        }
+
+        /* try to record channel state: pp or notification */
+        uint8_t is_ppc = 0;
+
+        /* the channel id given is invalid, skip it as no need to delete it */
+        if (tsldr_acrtutil_check_channel(channel, &is_ppc) == false) {
+            continue;
+        }
+        if (is_ppc) {
+            tsldr_caputil_revoke_ppc_cap(channel);
+        } else {
+            tsldr_caputil_revoke_notification_cap(channel);
+        }
+
+        microkit_dbg_puts(" tsldr_acrtutil_revoke_channels:\n");
+        microkit_dbg_puts(" revoke channel '");
+        microkit_dbg_put32(channel);
+        microkit_dbg_puts("'\n");
+
+    }
+}
+
+void tsldr_acrtutil_revoke_irqs(void *data)
+{
+    /* initialise trusted loader context */
+    trusted_loader_t *loader = (trusted_loader_t *)data;
+
+    for (seL4_Word irq = 0; irq < MICROKIT_MAX_CHANNELS; irq++) {
+
+        if (loader->allowed_irqs[irq]) {
+            continue;
+        }
+        tsldr_caputil_revoke_irq_cap(irq);
+
+        microkit_dbg_puts(" tsldr_acrtutil_revoke_irqs:\n");
+        microkit_dbg_puts(" revoke IRQ '");
+        microkit_dbg_put32(irq);
+        microkit_dbg_puts("'\n");
+
+    }
+}
 
 void tsldr_acrtutil_revoke_mappings(void *data)
 {

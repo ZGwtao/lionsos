@@ -222,61 +222,10 @@ void tsldr_remove_caps(trusted_loader_t *loader, bool self_loading)
     if (!loader->flags.flag_restore_caps)
         loader->flags.flag_restore_caps = true;
 
-    //seL4_Error error;
+    tsldr_acrtutil_revoke_channels(loader);
+    tsldr_acrtutil_revoke_irqs(loader);
+    tsldr_acrtutil_restore_mappings(loader);
 
-    // Delete disallowed channel capabilities
-    for (seL4_Word channel_id = 0; channel_id < MICROKIT_MAX_CHANNELS; channel_id++) {
-        // try to record channel state: pp or notification
-        uint8_t cstate = 0;
-        // ...
-        if (loader->allowed_channels[channel_id] || !tsldr_acrtutil_check_channel(channel_id, &cstate)) {
-            continue;
-        }
-        // seL4_Word channel_base_cap = CNODE_NTFN_BASE_CAP;
-        // if cstate is true, we should use ppc...
-        if (cstate) {
-            tsldr_caputil_revoke_ppc_cap(channel_id);
-        } else {
-            tsldr_caputil_revoke_notification_cap(channel_id);
-        }
-        microkit_dbg_printf(LIB_NAME_MACRO "Deleted channel cap: channel_id=%d\n", channel_id);
-    }
-
-    // Delete disallowed IRQ capabilities
-    for (seL4_Word irq_id = 0; irq_id < MICROKIT_MAX_CHANNELS; irq_id++) {
-        if (loader->allowed_irqs[irq_id] || !tsldr_acrtutil_check_irq(irq_id)) {
-            continue;
-        }
-        tsldr_caputil_revoke_irq_cap(irq_id);
-
-        microkit_dbg_printf(LIB_NAME_MACRO "Deleted IRQ cap: irq_id=%d\n", irq_id);
-    }
-
-    tsldr_caputil_pd_grant_vspace_access();
-
-
-    // Map only the allowed memory regions
-    for (seL4_Word i = 0; i < loader->num_allowed_mappings; i++) {
-        const MemoryMapping *mapping = loader->allowed_mappings[i];
-        microkit_dbg_printf(LIB_NAME_MACRO "Mapping allowed memory: vaddr=0x%x\n", mapping->vaddr);
-
-        seL4_CapRights_t rights = seL4_AllRights;
-        // FIXME
-        //rights.words[0] = mapping->rights;
-
-        /* move target page from background CNode to current CNode */
-        seL4_CPtr page_index = mapping->page;
-        for (int i = 0; i < mapping->number_of_pages; ++i) {
-            // for each mapping, map all pages in this region...
-            page_index = mapping->page + i;
-
-            tsldr_caputil_pd_grant_page_access(page_index, mapping->vaddr + i * mapping->page_size, rights, mapping->attrs);
-        }
-
-        microkit_dbg_printf(LIB_NAME_MACRO "Mapped allowed memory: page=0x%x vaddr=0x%x\n", mapping->page, mapping->vaddr);
-    }
-
-    tsldr_caputil_pd_revoke_vspace_access();
 }
 
 void tsldr_restore_caps(trusted_loader_t *loader, bool self_loading)
