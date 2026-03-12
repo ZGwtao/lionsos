@@ -24,7 +24,7 @@ BOARD_DIR ?= $(MICROKIT_SDK)/board/$(MICROKIT_BOARD)/$(MICROKIT_CONFIG)
 
 TSLDR_OBJS :=  \
 	trustedloader.o \
-	caputils.o \
+	caputils.o acrtutils.o \
 	acg.o
 
 LIBEXTELF_SRC_DIR ?= $(CURDIR)/../extelf

@@ -1,59 +1,11 @@
 
+#include <acrtutils.h>
 #include <libtrustedlo.h>
 #include <string.h>
 
 #define LIB_NAME_MACRO "    => [@trustedlo] "
 
 extern uintptr_t tsldr_metadata;
-
-MemoryMapping *tsldr_find_mapping_by_vaddr(trusted_loader_t *loader, seL4_Word vaddr, bool sldr, void *data)
-{
-    if (!data) {
-        microkit_dbg_printf(LIB_NAME_MACRO "Invalid data pointer given\n");
-        return NULL;
-    }
-
-    if (!loader) {
-        microkit_dbg_printf(LIB_NAME_MACRO "Invalid loader pointer given\n");
-        return NULL;
-    }
-    /* tsldr metadata */
-    tsldr_md_t *md = (tsldr_md_t *)data;
-    if (md->init != true || loader->flags.init != true) {
-        microkit_dbg_printf(LIB_NAME_MACRO "Uninitialised trusted loader\n");
-        return NULL;
-    }
-    for (seL4_Word i = 0; i < MICROKIT_MAX_CHANNELS; i++) {
-        if (md->mappings[i].vaddr == vaddr) {
-            return &md->mappings[i];
-        }
-    }
-
-    return NULL;
-}
-
-static seL4_Word find_channel_by_index(trusted_loader_t *loader, seL4_Word index_data, uint8_t *cstate)
-{
-    tsldr_md_t *md = (tsldr_md_t *)tsldr_metadata;
-    if (md->init != true || loader->flags.init != true) {
-        microkit_dbg_printf(LIB_NAME_MACRO "Uninitialised trusted loader\n");
-        return 0;
-    }
-    if (cstate != NULL) {
-        *cstate = md->cstate[index_data];
-    }
-    return md->channels[index_data];
-}
-
-static seL4_Word find_irq_by_index(trusted_loader_t *loader, seL4_Word index_data)
-{
-    tsldr_md_t *md = (tsldr_md_t *)tsldr_metadata;
-    if (md->init != true || loader->flags.init != true) {
-        microkit_dbg_printf(LIB_NAME_MACRO "Uninitialised trusted loader\n");
-        return 0;
-    }
-    return md->irqs[index_data];
-}
 
 #if 0
 seL4_Error tsldr_parse_rights(Elf64_Ehdr *ehdr, char *ref_section[], seL4_Word *size)
@@ -178,7 +130,7 @@ seL4_Error tsldr_populate_allowed(trusted_loader_t *loader)
         const AccessRightEntry *entry = &rights->entries[i];
         switch (entry->type) {
             case ACCESS_TYPE_CHANNEL:
-                if (entry->data < MICROKIT_MAX_CHANNELS && find_channel_by_index(loader, entry->data, NULL)) {
+                if (entry->data < MICROKIT_MAX_CHANNELS && tsldr_acrtutil_check_channel(entry->data, NULL)) {
                     loader->allowed_channels[entry->data] = true;
                     microkit_dbg_printf(LIB_NAME_MACRO "Allowed channel ID: %d\n", (unsigned long long)entry->data);
                 } else {
@@ -188,7 +140,7 @@ seL4_Error tsldr_populate_allowed(trusted_loader_t *loader)
                 break;
 
             case ACCESS_TYPE_IRQ:
-                if (entry->data < MICROKIT_MAX_CHANNELS && find_irq_by_index(loader, entry->data)) {
+                if (entry->data < MICROKIT_MAX_CHANNELS && tsldr_acrtutil_check_irq(entry->data)) {
                     loader->allowed_irqs[entry->data] = true;
                     microkit_dbg_printf(LIB_NAME_MACRO "Allowed IRQ ID: %d\n", (unsigned long long)entry->data);
                 } else {
@@ -200,7 +152,7 @@ seL4_Error tsldr_populate_allowed(trusted_loader_t *loader)
             case ACCESS_TYPE_MEMORY:
                 if (loader->num_allowed_mappings < MICROKIT_MAX_CHANNELS) {
                     seL4_Word vaddr = entry->data;
-                    MemoryMapping *mapping = tsldr_find_mapping_by_vaddr(loader, vaddr, true, (void *)tsldr_metadata);
+                    MemoryMapping *mapping = (MemoryMapping *)tsldr_acrtutil_check_mapping(vaddr);
                     if (mapping != NULL) {
                         loader->allowed_mappings[loader->num_allowed_mappings++] = mapping;
                         microkit_dbg_printf(LIB_NAME_MACRO "Allowed memory vaddr: 0x%x\n", (unsigned long long)vaddr);
@@ -277,7 +229,7 @@ void tsldr_remove_caps(trusted_loader_t *loader, bool self_loading)
         // try to record channel state: pp or notification
         uint8_t cstate = 0;
         // ...
-        if (loader->allowed_channels[channel_id] || !find_channel_by_index(loader, channel_id, &cstate)) {
+        if (loader->allowed_channels[channel_id] || !tsldr_acrtutil_check_channel(channel_id, &cstate)) {
             continue;
         }
         // seL4_Word channel_base_cap = CNODE_NTFN_BASE_CAP;
@@ -292,7 +244,7 @@ void tsldr_remove_caps(trusted_loader_t *loader, bool self_loading)
 
     // Delete disallowed IRQ capabilities
     for (seL4_Word irq_id = 0; irq_id < MICROKIT_MAX_CHANNELS; irq_id++) {
-        if (loader->allowed_irqs[irq_id] || !find_irq_by_index(loader, irq_id)) {
+        if (loader->allowed_irqs[irq_id] || !tsldr_acrtutil_check_irq(irq_id)) {
             continue;
         }
         tsldr_caputil_revoke_irq_cap(irq_id);
@@ -341,47 +293,9 @@ void tsldr_restore_caps(trusted_loader_t *loader, bool self_loading)
         return;
     }
 
-    // Restore disallowed channel capabilities
-    for (seL4_Word channel_id = 0; channel_id < MICROKIT_MAX_CHANNELS; channel_id++) {
-        // try to record channel state: pp or notification
-        uint8_t cstate = 0;
-        // ...
-        if (loader->allowed_channels[channel_id] || !find_channel_by_index(loader, channel_id, &cstate)) {
-            continue;
-        }
-        // if cstate is true, we should use ppc...
-        if (cstate) {
-            tsldr_caputil_restore_ppc_cap(channel_id);
-        } else {
-            tsldr_caputil_restore_notification_cap(channel_id);
-        }
-
-        microkit_dbg_printf(LIB_NAME_MACRO "Restored channel cap: channel_id=%d\n", channel_id);
-    }
-
-    // Restore disallowed IRQ capabilities
-    for (seL4_Word irq_id = 0; irq_id < MICROKIT_MAX_CHANNELS; irq_id++) {
-        if (loader->allowed_irqs[irq_id] || !find_irq_by_index(loader, irq_id)) {
-            continue;
-        }
-        tsldr_caputil_restore_irq_cap(irq_id);
-
-        microkit_dbg_printf(LIB_NAME_MACRO "Restored IRQ cap: irq_id=%d\n", irq_id);
-    }
-
-    tsldr_caputil_pd_grant_vspace_access();
-
-    // Unmapped allowed memory mappings
-    for (seL4_Word i = 0; i < loader->num_allowed_mappings; i++) {
-        const MemoryMapping *mapping = loader->allowed_mappings[i];
-        microkit_dbg_printf(LIB_NAME_MACRO "Unmapping mapping: vaddr=0x%x\n", mapping->vaddr);
-
-        tsldr_caputil_pd_revoke_page_access(mapping->page);
-
-        microkit_dbg_printf(LIB_NAME_MACRO "Unmapped mapping: vaddr=0x%x\n", mapping->vaddr);
-    }
-
-    tsldr_caputil_pd_revoke_vspace_access();
+    tsldr_acrtutil_restore_channels(loader);
+    tsldr_acrtutil_restore_irqs(loader);
+    tsldr_acrtutil_revoke_mappings(loader);
 
     microkit_dbg_printf(LIB_NAME_MACRO "Exit of caps restore\n");
 }
