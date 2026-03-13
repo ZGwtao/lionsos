@@ -203,3 +203,46 @@ void tsldr_acrtutil_revoke_mappings(void *data)
     tsldr_caputil_pd_revoke_vspace_access();
 
 }
+
+
+
+void tsldr_acrtutil_populate_all_rights(void *context_data, void *src_data, seL4_Word num)
+{
+    if (num > MAX_ACCESS_RIGHTS) {
+        microkit_dbg_puts(" tsldr_acrtutil_populate_all_rights:\n");
+        microkit_dbg_puts(" number of access rights given is too big '");
+        microkit_dbg_put32(num);
+        microkit_dbg_puts("'\n");
+        return;
+    }
+
+    trusted_loader_t *loader = (trusted_loader_t *)context_data;
+    AccessRightEntry *input_base = (AccessRightEntry *)(src_data);
+
+    AccessRights *rights_table = NULL;
+    AccessRightEntry *rights_entries = NULL;
+    
+    rights_table = &loader->access_rights;
+    custom_memset((void *)rights_table, 0, sizeof(AccessRights));
+    rights_table->num_entries = num;
+
+    for (int i = 0; i < rights_table->num_entries; ++i) {
+
+        rights_entries = &rights_table->entries[i];
+        rights_entries->type = input_base->type;
+        rights_entries->data = input_base->data;
+        input_base += 1;
+
+        microkit_dbg_puts(" tsldr_acrtutil_populate_all_rights:\n");
+        microkit_dbg_puts(" poplated access rights '");
+        microkit_dbg_put32(i);
+        microkit_dbg_puts("' with type '");
+        microkit_dbg_put32(rights_entries->type);
+        microkit_dbg_puts("' and data '");
+        microkit_dbg_put32(rights_entries->data);
+        microkit_dbg_puts("'\n");
+    }
+}
+
+
+

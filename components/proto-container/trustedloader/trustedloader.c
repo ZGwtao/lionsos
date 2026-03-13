@@ -82,7 +82,6 @@ seL4_Word tsldr_acrtutil_check_access_rights_table(void *base)
     return acrt_num;
 }
 
-void tsldr_acrtutil_populate_rights_to_loader_context(void *context_data, void *src_data, seL4_Word num);
 
 /* move the access rights information to the loader context */
 // initialise trusted loader context
@@ -96,54 +95,14 @@ seL4_Error tsldr_populate_rights(trusted_loader_t *loader, void *data)
         return seL4_InvalidArgument;
     }
 
-    //access_rights_table_t *acg = (access_rights_table_t *)data;
     seL4_Word num = tsldr_acrtutil_check_access_rights_table(data);
     seL4_Word *p = (seL4_Word *)data;
 
-    tsldr_acrtutil_populate_rights_to_loader_context(loader, ++p, num);
+    tsldr_acrtutil_populate_all_rights(loader, ++p, num);
 
     return seL4_NoError;
 }
 
-#if 1
-void tsldr_acrtutil_populate_rights_to_loader_context(void *context_data, void *src_data, seL4_Word num)
-{
-    if (num > MAX_ACCESS_RIGHTS) {
-        microkit_dbg_puts(" tsldr_acrtutil_populate_rights_to_loader_context:\n");
-        microkit_dbg_puts(" number of access rights given is too big '");
-        microkit_dbg_put32(num);
-        microkit_dbg_puts("'\n");
-        return;
-    }
-
-    trusted_loader_t *loader = (trusted_loader_t *)context_data;
-    AccessRightEntry *input_base = (AccessRightEntry *)(src_data);
-
-    AccessRights *rights_table = NULL;
-    AccessRightEntry *rights_entries = NULL;
-    
-    rights_table = &loader->access_rights;
-    custom_memset((void *)rights_table, 0, sizeof(AccessRights));
-    rights_table->num_entries = num;
-
-    for (int i = 0; i < rights_table->num_entries; ++i) {
-
-        rights_entries = &rights_table->entries[i];
-        rights_entries->type = input_base->type;
-        rights_entries->data = input_base->data;
-        input_base += 1;
-
-        microkit_dbg_puts(" tsldr_acrtutil_populate_rights_to_loader_context:\n");
-        microkit_dbg_puts(" poplated access rights '");
-        microkit_dbg_put32(i);
-        microkit_dbg_puts("' with type '");
-        microkit_dbg_put32(rights_entries->type);
-        microkit_dbg_puts("' and data '");
-        microkit_dbg_put32(rights_entries->data);
-        microkit_dbg_puts("'\n");
-    }
-}
-#endif
 
 seL4_Error tsldr_populate_allowed(trusted_loader_t *loader)
 {

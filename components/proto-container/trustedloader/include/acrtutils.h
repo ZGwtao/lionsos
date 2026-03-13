@@ -21,3 +21,6 @@ void tsldr_acrtutil_revoke_irqs(void *data);
 void tsldr_acrtutil_revoke_mappings(void *data);
 
 
+
+void tsldr_acrtutil_populate_all_rights(void *context_data, void *src_data, seL4_Word num);
+
