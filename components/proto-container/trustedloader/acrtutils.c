@@ -162,7 +162,7 @@ void tsldr_acrtutil_revoke_irqs(void *data)
 
     for (seL4_Word irq = 0; irq < MICROKIT_MAX_CHANNELS; irq++) {
 
-        if (loader->allowed_irqs[irq]) {
+        if (loader->allowed_irqs[irq] || !tsldr_acrtutil_check_irq(irq)) {
             continue;
         }
         tsldr_caputil_revoke_irq_cap(irq);

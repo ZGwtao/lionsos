@@ -22,7 +22,8 @@ typedef enum {
 
 // Structure to hold each access right entry
 typedef struct {
-    AccessType type;
+    uint8_t type;
+    uint8_t padding[7];
     seL4_Word data; // For CHANNEL and IRQ: ID; For MEMORY: VADDR
 } AccessRightEntry;
 
@@ -121,7 +122,7 @@ seL4_Error tsldr_parse_rights(Elf64_Ehdr *ehdr, char *ref_section[], seL4_Word *
  * @param len Length of the signed message in bytes.
  * @return true if the signature is valid, false otherwise.
  */
-seL4_Error tsldr_populate_rights(trusted_loader_t *loader, const unsigned char *signed_message, size_t len);
+seL4_Error tsldr_populate_rights(trusted_loader_t *loader, void *signed_message);
 
 /**
  * @brief Applies access rights to build allowed lists

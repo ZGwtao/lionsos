@@ -38,81 +38,112 @@ seL4_Error tsldr_parse_rights(Elf64_Ehdr *ehdr, char *ref_section[], seL4_Word *
 }
 #endif
 
-// Write a u64 in little-endian regardless of host endianness.
-static inline void write_u64_le(uint8_t *p, uint64_t v) {
-    p[0] = (uint8_t)(v);
-    p[1] = (uint8_t)(v >> 8);
-    p[2] = (uint8_t)(v >> 16);
-    p[3] = (uint8_t)(v >> 24);
-    p[4] = (uint8_t)(v >> 32);
-    p[5] = (uint8_t)(v >> 40);
-    p[6] = (uint8_t)(v >> 48);
-    p[7] = (uint8_t)(v >> 56);
-}
 
-// Writes: channels, then irqs, then virtual addrs.
-// Returns total bytes written on success; 0 on insufficient capacity.
 void encode_access_rights_to(void *base,
                             const uint64_t *channel_ids, size_t n_channels,
                             const uint64_t *irq_ids,     size_t n_irqs,
                             const uint64_t *memory_vaddrs,size_t n_vaddrs)
 {
-    uint8_t *p = (uint8_t *)base;
+    AccessRightEntry *p = (AccessRightEntry *)base;
 
-    // Channels
     for (size_t i = 0; i < n_channels; ++i) {
-        *p++ = (uint8_t)TYPE_CHANNEL;
-        write_u64_le(p, channel_ids[i]); p += 8;
+        p->type = (uint8_t)TYPE_CHANNEL;
+        p->data = (seL4_Word)channel_ids[i];
+        p++;
     }
-    // IRQs
     for (size_t i = 0; i < n_irqs; ++i) {
-        *p++ = (uint8_t)TYPE_IRQ;
-        write_u64_le(p, irq_ids[i]); p += 8;
+        p->type = (uint8_t)TYPE_IRQ;
+        p->data = (seL4_Word)irq_ids[i];
+        p++;
     }
-    // Memory virtual addresses
     for (size_t i = 0; i < n_vaddrs; ++i) {
-        *p++ = (uint8_t)TYPE_MEMORY;
-        write_u64_le(p, memory_vaddrs[i]); p += 8;
+        p->type = (uint8_t)TYPE_MEMORY;
+        p->data = (seL4_Word)memory_vaddrs[i];
+        p++;
     }
 }
 
+seL4_Word tsldr_acrtutil_check_access_rights_table(void *base)
+{
+    if (!base) {
+        microkit_dbg_puts(" tsldr_acrtutil_check_access_rights_table:\n");
+        microkit_dbg_puts(" invalid pointer given\n");
+        microkit_internal_crash(-1);
+    }
+
+    size_t *p = (size_t *)base;
+    seL4_Word acrt_num = *p;
+
+    microkit_dbg_puts(" tsldr_acrtutil_check_access_rights_table:\n");
+    microkit_dbg_puts(" number of access rights checked '");
+    microkit_dbg_put32(acrt_num);
+    microkit_dbg_puts("'\n");
+
+    return acrt_num;
+}
+
+void tsldr_acrtutil_populate_rights_to_loader_context(void *context_data, void *src_data, seL4_Word num);
 
 /* move the access rights information to the loader context */
-seL4_Error tsldr_populate_rights(trusted_loader_t *loader, const unsigned char *data, size_t len)
+// initialise trusted loader context
+// the input is now comming from the acg data
+// and the trusted loading library can use the data
+// from the trusted loader context
+seL4_Error tsldr_populate_rights(trusted_loader_t *loader, void *data)
 {
     if (!loader) {
         microkit_dbg_printf(LIB_NAME_MACRO "invalid loader pointer given\n");
         return seL4_InvalidArgument;
     }
-    /* specify where to store access rights */
-    AccessRights *rights = &loader->access_rights;
-    // clean up access rights at each trusted loading time...
-    custom_memset((void *)rights, 0, sizeof(AccessRights));
 
-    access_rights_table_t *acg = (access_rights_table_t *)data;
-    // init number of entries available...
-    rights->num_entries = acg->len;
+    //access_rights_table_t *acg = (access_rights_table_t *)data;
+    seL4_Word num = tsldr_acrtutil_check_access_rights_table(data);
+    seL4_Word *p = (seL4_Word *)data;
 
-    microkit_dbg_printf(LIB_NAME_MACRO "Number of access rights: %d\n", rights->num_entries);
-
-    // Check if the number of access rights exceeds the maximum allowed
-    if (rights->num_entries > MAX_ACCESS_RIGHTS) {
-        microkit_dbg_printf(LIB_NAME_MACRO "Number of access rights (%d) exceeds maximum allowed (%d)\n", rights->num_entries, MAX_ACCESS_RIGHTS);
-        return seL4_InvalidArgument;
-    }
-
-    const unsigned char *access_rights_table = data + NUM_ENTRIES_SIZE;
-
-    // Parse each access right entry
-    for (uint32_t i = 0; i < rights->num_entries; i++) {
-        AccessRightEntry *entry = &rights->entries[i];
-        entry->type = (AccessType)*(access_rights_table + i * ACCESS_RIGHT_ENTRY_SIZE);
-        entry->data = *((seL4_Word*)(access_rights_table + i * ACCESS_RIGHT_ENTRY_SIZE + sizeof(uint8_t)));
-        microkit_dbg_printf(LIB_NAME_MACRO "Parsed access right %d: type=%d, data=0x%x\n", i, entry->type, (unsigned long long)entry->data);
-    }
+    tsldr_acrtutil_populate_rights_to_loader_context(loader, ++p, num);
 
     return seL4_NoError;
 }
+
+#if 1
+void tsldr_acrtutil_populate_rights_to_loader_context(void *context_data, void *src_data, seL4_Word num)
+{
+    if (num > MAX_ACCESS_RIGHTS) {
+        microkit_dbg_puts(" tsldr_acrtutil_populate_rights_to_loader_context:\n");
+        microkit_dbg_puts(" number of access rights given is too big '");
+        microkit_dbg_put32(num);
+        microkit_dbg_puts("'\n");
+        return;
+    }
+
+    trusted_loader_t *loader = (trusted_loader_t *)context_data;
+    AccessRightEntry *input_base = (AccessRightEntry *)(src_data);
+
+    AccessRights *rights_table = NULL;
+    AccessRightEntry *rights_entries = NULL;
+    
+    rights_table = &loader->access_rights;
+    custom_memset((void *)rights_table, 0, sizeof(AccessRights));
+    rights_table->num_entries = num;
+
+    for (int i = 0; i < rights_table->num_entries; ++i) {
+
+        rights_entries = &rights_table->entries[i];
+        rights_entries->type = input_base->type;
+        rights_entries->data = input_base->data;
+        input_base += 1;
+
+        microkit_dbg_puts(" tsldr_acrtutil_populate_rights_to_loader_context:\n");
+        microkit_dbg_puts(" poplated access rights '");
+        microkit_dbg_put32(i);
+        microkit_dbg_puts("' with type '");
+        microkit_dbg_put32(rights_entries->type);
+        microkit_dbg_puts("' and data '");
+        microkit_dbg_put32(rights_entries->data);
+        microkit_dbg_puts("'\n");
+    }
+}
+#endif
 
 seL4_Error tsldr_populate_allowed(trusted_loader_t *loader)
 {

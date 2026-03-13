@@ -86,9 +86,10 @@ void init(void)
     }
     microkit_dbg_printf(PROGNAME "Verified ELF header\n");
 
+#if 0
     char *section = (char *)acgroup_metadata;
     seL4_Word section_size = 0;
-#if 0
+
     /* parse access rights table */
     error = tsldr_parse_rights(ehdr, &section, &section_size);
     if (error) {
@@ -96,7 +97,7 @@ void init(void)
     }
 #endif
     /* populate the access rights to the loader */
-    error = tsldr_populate_rights(loader_context, (unsigned char *)section, section_size);
+    error = tsldr_populate_rights(loader_context, acgroup_metadata);
     if (error) {
         microkit_internal_crash(-1);
     }
