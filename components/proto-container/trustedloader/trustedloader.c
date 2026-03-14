@@ -39,30 +39,6 @@ seL4_Error tsldr_parse_rights(Elf64_Ehdr *ehdr, char *ref_section[], seL4_Word *
 #endif
 
 
-void encode_access_rights_to(void *base,
-                            const uint64_t *channel_ids, size_t n_channels,
-                            const uint64_t *irq_ids,     size_t n_irqs,
-                            const uint64_t *memory_vaddrs,size_t n_vaddrs)
-{
-    AccessRightEntry *p = (AccessRightEntry *)base;
-
-    for (size_t i = 0; i < n_channels; ++i) {
-        p->type = (uint8_t)TYPE_CHANNEL;
-        p->data = (seL4_Word)channel_ids[i];
-        p++;
-    }
-    for (size_t i = 0; i < n_irqs; ++i) {
-        p->type = (uint8_t)TYPE_IRQ;
-        p->data = (seL4_Word)irq_ids[i];
-        p++;
-    }
-    for (size_t i = 0; i < n_vaddrs; ++i) {
-        p->type = (uint8_t)TYPE_MEMORY;
-        p->data = (seL4_Word)memory_vaddrs[i];
-        p++;
-    }
-}
-
 void tsldr_main_populate_all_rights(trusted_loader_t *loader, void *data)
 {
     if (!loader || !data) {

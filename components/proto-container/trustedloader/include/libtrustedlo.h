@@ -106,10 +106,6 @@ enum {
     TYPE_MEMORY  = 0x03,
 };
 
-void encode_access_rights_to(void *base,
-                             const uint64_t *channel_ids, size_t n_channels,
-                             const uint64_t *irq_ids,     size_t n_irqs,
-                             const uint64_t *memory_vaddrs,size_t n_vaddrs);
 
 seL4_Error tsldr_parse_rights(Elf64_Ehdr *ehdr, char *ref_section[], seL4_Word *size);
 

@@ -1,4 +1,5 @@
 
+#include <acrtutils.h>
 #include <libtrustedlo.h>
 #include <string.h>
 
@@ -133,7 +134,7 @@ void funq(int cid, acg_req_t *req, uintptr_t payload_base, patch_elf_connection_
     }
 
     acg->len = num_channels + num_mappings;
-    encode_access_rights_to((unsigned char *)acg + sizeof(size_t), channels, num_channels, NULL, 0, mappings, num_mappings);
+    tsldr_acrtutil_encode_rights((unsigned char *)acg + sizeof(size_t), channels, num_channels, NULL, 0, mappings, num_mappings);
 }
 
 

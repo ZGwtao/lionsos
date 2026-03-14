@@ -245,6 +245,27 @@ void tsldr_acrtutil_populate_all_rights(void *context_data, void *src_data, seL4
 }
 
 
+void tsldr_acrtutil_encode_rights(void *base, const uint64_t *channel_ids, size_t n_channels, const uint64_t *irq_ids, size_t n_irqs, const uint64_t *memory_vaddrs, size_t n_vaddrs)
+{
+    AccessRightEntry *p = (AccessRightEntry *)base;
+
+    for (size_t i = 0; i < n_channels; ++i) {
+        p->type = (uint8_t)TYPE_CHANNEL;
+        p->data = (seL4_Word)channel_ids[i];
+        p++;
+    }
+    for (size_t i = 0; i < n_irqs; ++i) {
+        p->type = (uint8_t)TYPE_IRQ;
+        p->data = (seL4_Word)irq_ids[i];
+        p++;
+    }
+    for (size_t i = 0; i < n_vaddrs; ++i) {
+        p->type = (uint8_t)TYPE_MEMORY;
+        p->data = (seL4_Word)memory_vaddrs[i];
+        p++;
+    }
+}
+
 
 seL4_Word tsldr_acrtutil_check_access_rights_table(void *base)
 {
