@@ -145,6 +145,9 @@ void tsldr_main_loading_prologue(void *metadata_base, trusted_loader_t *loader);
 __attribute__((noreturn)) void tsldr_main_jump_with_stack(void *new_stack, void (*entry)(void));
 
 
+void tsldr_main_handle_access_rights(trusted_loader_t *context, void *acrt_stat_base);
+
+
 void tsldr_main_self_loading(void *metadata_base, void *acrt_stat_base, trusted_loader_t *context, uintptr_t client_elf, uintptr_t client_exec_region, uintptr_t trampoline_elf, uintptr_t trampoline_stack_top);
 
 

@@ -266,6 +266,34 @@ void tsldr_main_check_elf_integrity(uintptr_t elf)
 }
 
 
+void tsldr_main_handle_access_rights(trusted_loader_t *context, void *acrt_stat_base)
+{
+    /* populate the required access rights to the loader */
+    /* but not populate the rights immediately */
+    // it records the required access rights in "AccessRights access_rights"
+    // while the state of last execution are recorded in "allowed_xxx"
+    // we populate the rights to access_rights here, and compared the information from last run with it
+    tsldr_main_populate_all_rights(context, acrt_stat_base);
+
+    /* if this is not a first-time execution, restore the access rights distribution to the default state */
+    /* once the PD is restored to a default state, we can populate the rights with the information provided above */
+    tsldr_main_restore_caps(context);
+
+    /* (really) populate allowed access rights */
+    // we use this function to:
+    //  initialise the allowed lists for different resources for this execution round
+    //  so we need the information of allowed resources that are recorded in "access_rights"
+    //  and update the whitelist for resources to keep for this round
+    //  we then will remove the unnecessary resources based on the whitelist to filter resources
+    seL4_Error error = tsldr_populate_allowed(context);
+    if (error != seL4_NoError) {
+        microkit_internal_crash(-1);
+    }
+
+    tsldr_main_remove_caps(context);
+}
+
+
 void tsldr_main_self_loading(void *metadata_base, void *acrt_stat_base, trusted_loader_t *context, uintptr_t client_elf, uintptr_t client_exec_region, uintptr_t trampoline_elf, uintptr_t trampoline_stack_top)
 {
     tsldr_main_loading_prologue(metadata_base, context);
@@ -278,19 +306,8 @@ void tsldr_main_self_loading(void *metadata_base, void *acrt_stat_base, trusted_
     Elf64_Ehdr *trampoline_ehdr = (Elf64_Ehdr *)trampoline_elf;
 
 
-    /* populate the access rights to the loader */
-    tsldr_main_populate_all_rights(context, acrt_stat_base);
+    tsldr_main_handle_access_rights(context, acrt_stat_base);
 
-
-    tsldr_main_restore_caps(context);
-
-    /* (really) populate allowed access rights */
-    seL4_Error error = tsldr_populate_allowed(context);
-    if (error != seL4_NoError) {
-        microkit_internal_crash(-1);
-    }
-
-    tsldr_main_remove_caps(context);
 
     tsldr_main_loading_epilogue(client_exec_region, (uintptr_t)0x0);
 
