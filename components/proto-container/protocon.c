@@ -126,16 +126,7 @@ void init(void)
     microkit_dbg_printf(PROGNAME "Switch to the trampoline's code to execute\n");
     entry_fn_t entry_fn = (entry_fn_t) trampoline_ehdr->e_entry;
 
-    /* jump tp trampoline */
-    asm volatile (
-        "mov sp, %[new_stack]\n\t" /* set new SP */
-        "br  %[func]\n\t"          /* branch directly, never return */
-        :
-        : [new_stack] "r" (trampoline_stack_top),
-          [func] "r" (entry_fn)
-        : "x30", "memory"
-    );
-    __builtin_unreachable();
+    tsldr_main_jump_with_stack((void *)trampoline_stack_top, entry_fn);
 }
 
 void notified(microkit_channel ch)

@@ -83,11 +83,6 @@ seL4_Word tsldr_acrtutil_check_access_rights_table(void *base)
 }
 
 
-/* move the access rights information to the loader context */
-// initialise trusted loader context
-// the input is now comming from the acg data
-// and the trusted loading library can use the data
-// from the trusted loader context
 seL4_Error tsldr_populate_rights(trusted_loader_t *loader, void *data)
 {
     if (!loader) {
@@ -271,4 +266,36 @@ seL4_Error tsldr_loading_prologue(trusted_loader_t *loader)
     }
     return seL4_NoError;
 }
+
+
+
+
+#if defined(CONFIG_ARCH_X86_64)
+__attribute__((noreturn))
+void tsldr_main_jump_with_stack(void *new_stack, void (*entry)(void))
+{
+    __asm__ volatile(
+        "mov %rdi, %rsp\n\t"   /* new_stack in rdi */
+        "jmp *%rsi\n\t"        /* entry in rsi */
+    );
+    __builtin_unreachable();
+}
+#elif defined(CONFIG_ARCH_AARCH64)
+__attribute__((noreturn))
+void tsldr_main_jump_with_stack(void *new_stack, void (*entry)(void))
+{
+    /* jump tp trampoline */
+    asm volatile (
+        "mov sp, %[new_stack]\n\t" /* set new SP */
+        "br  %[func]\n\t"          /* branch directly, never return */
+        :
+        : [new_stack] "r" (new_stack),
+          [func] "r" (entry)
+        : "x30", "memory"
+    );
+    __builtin_unreachable();
+}
+#else
+#error "Unsupported architecture for 'tsldr_main_jump_with_stack'"
+#endif
 

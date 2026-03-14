@@ -159,3 +159,6 @@ seL4_Error tsldr_loading_prologue(trusted_loader_t *loader);
 /* grant access to the child's cspaces from the monitor's view */
 seL4_Error tsldr_grant_cspace_access(size_t child_id);
 
+
+__attribute__((noreturn)) void tsldr_main_jump_with_stack(void *new_stack, void (*entry)(void));
+
