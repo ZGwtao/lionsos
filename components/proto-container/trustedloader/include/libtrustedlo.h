@@ -11,12 +11,6 @@
 /* number of access rights (for seL4 capabilities only) */
 #define MAX_ACCESS_RIGHTS       MICROKIT_MAX_CHANNELS * 3
 
-// Access types
-typedef enum {
-    ACCESS_TYPE_CHANNEL = 0x01,
-    ACCESS_TYPE_IRQ     = 0x02,
-    ACCESS_TYPE_MEMORY  = 0x03
-} AccessType;
 
 // Structure to hold each access right entry
 typedef struct {
@@ -97,6 +91,14 @@ enum {
     TYPE_IRQ     = 0x02,
     TYPE_MEMORY  = 0x03,
 };
+
+
+#define TSLDR_ASSERT(cond)                     \
+    do {                                       \
+        if (!(cond)) {                         \
+            microkit_internal_crash(-1);       \
+        }                                      \
+    } while (0)
 
 
 seL4_Error tsldr_parse_rights(Elf64_Ehdr *ehdr, char *ref_section[], seL4_Word *size);

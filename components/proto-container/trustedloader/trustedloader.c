@@ -5,38 +5,6 @@
 
 #define LIB_NAME_MACRO "    => [@trustedlo] "
 
-#if 0
-seL4_Error tsldr_parse_rights(Elf64_Ehdr *ehdr, char *ref_section[], seL4_Word *size)
-{
-    if (ref_section == NULL || size == NULL) {
-        microkit_dbg_printf(LIB_NAME_MACRO "Invalid args to parse access rights\n");
-        return seL4_InvalidArgument;
-    }
-
-    Elf64_Shdr *shdr = (Elf64_Shdr *)((char*)ehdr + ehdr->e_shoff);
-    const char *shstrtab = (char*)ehdr + shdr[ehdr->e_shstrndx].sh_offset;
-
-    for (int i = 0; i < ehdr->e_shnum; i++) {
-        const char *section_name = shstrtab + shdr[i].sh_name;
-        if (custom_strcmp(section_name, ".access_rights") == 0) {
-            *ref_section = (char*)ehdr + shdr[i].sh_offset;
-            *size = shdr[i].sh_size;
-            break;
-        }
-    }
-
-    if (*ref_section == NULL) {
-        microkit_dbg_printf(LIB_NAME_MACRO ".access_rights section not found in ELF\n");
-        // halt...
-        while (1);
-        return seL4_InvalidArgument;
-    }
-
-    return seL4_NoError;
-}
-#endif
-
-
 void tsldr_main_declare_required_rights(trusted_loader_t *loader, void *data)
 {
     if (!loader || !data) {
@@ -60,55 +28,15 @@ seL4_Error tsldr_populate_allowed(trusted_loader_t *loader)
         return seL4_InvalidArgument;
     }
     AccessRights *rights = &loader->access_rights;
-    // Reset allowed lists
+
     custom_memset(loader->allowed_channels, 0, sizeof(loader->allowed_channels));
     custom_memset(loader->allowed_irqs, 0, sizeof(loader->allowed_irqs));
+
     loader->num_allowed_mappings = 0;
 
     for (uint32_t i = 0; i < rights->num_entries; i++) {
         const AccessRightEntry *entry = &rights->entries[i];
-        switch (entry->type) {
-            case ACCESS_TYPE_CHANNEL:
-                if (entry->data < MICROKIT_MAX_CHANNELS && tsldr_acrtutil_check_channel(entry->data, NULL)) {
-                    loader->allowed_channels[entry->data] = true;
-                    microkit_dbg_printf(LIB_NAME_MACRO "Allowed channel ID: %d\n", (unsigned long long)entry->data);
-                } else {
-                    microkit_dbg_printf(LIB_NAME_MACRO "Invalid channel ID: %d\n", (unsigned long long)entry->data);
-                    return seL4_InvalidArgument;
-                }
-                break;
-
-            case ACCESS_TYPE_IRQ:
-                if (entry->data < MICROKIT_MAX_CHANNELS && tsldr_acrtutil_check_irq(entry->data)) {
-                    loader->allowed_irqs[entry->data] = true;
-                    microkit_dbg_printf(LIB_NAME_MACRO "Allowed IRQ ID: %d\n", (unsigned long long)entry->data);
-                } else {
-                    microkit_dbg_printf(LIB_NAME_MACRO "Invalid IRQ ID: %d\n", (unsigned long long)entry->data);
-                    return seL4_InvalidArgument;
-                }
-                break;
-
-            case ACCESS_TYPE_MEMORY:
-                if (loader->num_allowed_mappings < MICROKIT_MAX_CHANNELS) {
-                    seL4_Word vaddr = entry->data;
-                    MemoryMapping *mapping = (MemoryMapping *)tsldr_acrtutil_check_mapping(vaddr);
-                    if (mapping != NULL) {
-                        loader->allowed_mappings[loader->num_allowed_mappings++] = mapping;
-                        microkit_dbg_printf(LIB_NAME_MACRO "Allowed memory vaddr: 0x%x\n", (unsigned long long)vaddr);
-                    } else {
-                        microkit_dbg_printf(LIB_NAME_MACRO "Mapping not found for vaddr: 0x%x\n", (unsigned long long)vaddr);
-                        return seL4_InvalidArgument;
-                    }
-                } else {
-                    microkit_dbg_printf(LIB_NAME_MACRO "Number of allowed mappings exceeded\n");
-                    return seL4_InvalidArgument;
-                }
-                break;
-
-            default:
-                microkit_dbg_printf(LIB_NAME_MACRO "Unknown access type: %d\n", (unsigned int)entry->type);
-                return seL4_InvalidArgument;
-        }
+        tsldr_acrtutil_add_rights_to_whitelist((void *)loader, (void *)entry);
     }
 
     return seL4_NoError;

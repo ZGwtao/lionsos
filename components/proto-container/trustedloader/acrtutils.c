@@ -267,6 +267,40 @@ void tsldr_acrtutil_encode_rights(void *base, const uint64_t *channel_ids, size_
 }
 
 
+void tsldr_acrtutil_add_rights_to_whitelist(void *data, void *input)
+{
+    trusted_loader_t *loader = (trusted_loader_t *)data;
+    AccessRightEntry *entry = (AccessRightEntry *)input;
+
+    switch (entry->type) {
+        case TYPE_CHANNEL:
+            TSLDR_ASSERT(entry->data < MICROKIT_MAX_CHANNELS);
+            TSLDR_ASSERT(tsldr_acrtutil_check_channel(entry->data, NULL));
+            loader->allowed_channels[entry->data] = true;
+            break;
+
+        case TYPE_IRQ:
+            TSLDR_ASSERT(entry->data < MICROKIT_MAX_CHANNELS);
+            TSLDR_ASSERT(tsldr_acrtutil_check_irq(entry->data));
+            loader->allowed_irqs[entry->data] = true;
+            break;
+
+        case TYPE_MEMORY:
+            TSLDR_ASSERT(loader->num_allowed_mappings < MICROKIT_MAX_CHANNELS);
+            MemoryMapping *m = (MemoryMapping *)tsldr_acrtutil_check_mapping(entry->data);
+            TSLDR_ASSERT(m);
+            loader->allowed_mappings[loader->num_allowed_mappings++] = m;
+            break;
+
+        default:
+            microkit_dbg_puts(" tsldr_acrtutil_add_rights_to_whitelist:\n");
+            microkit_dbg_puts(" unknown access rights '");
+            microkit_dbg_put32(entry->type);
+            microkit_internal_crash(-1);
+    }
+}
+
+
 seL4_Word tsldr_acrtutil_check_access_rights_table(void *base)
 {
     if (!base) {
