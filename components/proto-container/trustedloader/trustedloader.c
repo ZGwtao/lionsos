@@ -266,6 +266,16 @@ void tsldr_main_check_elf_integrity(uintptr_t elf)
 }
 
 
+void tsldr_main_pd_restore_caps_for_required_rights(trusted_loader_t *context)
+{
+    tsldr_main_restore_caps(context);
+}
+
+void tsldr_main_pd_remove_caps_for_redundant_rights(trusted_loader_t *context)
+{
+    tsldr_main_remove_caps(context);
+}
+
 void tsldr_main_handle_access_rights(trusted_loader_t *context, void *acrt_stat_base)
 {
     /* populate the required access rights to the loader */
@@ -277,7 +287,7 @@ void tsldr_main_handle_access_rights(trusted_loader_t *context, void *acrt_stat_
 
     /* if this is not a first-time execution, restore the access rights distribution to the default state */
     /* once the PD is restored to a default state, we can populate the rights with the information provided above */
-    tsldr_main_restore_caps(context);
+    tsldr_main_pd_restore_caps_for_required_rights(context);
 
     /* (really) populate allowed access rights */
     // we use this function to:
@@ -290,7 +300,7 @@ void tsldr_main_handle_access_rights(trusted_loader_t *context, void *acrt_stat_
         microkit_internal_crash(-1);
     }
 
-    tsldr_main_remove_caps(context);
+    tsldr_main_pd_remove_caps_for_redundant_rights(context);
 }
 
 

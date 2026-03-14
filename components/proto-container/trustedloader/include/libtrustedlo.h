@@ -101,6 +101,12 @@ enum {
 
 seL4_Error tsldr_parse_rights(Elf64_Ehdr *ehdr, char *ref_section[], seL4_Word *size);
 
+
+void tsldr_main_pd_restore_caps_for_required_rights(trusted_loader_t *context);
+void tsldr_main_pd_remove_caps_for_redundant_rights(trusted_loader_t *context);
+
+
+
 /**
  * @brief Populates access rights and verifies signature of the data.
  *
