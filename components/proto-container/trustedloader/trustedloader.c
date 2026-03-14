@@ -196,45 +196,44 @@ void tsldr_main_try_init_loader(trusted_loader_t *c, size_t id)
     if (c->init != true) {
         c->child_id = id;
         c->init = true;
+        c->restore = false;
     }
 }
 
-void tsldr_remove_caps(trusted_loader_t *loader)
+void tsldr_main_remove_caps(trusted_loader_t *loader)
 {
     if (!loader) {
-        microkit_dbg_printf(LIB_NAME_MACRO "Invalid loader pointer given\n");
-        return;
+        microkit_dbg_puts("tsldr_main_remove_caps:\n");
+        microkit_dbg_puts(" invalid loader pointer given\n");
+        microkit_internal_crash(-1);
     }
-
     /* set the flag to restore cap during restart */
-    if (!loader->flags.flag_restore_caps)
-        loader->flags.flag_restore_caps = true;
-
+    if (loader->restore == false) {
+        microkit_dbg_puts("tsldr_main_remove_caps:\n");
+        microkit_dbg_puts(" need to restore access rights in next round\n");
+        loader->restore = true;
+    }
     tsldr_acrtutil_revoke_channels(loader);
     tsldr_acrtutil_revoke_irqs(loader);
     tsldr_acrtutil_restore_mappings(loader);
-
 }
 
-void tsldr_restore_caps(trusted_loader_t *loader)
+void tsldr_main_restore_caps(trusted_loader_t *loader)
 {
-    microkit_dbg_printf(LIB_NAME_MACRO "Entry of caps restore\n");
     if (!loader) {
-        microkit_dbg_printf(LIB_NAME_MACRO "Invalid loader pointer given\n");
-        return;
+        microkit_dbg_puts("tsldr_main_restore_caps:\n");
+        microkit_dbg_puts(" invalid loader pointer given\n");
+        microkit_internal_crash(-1);
     }
-
     /* if no need to restore caps */
-    if (!loader->flags.flag_restore_caps) {
-        microkit_dbg_printf(LIB_NAME_MACRO "No caps to restore at this point\n");
+    if (loader->restore == false) {
+        microkit_dbg_puts("tsldr_main_restore_caps:\n");
+        microkit_dbg_puts(" first run, no need to restore anything\n");
         return;
     }
-
     tsldr_acrtutil_restore_channels(loader);
     tsldr_acrtutil_restore_irqs(loader);
     tsldr_acrtutil_revoke_mappings(loader);
-
-    microkit_dbg_printf(LIB_NAME_MACRO "Exit of caps restore\n");
 }
 
 
@@ -330,7 +329,7 @@ void tsldr_main_self_loading(void *metadata_base, void *acrt_stat_base, trusted_
     tsldr_main_populate_all_rights(context, acrt_stat_base);
 
 
-    tsldr_restore_caps(context);
+    tsldr_main_restore_caps(context);
 
     /* (really) populate allowed access rights */
     seL4_Error error = tsldr_populate_allowed(context);
@@ -338,7 +337,7 @@ void tsldr_main_self_loading(void *metadata_base, void *acrt_stat_base, trusted_
         microkit_internal_crash(-1);
     }
 
-    tsldr_remove_caps(context);
+    tsldr_main_remove_caps(context);
 
     tsldr_loading_epilogue(client_exec_region, (uintptr_t)0x0);
 

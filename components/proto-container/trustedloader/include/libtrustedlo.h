@@ -91,14 +91,8 @@ typedef struct {
     /* Mapping bookkeeping */
     int num_allowed_mappings;   /* 32-bit, but promotes with padding to 64-bit boundary */
 
-    /* Capability management / state flags */
-    struct {
-        bool removed_caps; /* unused for now ... */
-        bool flag_bootstrap;
-        bool flag_restore_caps;
-        bool init;
-        /* compiler will pad this group to 8 bytes */
-    } flags;
+    bool restore;
+
 } trusted_loader_t;
 
 
@@ -147,10 +141,10 @@ void tsldr_init_metadata(tsldr_md_array_t *array, size_t id);
 void tsldr_main_try_init_loader(trusted_loader_t *c, size_t id);
 
 
-void tsldr_restore_caps(trusted_loader_t *loader);
+void tsldr_main_restore_caps(trusted_loader_t *loader);
 
 
-void tsldr_remove_caps(trusted_loader_t *loader);
+void tsldr_main_remove_caps(trusted_loader_t *loader);
 
 
 // FIXME: this function refresh the regions where the client elf should live
