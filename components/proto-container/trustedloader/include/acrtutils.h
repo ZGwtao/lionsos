@@ -24,3 +24,5 @@ void tsldr_acrtutil_revoke_mappings(void *data);
 
 void tsldr_acrtutil_populate_all_rights(void *context_data, void *src_data, seL4_Word num);
 
+
+seL4_Word tsldr_acrtutil_check_access_rights_table(void *base);

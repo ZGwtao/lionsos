@@ -63,26 +63,6 @@ void encode_access_rights_to(void *base,
     }
 }
 
-seL4_Word tsldr_acrtutil_check_access_rights_table(void *base)
-{
-    if (!base) {
-        microkit_dbg_puts(" tsldr_acrtutil_check_access_rights_table:\n");
-        microkit_dbg_puts(" invalid pointer given\n");
-        microkit_internal_crash(-1);
-    }
-
-    size_t *p = (size_t *)base;
-    seL4_Word acrt_num = *p;
-
-    microkit_dbg_puts(" tsldr_acrtutil_check_access_rights_table:\n");
-    microkit_dbg_puts(" number of access rights checked '");
-    microkit_dbg_put32(acrt_num);
-    microkit_dbg_puts("'\n");
-
-    return acrt_num;
-}
-
-
 void tsldr_main_populate_all_rights(trusted_loader_t *loader, void *data)
 {
     if (!loader || !data) {
