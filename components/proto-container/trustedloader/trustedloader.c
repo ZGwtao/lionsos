@@ -5,8 +5,6 @@
 
 #define LIB_NAME_MACRO "    => [@trustedlo] "
 
-extern uintptr_t tsldr_metadata;
-
 #if 0
 seL4_Error tsldr_parse_rights(Elf64_Ehdr *ehdr, char *ref_section[], seL4_Word *size)
 {
@@ -116,13 +114,13 @@ seL4_Error tsldr_populate_allowed(trusted_loader_t *loader)
     return seL4_NoError;
 }
 
-void tsldr_init_metadata(tsldr_md_array_t *array, size_t id)
+void tsldr_main_init_metadata(tsldr_md_array_t *array, size_t id, uintptr_t local_metadata_base)
 {
-    if (!array) {
+    if (!array || !local_metadata_base) {
         microkit_dbg_printf(LIB_NAME_MACRO "Invalid array pointer given\n");
         return;
     }
-    if (id >= 64 || id < 0) {
+    if (id >= 16 || id < 0) {
         microkit_dbg_printf(LIB_NAME_MACRO "Invalid template PD child ID given: %d\n", id);
         return;
     }
@@ -132,15 +130,15 @@ void tsldr_init_metadata(tsldr_md_array_t *array, size_t id)
     microkit_dbg_printf(LIB_NAME_MACRO "=>>\n");
 
     /* initialise trusted loader metadata */
-    custom_memset((tsldr_md_t *)tsldr_metadata, 0, sizeof(tsldr_md_t));
-    custom_memcpy((tsldr_md_t *)tsldr_metadata, target_md, sizeof(tsldr_md_t));
+    custom_memset((tsldr_md_t *)local_metadata_base, 0, sizeof(tsldr_md_t));
+    custom_memcpy((tsldr_md_t *)local_metadata_base, target_md, sizeof(tsldr_md_t));
 
     microkit_dbg_printf(LIB_NAME_MACRO "=>>\n");
     // one trusted loader in a proto-container may work for this container solely...
     /* copy corresponding metadata context for the trusted loader lib */
-    ((tsldr_md_t *)tsldr_metadata)->init = true;
+    ((tsldr_md_t *)local_metadata_base)->init = true;
 
-    microkit_dbg_printf(LIB_NAME_MACRO "child_id: %d\n", ((tsldr_md_t *)tsldr_metadata)->child_id);
+    microkit_dbg_printf(LIB_NAME_MACRO "child_id: %d\n", ((tsldr_md_t *)local_metadata_base)->child_id);
 }
 
 void tsldr_main_try_init_loader(trusted_loader_t *c, size_t id)
@@ -211,7 +209,7 @@ void tsldr_main_loading_epilogue(uintptr_t client_exec, uintptr_t client_stack)
 
 void tsldr_main_loading_prologue(void *metadata_base, trusted_loader_t *loader)
 {
-    tsldr_md_t *md = (tsldr_md_t *)metadata_base; /* tsldr_metadata */
+    tsldr_md_t *md = (tsldr_md_t *)metadata_base;
     if (!md->init) {
         microkit_dbg_printf("[@protocon] trusted loading metadata is not prepared...\n");
         microkit_internal_crash(-1);

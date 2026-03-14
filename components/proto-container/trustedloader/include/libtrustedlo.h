@@ -118,7 +118,7 @@ void tsldr_main_populate_all_rights(trusted_loader_t *loader, void *data);
 seL4_Error tsldr_populate_allowed(trusted_loader_t *loader);
 
 
-void tsldr_init_metadata(tsldr_md_array_t *array, size_t id);
+void tsldr_main_init_metadata(tsldr_md_array_t *array, size_t id, uintptr_t local_metadata_base);
 
 /**
  * @brief Initialise a trusted loader

@@ -239,7 +239,7 @@ void monitor_call_debute_lower()
     tsldr_metadata = (uintptr_t)((unsigned char *)TSLDR_METADATA_BASE + cid * TSLDR_METADATA_SIZE);
     microkit_dbg_printf(PROGNAME "tsldr_metadata: 0x%x\n", tsldr_metadata);
     // initialise the target tsldr_metadata
-    tsldr_init_metadata((tsldr_md_array_t *)microkit_template_spec, cid);
+    tsldr_main_init_metadata((tsldr_md_array_t *)microkit_template_spec, cid, tsldr_metadata);
 
     microkit_dbg_printf(PROGNAME "=>>> 0x%x\n", tsldr_metadata);
     // bring back target trusted loader context...
@@ -305,7 +305,7 @@ void init(void)
         tsldr_metadata = (uintptr_t)((char *)TSLDR_METADATA_BASE + i * TSLDR_METADATA_SIZE);
         microkit_dbg_printf(PROGNAME "tsldr_metadata: 0x%x\n", tsldr_metadata);
         // initialise the target tsldr_metadata
-        tsldr_init_metadata(ptr_spec_trusted_loader, i);
+        tsldr_main_init_metadata(ptr_spec_trusted_loader, i, tsldr_metadata);
     }
     custom_memset(acg_stat_map, 0, sizeof(int) * MAX_PERM_CL_NUM * MAX_PERC_AK_NUM);
 
