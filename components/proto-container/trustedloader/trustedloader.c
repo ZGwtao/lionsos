@@ -37,7 +37,7 @@ seL4_Error tsldr_parse_rights(Elf64_Ehdr *ehdr, char *ref_section[], seL4_Word *
 #endif
 
 
-void tsldr_main_populate_all_rights(trusted_loader_t *loader, void *data)
+void tsldr_main_declare_required_rights(trusted_loader_t *loader, void *data)
 {
     if (!loader || !data) {
         microkit_dbg_printf(LIB_NAME_MACRO "invalid loader pointer given\n");
@@ -273,7 +273,7 @@ void tsldr_main_handle_access_rights(trusted_loader_t *context, void *acrt_stat_
     // it records the required access rights in "AccessRights access_rights"
     // while the state of last execution are recorded in "allowed_xxx"
     // we populate the rights to access_rights here, and compared the information from last run with it
-    tsldr_main_populate_all_rights(context, acrt_stat_base);
+    tsldr_main_declare_required_rights(context, acrt_stat_base);
 
     /* if this is not a first-time execution, restore the access rights distribution to the default state */
     /* once the PD is restored to a default state, we can populate the rights with the information provided above */

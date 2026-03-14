@@ -108,7 +108,7 @@ seL4_Error tsldr_parse_rights(Elf64_Ehdr *ehdr, char *ref_section[], seL4_Word *
  * @param data Pointer to the signed message (signature || data).
  * @return true if the signature is valid, false otherwise.
  */
-void tsldr_main_populate_all_rights(trusted_loader_t *loader, void *data);
+void tsldr_main_declare_required_rights(trusted_loader_t *loader, void *data);
 
 /**
  * @brief Applies access rights to build allowed lists
