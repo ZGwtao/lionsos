@@ -306,9 +306,7 @@ void tsldr_main_self_loading(void *metadata_base, void *acrt_stat_base, trusted_
     /* -- now we are ready to jump to the trampoline -- */
 
     microkit_dbg_printf("[@protocon]" "Switch to the trampoline's code to execute\n");
-    entry_fn_t entry_fn = (entry_fn_t) trampoline_ehdr->e_entry;
-
-    tsldr_main_jump_with_stack((void *)trampoline_stack_top, entry_fn);   
+    tsldr_main_jump_with_stack((void *)trampoline_stack_top, (entry_fn_t)trampoline_ehdr->e_entry);   
 }
 
 
