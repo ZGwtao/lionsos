@@ -123,11 +123,10 @@ seL4_Error tsldr_parse_rights(Elf64_Ehdr *ehdr, char *ref_section[], seL4_Word *
  * @brief Populates access rights and verifies signature of the data.
  *
  * @param loader Pointer to where the AccessRights structure to be populated and stored.
- * @param signed_message Pointer to the signed message (signature || data).
- * @param len Length of the signed message in bytes.
+ * @param data Pointer to the signed message (signature || data).
  * @return true if the signature is valid, false otherwise.
  */
-seL4_Error tsldr_populate_rights(trusted_loader_t *loader, void *signed_message);
+void tsldr_main_populate_all_rights(trusted_loader_t *loader, void *data);
 
 /**
  * @brief Applies access rights to build allowed lists

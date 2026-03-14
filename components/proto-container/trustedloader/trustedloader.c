@@ -83,11 +83,11 @@ seL4_Word tsldr_acrtutil_check_access_rights_table(void *base)
 }
 
 
-seL4_Error tsldr_populate_rights(trusted_loader_t *loader, void *data)
+void tsldr_main_populate_all_rights(trusted_loader_t *loader, void *data)
 {
-    if (!loader) {
+    if (!loader || !data) {
         microkit_dbg_printf(LIB_NAME_MACRO "invalid loader pointer given\n");
-        return seL4_InvalidArgument;
+        microkit_internal_crash(-1);
     }
 
     seL4_Word num = tsldr_acrtutil_check_access_rights_table(data);
@@ -95,7 +95,7 @@ seL4_Error tsldr_populate_rights(trusted_loader_t *loader, void *data)
 
     tsldr_acrtutil_populate_all_rights(loader, ++p, num);
 
-    return seL4_NoError;
+    microkit_dbg_printf(LIB_NAME_MACRO "finished up access rights integrity checking\n");
 }
 
 
@@ -318,33 +318,22 @@ void tsldr_main_self_loading(void *metadata_base, void *acrt_stat_base, trusted_
 {
     tsldr_main_loading_prologue(metadata_base, context);
 
+
     /* start to parse client elf information */
     tsldr_main_check_elf_integrity(client_elf);
     Elf64_Ehdr *ehdr = (Elf64_Ehdr *)client_elf;
     tsldr_main_check_elf_integrity(trampoline_elf);
     Elf64_Ehdr *trampoline_ehdr = (Elf64_Ehdr *)trampoline_elf;
 
-#if 0
-    char *section = (char *)acgroup_metadata;
-    seL4_Word section_size = 0;
 
-    /* parse access rights table */
-    error = tsldr_parse_rights(ehdr, &section, &section_size);
-    if (error) {
-        microkit_internal_crash(error);
-    }
-#endif
     /* populate the access rights to the loader */
-    seL4_Error error = tsldr_populate_rights(context, acrt_stat_base);
-    if (error) {
-        microkit_internal_crash(-1);
-    }
-    microkit_dbg_printf("[@protocon]" "Finished up access rights integrity checking\n");
+    tsldr_main_populate_all_rights(context, acrt_stat_base);
+
 
     tsldr_restore_caps(context);
 
     /* (really) populate allowed access rights */
-    error = tsldr_populate_allowed(context);
+    seL4_Error error = tsldr_populate_allowed(context);
     if (error != seL4_NoError) {
         microkit_internal_crash(-1);
     }
