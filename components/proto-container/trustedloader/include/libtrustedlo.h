@@ -77,6 +77,7 @@ typedef struct {
     AccessRights access_rights;
 
     size_t child_id;
+    bool init;
     /*
      * Rights bitmaps / filters:
      *   1. Channels
@@ -144,7 +145,7 @@ void tsldr_init_metadata(tsldr_md_array_t *array, size_t id);
  * @param loader Pointer to the trusted loader to initialise
  * @param id The id of child PD (for a template PD)
  */
-void tsldr_init(trusted_loader_t *loader, size_t id);
+void tsldr_main_try_init_loader(trusted_loader_t *c, size_t id);
 
 
 void tsldr_restore_caps(trusted_loader_t *loader);

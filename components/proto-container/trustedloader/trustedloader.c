@@ -187,13 +187,16 @@ void tsldr_init_metadata(tsldr_md_array_t *array, size_t id)
     microkit_dbg_printf(LIB_NAME_MACRO "child_id: %d\n", ((tsldr_md_t *)tsldr_metadata)->child_id);
 }
 
-void tsldr_init(trusted_loader_t *loader, size_t id)
+void tsldr_main_try_init_loader(trusted_loader_t *c, size_t id)
 {
-    if (!loader) {
+    if (!c) {
         microkit_dbg_puts(LIB_NAME_MACRO "Try to init null loader\n");
         return;
     }
-    loader->child_id = id;
+    if (c->init != true) {
+        c->child_id = id;
+        c->init = true;
+    }
 }
 
 void tsldr_remove_caps(trusted_loader_t *loader)
@@ -317,13 +320,8 @@ void tsldr_main_self_loading(void *metadata_base, void *acrt_stat_base, trusted_
         microkit_internal_crash(error);
     }
 
-    /* initialise the real trusted loader... */
-    if (context->flags.init != true) {
-        microkit_dbg_printf("[@protocon]" "Init loader context\n");
-        tsldr_init(context, md->child_id);
-        /* loader is now initialised... */
-        context->flags.init = true;
-    }
+    tsldr_main_try_init_loader(context, md->child_id);
+
 #if 1
     /* start to parse client elf information */
     Elf64_Ehdr *ehdr = (Elf64_Ehdr *)client_elf;
