@@ -193,7 +193,7 @@ void tsldr_main_restore_caps(trusted_loader_t *loader)
 }
 
 
-seL4_Error tsldr_loading_epilogue(uintptr_t client_exec, uintptr_t client_stack)
+void tsldr_main_loading_epilogue(uintptr_t client_exec, uintptr_t client_stack)
 {
     microkit_dbg_printf(LIB_NAME_MACRO "Entry of trusted loader epilogue\n");
 
@@ -206,7 +206,6 @@ seL4_Error tsldr_loading_epilogue(uintptr_t client_exec, uintptr_t client_stack)
     // -> the client should use a different stack with the trusted loader
 
     microkit_dbg_printf(LIB_NAME_MACRO "Exit of trusted loader epilogue\n");
-    return seL4_NoError;
 }
 
 
@@ -295,7 +294,7 @@ void tsldr_main_self_loading(void *metadata_base, void *acrt_stat_base, trusted_
 
     tsldr_main_remove_caps(context);
 
-    tsldr_loading_epilogue(client_exec_region, (uintptr_t)0x0);
+    tsldr_main_loading_epilogue(client_exec_region, (uintptr_t)0x0);
 
     load_elf((void *)ehdr->e_entry, ehdr);
     microkit_dbg_printf("[@protocon]" "Load client elf to the targeting memory region\n");

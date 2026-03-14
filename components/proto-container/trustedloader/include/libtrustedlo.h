@@ -11,8 +11,6 @@
 /* number of access rights (for seL4 capabilities only) */
 #define MAX_ACCESS_RIGHTS       MICROKIT_MAX_CHANNELS * 3
 
-#define ACCESS_RIGHT_ENTRY_SIZE 9
-
 // Access types
 typedef enum {
     ACCESS_TYPE_CHANNEL = 0x01,
@@ -63,12 +61,6 @@ typedef struct {
     /* maximum is 16 per monitor */
     tsldr_md_t md_array[16];
 } tsldr_md_array_t;
-
-
-typedef int (*crypto_verify_fn)(const unsigned char *signature,
-                                const unsigned char *data,
-                                size_t data_size,
-                                const unsigned char *public_key);
 
 
 /* Trusted loader metadata / state */
@@ -144,14 +136,10 @@ void tsldr_main_remove_caps(trusted_loader_t *loader);
 
 
 // FIXME: this function refresh the regions where the client elf should live
-seL4_Error tsldr_loading_epilogue(uintptr_t client_exec, uintptr_t client_stack);
-
+void tsldr_main_loading_epilogue(uintptr_t client_exec, uintptr_t client_stack);
 
 
 void tsldr_main_loading_prologue(void *metadata_base, trusted_loader_t *loader);
-
-/* grant access to the child's cspaces from the monitor's view */
-seL4_Error tsldr_grant_cspace_access(size_t child_id);
 
 
 __attribute__((noreturn)) void tsldr_main_jump_with_stack(void *new_stack, void (*entry)(void));
