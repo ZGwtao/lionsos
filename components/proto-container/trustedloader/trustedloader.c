@@ -300,32 +300,29 @@ void tsldr_main_jump_with_stack(void *new_stack, void (*entry)(void))
 #endif
 
 
+void tsldr_main_check_elf_integrity(uintptr_t elf)
+{
+    Elf64_Ehdr *ehdr = (Elf64_Ehdr *)elf;
+    /* check elf integrity */
+    if (custom_memcmp(ehdr->e_ident, (const unsigned char*)ELFMAG, SELFMAG) != 0) {
+        //microkit_dbg_printf("[@protocon]" "Data in shared memory region must be an ELF file\n");
+        microkit_internal_crash(-1);
+    //} else {
+    //    microkit_dbg_printf("[@protocon]" "Data in shared memory region is an ELF file\n");
+    }
+    microkit_dbg_printf("[@protocon] " "verified ELF header\n");
+}
+
 
 void tsldr_main_self_loading(void *metadata_base, void *acrt_stat_base, trusted_loader_t *context, uintptr_t client_elf, uintptr_t client_exec_region, uintptr_t trampoline_elf, uintptr_t trampoline_stack_top)
 {
     tsldr_main_loading_prologue(metadata_base, context);
 
-#if 1
     /* start to parse client elf information */
+    tsldr_main_check_elf_integrity(client_elf);
     Elf64_Ehdr *ehdr = (Elf64_Ehdr *)client_elf;
-    /* check elf integrity */
-    if (custom_memcmp(ehdr->e_ident, (const unsigned char*)ELFMAG, SELFMAG) != 0) {
-        microkit_dbg_printf("[@protocon]" "Data in shared memory region must be an ELF file\n");
-        microkit_internal_crash(-1);
-    } else {
-        microkit_dbg_printf("[@protocon]" "Data in shared memory region is an ELF file\n");
-    }
-    microkit_dbg_printf("[@protocon]" "Verified ELF header\n");
-#endif
+    tsldr_main_check_elf_integrity(trampoline_elf);
     Elf64_Ehdr *trampoline_ehdr = (Elf64_Ehdr *)trampoline_elf;
-    /* check elf integrity */
-    if (custom_memcmp(trampoline_ehdr->e_ident, (const unsigned char*)ELFMAG, SELFMAG) != 0) {
-        microkit_dbg_printf("[@protocon]" "Data in trampoline region must be an ELF file\n");
-        microkit_internal_crash(-1);
-    } else {
-        microkit_dbg_printf("[@protocon]" "Data in trampoline region is an ELF file\n");
-    }
-    microkit_dbg_printf("[@protocon]" "Verified ELF header\n");
 
 #if 0
     char *section = (char *)acgroup_metadata;
