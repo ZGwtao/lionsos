@@ -255,22 +255,19 @@ seL4_Error tsldr_loading_epilogue(uintptr_t client_exec, uintptr_t client_stack)
 }
 
 
-seL4_Error tsldr_loading_prologue(trusted_loader_t *loader)
+void tsldr_main_loading_prologue(void *metadata_base, trusted_loader_t *loader)
 {
+    tsldr_md_t *md = (tsldr_md_t *)metadata_base; /* tsldr_metadata */
+    if (!md->init) {
+        microkit_dbg_printf("[@protocon] trusted loading metadata is not prepared...\n");
+        microkit_internal_crash(-1);
+    }
+    microkit_dbg_printf("[@protocon]" "trusted loading metadata is ready...\n");
     microkit_dbg_printf(LIB_NAME_MACRO "trusted loader init prologue\n");
 
-    if (!loader->flags.flag_bootstrap) {
-        /* set flag to prevent re-initialisation */
-        loader->flags.flag_bootstrap = true;
-        microkit_dbg_printf(LIB_NAME_MACRO "Bootstrap trusted loader\n");
-
-    } else {
-        microkit_dbg_printf(LIB_NAME_MACRO "Restart trusted loader\n");
-    }
-    return seL4_NoError;
+    /* do some id activation here before actually parsing access rights... */
+    tsldr_main_try_init_loader(loader, md->child_id);
 }
-
-
 
 
 #if defined(CONFIG_ARCH_X86_64)
@@ -306,21 +303,7 @@ void tsldr_main_jump_with_stack(void *new_stack, void (*entry)(void))
 
 void tsldr_main_self_loading(void *metadata_base, void *acrt_stat_base, trusted_loader_t *context, uintptr_t client_elf, uintptr_t client_exec_region, uintptr_t trampoline_elf, uintptr_t trampoline_stack_top)
 {
-    microkit_dbg_printf("[@protocon]" "Entered init\n");
-
-    tsldr_md_t *md = (tsldr_md_t *)metadata_base; /* tsldr_metadata */
-    if (!md->init) {
-        microkit_internal_crash(-1);
-    }
-    microkit_dbg_printf("[@protocon]" "trusted loading metadata is ready...\n");
-
-    seL4_Error error = tsldr_loading_prologue(context);
-    if (error != seL4_NoError) {
-        microkit_dbg_printf("[@protocon]" "trusted loading prologue fails!\n");
-        microkit_internal_crash(error);
-    }
-
-    tsldr_main_try_init_loader(context, md->child_id);
+    tsldr_main_loading_prologue(metadata_base, context);
 
 #if 1
     /* start to parse client elf information */
@@ -355,7 +338,7 @@ void tsldr_main_self_loading(void *metadata_base, void *acrt_stat_base, trusted_
     }
 #endif
     /* populate the access rights to the loader */
-    error = tsldr_populate_rights(context, acrt_stat_base);
+    seL4_Error error = tsldr_populate_rights(context, acrt_stat_base);
     if (error) {
         microkit_internal_crash(-1);
     }
