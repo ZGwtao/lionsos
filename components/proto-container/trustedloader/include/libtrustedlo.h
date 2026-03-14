@@ -101,6 +101,10 @@ typedef struct {
 } trusted_loader_t;
 
 
+
+typedef void (*entry_fn_t)(void);
+
+
 enum {
     TYPE_CHANNEL = 0x01,
     TYPE_IRQ     = 0x02,
@@ -161,4 +165,8 @@ seL4_Error tsldr_grant_cspace_access(size_t child_id);
 
 
 __attribute__((noreturn)) void tsldr_main_jump_with_stack(void *new_stack, void (*entry)(void));
+
+
+void tsldr_main_self_loading(void *metadata_base, void *acrt_stat_base, trusted_loader_t *context, uintptr_t client_elf, uintptr_t client_exec_region, uintptr_t trampoline_elf, uintptr_t trampoline_stack_top);
+
 

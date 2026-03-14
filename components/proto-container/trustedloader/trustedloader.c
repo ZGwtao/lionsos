@@ -299,3 +299,95 @@ void tsldr_main_jump_with_stack(void *new_stack, void (*entry)(void))
 #error "Unsupported architecture for 'tsldr_main_jump_with_stack'"
 #endif
 
+
+
+void tsldr_main_self_loading(void *metadata_base, void *acrt_stat_base, trusted_loader_t *context, uintptr_t client_elf, uintptr_t client_exec_region, uintptr_t trampoline_elf, uintptr_t trampoline_stack_top)
+{
+    microkit_dbg_printf("[@protocon]" "Entered init\n");
+
+    tsldr_md_t *md = (tsldr_md_t *)metadata_base; /* tsldr_metadata */
+    if (!md->init) {
+        microkit_internal_crash(-1);
+    }
+    microkit_dbg_printf("[@protocon]" "trusted loading metadata is ready...\n");
+
+    seL4_Error error = tsldr_loading_prologue(context);
+    if (error != seL4_NoError) {
+        microkit_dbg_printf("[@protocon]" "trusted loading prologue fails!\n");
+        microkit_internal_crash(error);
+    }
+
+    /* initialise the real trusted loader... */
+    if (context->flags.init != true) {
+        microkit_dbg_printf("[@protocon]" "Init loader context\n");
+        tsldr_init(context, md->child_id);
+        /* loader is now initialised... */
+        context->flags.init = true;
+    }
+#if 1
+    /* start to parse client elf information */
+    Elf64_Ehdr *ehdr = (Elf64_Ehdr *)client_elf;
+    /* check elf integrity */
+    if (custom_memcmp(ehdr->e_ident, (const unsigned char*)ELFMAG, SELFMAG) != 0) {
+        microkit_dbg_printf("[@protocon]" "Data in shared memory region must be an ELF file\n");
+        microkit_internal_crash(-1);
+    } else {
+        microkit_dbg_printf("[@protocon]" "Data in shared memory region is an ELF file\n");
+    }
+    microkit_dbg_printf("[@protocon]" "Verified ELF header\n");
+#endif
+    Elf64_Ehdr *trampoline_ehdr = (Elf64_Ehdr *)trampoline_elf;
+    /* check elf integrity */
+    if (custom_memcmp(trampoline_ehdr->e_ident, (const unsigned char*)ELFMAG, SELFMAG) != 0) {
+        microkit_dbg_printf("[@protocon]" "Data in trampoline region must be an ELF file\n");
+        microkit_internal_crash(-1);
+    } else {
+        microkit_dbg_printf("[@protocon]" "Data in trampoline region is an ELF file\n");
+    }
+    microkit_dbg_printf("[@protocon]" "Verified ELF header\n");
+
+#if 0
+    char *section = (char *)acgroup_metadata;
+    seL4_Word section_size = 0;
+
+    /* parse access rights table */
+    error = tsldr_parse_rights(ehdr, &section, &section_size);
+    if (error) {
+        microkit_internal_crash(error);
+    }
+#endif
+    /* populate the access rights to the loader */
+    error = tsldr_populate_rights(context, acrt_stat_base);
+    if (error) {
+        microkit_internal_crash(-1);
+    }
+    microkit_dbg_printf("[@protocon]" "Finished up access rights integrity checking\n");
+
+    tsldr_restore_caps(context);
+
+    /* (really) populate allowed access rights */
+    error = tsldr_populate_allowed(context);
+    if (error != seL4_NoError) {
+        microkit_internal_crash(-1);
+    }
+
+    tsldr_remove_caps(context);
+
+    tsldr_loading_epilogue(client_exec_region, (uintptr_t)0x0);
+
+    load_elf((void *)ehdr->e_entry, ehdr);
+    microkit_dbg_printf("[@protocon]" "Load client elf to the targeting memory region\n");
+
+    load_elf((void *)trampoline_ehdr->e_entry, trampoline_ehdr);
+    microkit_dbg_printf("[@protocon]" "Load trampoline elf to the targeting memory region\n");
+
+    /* -- now we are ready to jump to the trampoline -- */
+
+    microkit_dbg_printf("[@protocon]" "Switch to the trampoline's code to execute\n");
+    entry_fn_t entry_fn = (entry_fn_t) trampoline_ehdr->e_entry;
+
+    tsldr_main_jump_with_stack((void *)trampoline_stack_top, entry_fn);   
+}
+
+
+
