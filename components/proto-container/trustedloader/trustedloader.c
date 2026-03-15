@@ -21,7 +21,7 @@ void tsldr_main_declare_required_rights(tsldr_context_t *loader, void *data)
 }
 
 
-void tsldr_main_pin_required_rights_before_pola(tsldr_context_t *loader)
+void tsldr_main_pin_required_rights_before_pola(tsldr_context_t *loader, void *metadata_base)
 {
     if (!loader) {
         microkit_dbg_printf(LIB_NAME_MACRO "Invalid loader pointer given\n");
@@ -33,7 +33,7 @@ void tsldr_main_pin_required_rights_before_pola(tsldr_context_t *loader)
 
     acrt_table_t *rights = &loader->access_rights;
     for (int i = 0; i < rights->num_entries; i++)
-        tsldr_acrtutil_add_rights_to_whitelist((void *)loader, (void *)(&rights->entries[i]));
+        tsldr_acrtutil_add_rights_to_whitelist((void *)loader, (void *)(&rights->entries[i]), metadata_base);
 
 }
 
@@ -77,7 +77,7 @@ void tsldr_main_try_init_loader(tsldr_context_t *c, size_t id)
     }
 }
 
-void tsldr_main_remove_caps(tsldr_context_t *loader)
+void tsldr_main_remove_caps(tsldr_context_t *loader, void *metadata_base)
 {
     if (!loader) {
         microkit_dbg_puts("tsldr_main_remove_caps:\n");
@@ -90,12 +90,12 @@ void tsldr_main_remove_caps(tsldr_context_t *loader)
         microkit_dbg_puts(" need to restore access rights in next round\n");
         loader->restore = true;
     }
-    tsldr_acrtutil_revoke_channels(loader);
-    tsldr_acrtutil_revoke_irqs(loader);
+    tsldr_acrtutil_revoke_channels(loader, metadata_base);
+    tsldr_acrtutil_revoke_irqs(loader, metadata_base);
     tsldr_acrtutil_restore_mappings(loader);
 }
 
-void tsldr_main_restore_caps(tsldr_context_t *loader)
+void tsldr_main_restore_caps(tsldr_context_t *loader, void *metadata_base)
 {
     if (!loader) {
         microkit_dbg_puts("tsldr_main_restore_caps:\n");
@@ -108,8 +108,8 @@ void tsldr_main_restore_caps(tsldr_context_t *loader)
         microkit_dbg_puts(" first run, no need to restore anything\n");
         return;
     }
-    tsldr_acrtutil_restore_channels(loader);
-    tsldr_acrtutil_restore_irqs(loader);
+    tsldr_acrtutil_restore_channels(loader, metadata_base);
+    tsldr_acrtutil_restore_irqs(loader, metadata_base);
     tsldr_acrtutil_revoke_mappings(loader);
 }
 
@@ -189,17 +189,17 @@ void tsldr_main_check_elf_integrity(uintptr_t elf)
 }
 
 
-void tsldr_main_pd_restore_caps_for_required_rights(tsldr_context_t *context)
+void tsldr_main_pd_restore_caps_for_required_rights(tsldr_context_t *context, void *metadata_base)
 {
-    tsldr_main_restore_caps(context);
+    tsldr_main_restore_caps(context, metadata_base);
 }
 
-void tsldr_main_pd_remove_caps_for_redundant_rights(tsldr_context_t *context)
+void tsldr_main_pd_remove_caps_for_redundant_rights(tsldr_context_t *context, void *metadata_base)
 {
-    tsldr_main_remove_caps(context);
+    tsldr_main_remove_caps(context, metadata_base);
 }
 
-void tsldr_main_handle_access_rights(tsldr_context_t *context, void *acrt_stat_base)
+void tsldr_main_handle_access_rights(tsldr_context_t *context, void *acrt_stat_base, void *metadata_base)
 {
     /* populate the required access rights to the loader */
     /* but not populate the rights immediately */
@@ -210,7 +210,7 @@ void tsldr_main_handle_access_rights(tsldr_context_t *context, void *acrt_stat_b
 
     /* if this is not a first-time execution, restore the access rights distribution to the default state */
     /* once the PD is restored to a default state, we can populate the rights with the information provided above */
-    tsldr_main_pd_restore_caps_for_required_rights(context);
+    tsldr_main_pd_restore_caps_for_required_rights(context, metadata_base);
 
     /* (really) populate allowed access rights */
     // we use this function to:
@@ -218,9 +218,9 @@ void tsldr_main_handle_access_rights(tsldr_context_t *context, void *acrt_stat_b
     //  so we need the information of allowed resources that are recorded in "access_rights"
     //  and update the whitelist for resources to keep for this round
     //  we then will remove the unnecessary resources based on the whitelist to filter resources
-    tsldr_main_pin_required_rights_before_pola(context);
+    tsldr_main_pin_required_rights_before_pola(context, metadata_base);
 
-    tsldr_main_pd_remove_caps_for_redundant_rights(context);
+    tsldr_main_pd_remove_caps_for_redundant_rights(context, metadata_base);
 }
 
 
@@ -236,7 +236,7 @@ void tsldr_main_self_loading(void *metadata_base, void *acrt_stat_base, tsldr_co
     Elf64_Ehdr *trampoline_ehdr = (Elf64_Ehdr *)trampoline_elf;
 
 
-    tsldr_main_handle_access_rights(context, acrt_stat_base);
+    tsldr_main_handle_access_rights(context, acrt_stat_base, metadata_base);
 
 
     tsldr_main_loading_epilogue(client_exec_region, (uintptr_t)0x0);

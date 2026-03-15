@@ -4,25 +4,23 @@
 #include <stdint.h>
 #include <microkit.h>
 
-extern uintptr_t tsldr_metadata;
-
-uintptr_t tsldr_acrtutil_check_mapping(seL4_Word vaddr);
-uint8_t tsldr_acrtutil_check_channel(seL4_Word channel, uint8_t *cstate);
-uint8_t tsldr_acrtutil_check_irq(seL4_Word irq);
+uintptr_t tsldr_acrtutil_check_mapping(seL4_Word vaddr, void *metadata_base);
+uint8_t tsldr_acrtutil_check_channel(seL4_Word channel, uint8_t *cstate, void *metadata_base);
+uint8_t tsldr_acrtutil_check_irq(seL4_Word irq, void *metadata_base);
 
 
-void tsldr_acrtutil_restore_channels(void *data);
-void tsldr_acrtutil_restore_irqs(void *data);
+void tsldr_acrtutil_restore_channels(void *data, void *metadata_base);
+void tsldr_acrtutil_restore_irqs(void *data, void *metadata_base);
 void tsldr_acrtutil_restore_mappings(void *data);
 
 
-void tsldr_acrtutil_revoke_channels(void *data);
-void tsldr_acrtutil_revoke_irqs(void *data);
+void tsldr_acrtutil_revoke_channels(void *data, void *metadata_base);
+void tsldr_acrtutil_revoke_irqs(void *data, void *metadata_base);
 void tsldr_acrtutil_revoke_mappings(void *data);
 
 
 
-void tsldr_acrtutil_add_rights_to_whitelist(void *data, void *input);
+void tsldr_acrtutil_add_rights_to_whitelist(void *data, void *input, void *metadata_base);
 void tsldr_acrtutil_populate_all_rights(void *context_data, void *src_data, seL4_Word num);
 
 
