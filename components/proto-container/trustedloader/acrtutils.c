@@ -219,11 +219,11 @@ void tsldr_acrtutil_populate_all_rights(void *context_data, void *src_data, seL4
     trusted_loader_t *loader = (trusted_loader_t *)context_data;
     acrt_entry_t *input_base = (acrt_entry_t *)(src_data);
 
-    AccessRights *rights_table = NULL;
+    acrt_table_t *rights_table = NULL;
     acrt_entry_t *rights_entries = NULL;
     
     rights_table = &loader->access_rights;
-    custom_memset((void *)rights_table, 0, sizeof(AccessRights));
+    custom_memset((void *)rights_table, 0, sizeof(acrt_table_t));
     rights_table->num_entries = num;
 
     for (int i = 0; i < rights_table->num_entries; ++i) {

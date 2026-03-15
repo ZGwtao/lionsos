@@ -31,7 +31,7 @@ void tsldr_main_pin_required_rights_before_pola(trusted_loader_t *loader)
     custom_memset(loader->allowed_channels, 0, sizeof(loader->allowed_channels));
     custom_memset(loader->allowed_irqs, 0, sizeof(loader->allowed_irqs));
 
-    AccessRights *rights = &loader->access_rights;
+    acrt_table_t *rights = &loader->access_rights;
     for (int i = 0; i < rights->num_entries; i++)
         tsldr_acrtutil_add_rights_to_whitelist((void *)loader, (void *)(&rights->entries[i]));
 
@@ -203,7 +203,7 @@ void tsldr_main_handle_access_rights(trusted_loader_t *context, void *acrt_stat_
 {
     /* populate the required access rights to the loader */
     /* but not populate the rights immediately */
-    // it records the required access rights in "AccessRights access_rights"
+    // it records the required access rights in "acrt_table_t access_rights"
     // while the state of last execution are recorded in "allowed_xxx"
     // we populate the rights to access_rights here, and compared the information from last run with it
     tsldr_main_declare_required_rights(context, acrt_stat_base);

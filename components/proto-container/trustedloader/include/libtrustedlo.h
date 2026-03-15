@@ -19,10 +19,9 @@ typedef struct {
 
 // Structure to hold all access rights
 typedef struct {
-    //seL4_Word system_hash;
     uint32_t num_entries;
     acrt_entry_t entries[MAX_ACCESS_RIGHTS];
-} AccessRights;
+} acrt_table_t;
 
 // Structure for memory mapping
 typedef struct {
@@ -58,7 +57,7 @@ typedef struct {
 /* Trusted loader metadata / state */
 typedef struct {
     /* Access right table */
-    AccessRights access_rights;
+    acrt_table_t access_rights;
 
     size_t child_id;
     bool init;
@@ -105,7 +104,7 @@ void tsldr_main_pd_remove_caps_for_redundant_rights(trusted_loader_t *context);
 /**
  * @brief Populates access rights and verifies signature of the data.
  *
- * @param loader Pointer to where the AccessRights structure to be populated and stored.
+ * @param loader Pointer to where the acrt_table_t structure to be populated and stored.
  * @param data Pointer to the signed message (signature || data).
  * @return true if the signature is valid, false otherwise.
  */
