@@ -239,7 +239,7 @@ void monitor_call_debute_lower()
     tsldr_metadata = (uintptr_t)((unsigned char *)TSLDR_METADATA_BASE + cid * TSLDR_METADATA_SIZE);
     microkit_dbg_printf(PROGNAME "tsldr_metadata: 0x%x\n", tsldr_metadata);
     // initialise the target tsldr_metadata
-    tsldr_main_pd_init_mdinfo((tsldr_md_array_t *)microkit_template_spec, cid, (void *)tsldr_metadata);
+    tsldr_main_pd_init_mdinfo((tsldr_mdinfodb_t *)microkit_template_spec, cid, (void *)tsldr_metadata);
 
     microkit_dbg_printf(PROGNAME "=>>> 0x%x\n", tsldr_metadata);
     // bring back target trusted loader context...
@@ -290,14 +290,14 @@ void init(void)
     fs_share = fs_config.server.share.vaddr;
     fs_init = false;
 
-    tsldr_md_array_t *ptr_spec_trusted_loader = (tsldr_md_array_t *)microkit_template_spec;
+    tsldr_mdinfodb_t *ptr_spec_trusted_loader = (tsldr_mdinfodb_t *)microkit_template_spec;
     microkit_dbg_printf(PROGNAME "%d\n", ptr_spec_trusted_loader->avails);
     microkit_dbg_printf(PROGNAME "%s\n", microkit_name);
 
     // practically we use 16 indices...
     for (int i = 0; i < ptr_spec_trusted_loader->avails; ++i) {
         // must provide valid hash to 
-        if (ptr_spec_trusted_loader->md_array[i].system_hash != 0xffff) {
+        if (ptr_spec_trusted_loader->infodb[i].system_hash != 0xffff) {
             // do not initialise unspecified tsldr metadata
             continue;
         }

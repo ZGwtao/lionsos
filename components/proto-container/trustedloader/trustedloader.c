@@ -37,10 +37,10 @@ void tsldr_main_pin_required_rights_before_pola(tsldr_context_t *loader, void *m
 
 }
 
-void tsldr_main_pd_init_mdinfo(tsldr_md_array_t *array, size_t id, void *mdinfo)
+void tsldr_main_pd_init_mdinfo(tsldr_mdinfodb_t *db, size_t id, void *mdinfo)
 {
-    if (!array || !mdinfo) {
-        microkit_dbg_printf(LIB_NAME_MACRO "Invalid array pointer given\n");
+    if (!db || !mdinfo) {
+        microkit_dbg_printf(LIB_NAME_MACRO "Invalid mdinfo database pointer given\n");
         return;
     }
     if (id >= 16 || id < 0) {
@@ -48,7 +48,7 @@ void tsldr_main_pd_init_mdinfo(tsldr_md_array_t *array, size_t id, void *mdinfo)
         return;
     }
     microkit_dbg_printf(LIB_NAME_MACRO "=>>\n");
-    tsldr_mdinfo_t *target_md = &array->md_array[id];
+    tsldr_mdinfo_t *target_md = &db->infodb[id];
     //microkit_dbg_printf(LIB_NAME_MACRO "%d %d\n", target_md->child_id, target_md->system_hash);
     microkit_dbg_printf(LIB_NAME_MACRO "=>>\n");
 

@@ -50,8 +50,8 @@ typedef struct {
 typedef struct {
     uint8_t avails;
     /* maximum is 16 per monitor */
-    tsldr_mdinfo_t md_array[16];
-} tsldr_md_array_t;
+    tsldr_mdinfo_t infodb[16];
+} tsldr_mdinfodb_t;
 
 
 /* Trusted loader metadata / state */
@@ -118,7 +118,7 @@ void tsldr_main_declare_required_rights(tsldr_context_t *loader, void *data);
 void tsldr_main_pin_required_rights_before_pola(tsldr_context_t *loader, void *mdinfo);
 
 
-void tsldr_main_pd_init_mdinfo(tsldr_md_array_t *array, size_t id, void *mdinfo);
+void tsldr_main_pd_init_mdinfo(tsldr_mdinfodb_t *db, size_t id, void *mdinfo);
 
 /**
  * @brief Initialise a trusted loader
