@@ -5,15 +5,9 @@ PC_LIBMICROKITCO_DIR := $(LIONSOS)/dep/libmicrokitco
 
 LIBGCC := $(shell aarch64-none-elf-gcc -print-libgcc-file-name)
 
-LIBKRMALLOC_SRC_DIR := $(PC_SRC_DIR)/alloc
 LIBFSHELPER_SRC_DIR := $(PC_SRC_DIR)/fs
-LIBCRYPTO_SRC_DIR := $(PC_SRC_DIR)/crypto
-LIBEXTELF_SRC_DIR := $(PC_SRC_DIR)/extelf
 LIBTSLDR_SRC_DIR  := $(PC_SRC_DIR)/trustedloader
-include $(LIBKRMALLOC_SRC_DIR)/Makefile
 include $(LIBFSHELPER_SRC_DIR)/Makefile
-include $(LIBCRYPTO_SRC_DIR)/Makefile
-include $(LIBEXTELF_SRC_DIR)/Makefile
 include $(LIBTSLDR_SRC_DIR)/Makefile
 
 PC_CLAGS := \
@@ -21,10 +15,7 @@ PC_CLAGS := \
 	-I$(PC_LIBMICROKITCO_DIR) \
 	-I$(PC_SRC_DIR)/config \
 	-I$(PC_SRC_DIR) \
-	-I$(LIBKRMALLOC_SRC_DIR)/include \
 	-I$(LIBFSHELPER_SRC_DIR)/include \
-	-I$(LIBCRYPTO_SRC_DIR)/include \
-	-I$(LIBEXTELF_SRC_DIR)/include \
 	-I$(LIBTSLDR_SRC_DIR)/include
 
 PC_LIBMICROKITCO_OBJ := libmicrokitco/libmicrokitco.a
@@ -63,32 +54,32 @@ pc/%.o: $(PC_SRC_DIR)/%.c | pc
 
 frontend.elf: LIBS += $(LIBGCC)
 frontend.elf: LDFLAGS += -L$(BOARD_DIR)/lib \
-							-L$(LIBCRYPTO_BUILD_DIR) -L$(LIBEXTELF_BUILD_DIR) -L$(LIBTSLDR_BUILD_DIR) \
-							-L$(LIBKRMALLOC_BUILD_DIR) -L$(LIBFSHELPER_BUILD_DIR)
+							-L$(LIBTSLDR_BUILD_DIR) \
+							-L$(LIBFSHELPER_BUILD_DIR)
 frontend.elf: $(PC_FRONTEND_OBJS) pc/$(PC_LIBMICROKITCO_OBJ) libsddf_util.a \
-              ${LIBEXTELF} $(LIBKRMALLOC) $(LIBFSHELPER) $(CONTAINER_LIBC_LIB) $(LIBTSLDR)
+              $(LIBFSHELPER) $(CONTAINER_LIBC_LIB) $(LIBTSLDR)
 	$(LD) $(LDFLAGS) $^ $(LIBS) -o $@
 
 monitor.elf: LIBS += $(LIBGCC)
 monitor.elf: LDFLAGS += -L$(BOARD_DIR)/lib \
-						-L$(LIBCRYPTO_BUILD_DIR) -L$(LIBEXTELF_BUILD_DIR) -L$(LIBTSLDR_BUILD_DIR) \
+						-L$(LIBTSLDR_BUILD_DIR) \
 						-L$(LIBFSHELPER_BUILD_DIR)
 monitor.elf: $(PC_MONITOR_OBJS) pc/$(PC_LIBMICROKITCO_OBJ) \
-			 ${LIBEXTELF} ${LIBCRYPTO} $(LIBTSLDR) $(LIBFSHELPER) $(CONTAINER_LIBC_LIB)
+			 $(LIBTSLDR) $(LIBFSHELPER) $(CONTAINER_LIBC_LIB)
 	$(LD) $(LDFLAGS) $^ $(LIBS) -o $@
 
 protocon.elf: LIBS += $(LIBGCC)
-protocon.elf: LDFLAGS += -L$(BOARD_DIR)/lib -L$(LIBCRYPTO_BUILD_DIR) -L$(LIBEXTELF_BUILD_DIR) -L$(LIBTSLDR_BUILD_DIR) 
+protocon.elf: LDFLAGS += -L$(BOARD_DIR)/lib -L$(LIBTSLDR_BUILD_DIR) 
 protocon.elf: $(PC_PROTOCON_OBJS) \
-              ${LIBEXTELF} $(LIBTSLDR) $(LIBCRYPTO)
+              $(LIBTSLDR)
 	$(LD) $(LDFLAGS) \
 		--defsym __sel4_ipc_buffer=0x100000 \
 		--defsym loader_context=0xE00000 \
 		$^ $(LIBS) -o $@
 
 trampoline.elf: LIBS += $(LIBGCC)
-trampoline.elf: LDFLAGS += -L$(BOARD_DIR)/lib -L$(LIBEXTELF_BUILD_DIR) -L$(LIBTSLDR_BUILD_DIR)
-trampoline.elf: $(PC_TRAMPOLINE_OBJS) $(LIBEXTELF) $(LIBTSLDR)
+trampoline.elf: LDFLAGS += -L$(BOARD_DIR)/lib -L$(LIBTSLDR_BUILD_DIR)
+trampoline.elf: $(PC_TRAMPOLINE_OBJS) $(LIBTSLDR)
 	$(LD) $(LDFLAGS) -Ttext=0x1800000 $^ $(LIBS) -o $@
 
 

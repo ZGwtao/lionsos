@@ -5,8 +5,8 @@
  */
 #include <stdarg.h>
 #include <stdint.h>
+#include <string.h>
 #include <microkit.h>
-#include <k_r_malloc.h>
 #include <sddf/timer/config.h>
 #include <sddf/serial/queue.h>
 #include <sddf/serial/config.h>
@@ -46,12 +46,6 @@ char *fs_share;
 
 bool fs_init;
 
-
-#define POOL_SIZE   16384
-static char morecore[POOL_SIZE];
-pool_cookie_t *cookie;
-
-
 static void print_prompt(void)
 {
     sddf_putchar_unbuffered('f');
@@ -90,16 +84,14 @@ void load_entrypoint(void)
         microkit_cothread_yield();
     }
     int err;
-    uint64_t pos;
-
-    pos = pico_vfs_readfile2buf((void *)shared1, "protocon.elf", &err);
+    pico_vfs_readfile2buf((void *)shared1, "protocon.elf", &err);
     if (err != seL4_NoError) {
         // halt...
         while (1);
     }
     TSLDR_DBG_PRINT(PROGNAME "Wrote proto-container's ELF file into memory\n");
 
-    pos = pico_vfs_readfile2buf((void *)shared3, "trampoline.elf", &err);
+    pico_vfs_readfile2buf((void *)shared3, "trampoline.elf", &err);
     if (err != seL4_NoError) {
         // halt...
         while (1);
@@ -115,18 +107,6 @@ void init(void)
 {
     TSLDR_DBG_PRINT(PROGNAME "Entered init\n");
 
-    cookie = mspace_bootstrap_allocator(POOL_SIZE, morecore);
-    if (!cookie) {
-        microkit_internal_crash(-1);
-    }
-    TSLDR_DBG_PRINT(PROGNAME "Init memory allocator\n");
-#if 0
-    char *c = mspace_k_r_malloc_alloc(&cookie->k_r_malloc, sizeof(c));
-    if (c != NULL) {
-        *c = 'a';
-        mspace_k_r_malloc_free(&cookie->k_r_malloc, c);
-    }
-#endif
     assert(serial_config_check_magic(&serial_config));
     //assert(timer_config_check_magic(&timer_config));
     assert(fs_config_check_magic(&fs_config));
@@ -183,11 +163,10 @@ void load_elf_payload(void)
     TSLDR_DBG_PRINT(PROGNAME "entry of load_elf_payload\n");
 
     int err;
-    uint64_t pos;
     microkit_msginfo info;
     seL4_Error error;
 
-    pos = pico_vfs_readfile2buf((void *)shared2, fname_buf, &err);
+    pico_vfs_readfile2buf((void *)shared2, fname_buf, &err);
     if (err != seL4_NoError) {
         TSLDR_DBG_PRINT(PROGNAME "Failed to read %s\n", fname_buf);
         return;
