@@ -37,33 +37,6 @@ void tsldr_main_pin_required_rights_before_pola(tsldr_context_t *loader, void *m
 
 }
 
-void tsldr_main_pd_init_mdinfo(tsldr_mdinfodb_t *db, size_t id, void *mdinfo)
-{
-    if (!db || !mdinfo) {
-        microkit_dbg_printf(LIB_NAME_MACRO "Invalid mdinfo database pointer given\n");
-        return;
-    }
-    if (id >= 16 || id < 0) {
-        microkit_dbg_printf(LIB_NAME_MACRO "Invalid template PD child ID given: %d\n", id);
-        return;
-    }
-    microkit_dbg_printf(LIB_NAME_MACRO "=>>\n");
-    tsldr_mdinfo_t *target_md = &db->infodb[id];
-    //microkit_dbg_printf(LIB_NAME_MACRO "%d %d\n", target_md->child_id, target_md->system_hash);
-    microkit_dbg_printf(LIB_NAME_MACRO "=>>\n");
-
-    /* initialise trusted loader metadata */
-    custom_memset((tsldr_mdinfo_t *)mdinfo, 0, sizeof(tsldr_mdinfo_t));
-    custom_memcpy((tsldr_mdinfo_t *)mdinfo, target_md, sizeof(tsldr_mdinfo_t));
-
-    microkit_dbg_printf(LIB_NAME_MACRO "=>>\n");
-    // one trusted loader in a proto-container may work for this container solely...
-    /* copy corresponding metadata context for the trusted loader lib */
-    ((tsldr_mdinfo_t *)mdinfo)->init = true;
-
-    microkit_dbg_printf(LIB_NAME_MACRO "child_id: %d\n", ((tsldr_mdinfo_t *)mdinfo)->child_id);
-}
-
 void tsldr_main_try_init_loader(tsldr_context_t *c, size_t id)
 {
     if (!c) {
@@ -254,4 +227,25 @@ void tsldr_main_self_loading(void *mdinfo, void *acrt_stat_base, tsldr_context_t
 }
 
 
+void tsldr_main_pd_init_mdinfo(tsldr_mdinfodb_t *db, size_t id, void *mdinfo)
+{
+    if (!db || !mdinfo) {
+        microkit_dbg_printf(LIB_NAME_MACRO "Invalid mdinfo database pointer given\n");
+        return;
+    }
+    if (id >= 16 || id < 0) {
+        microkit_dbg_printf(LIB_NAME_MACRO "Invalid template PD child ID given: %d\n", id);
+        return;
+    }
+    tsldr_mdinfo_t *dest = (tsldr_mdinfo_t *)mdinfo;
+    tsldr_mdinfo_t *src = &db->infodb[id];
+
+    custom_memset(dest, 0, sizeof(tsldr_mdinfo_t));
+    custom_memcpy(dest, src, sizeof(tsldr_mdinfo_t));
+
+    dest->init = true;
+
+    microkit_dbg_printf(LIB_NAME_MACRO "child_loc: %d\n", id);
+    microkit_dbg_printf(LIB_NAME_MACRO "child_id: %d\n", dest->child_id);
+}
 
