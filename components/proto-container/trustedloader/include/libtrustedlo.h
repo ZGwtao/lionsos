@@ -75,7 +75,7 @@ typedef struct {
 
     bool restore;
 
-} trusted_loader_t;
+} tsldr_context_t;
 
 
 
@@ -97,8 +97,8 @@ enum {
     } while (0)
 
 
-void tsldr_main_pd_restore_caps_for_required_rights(trusted_loader_t *context);
-void tsldr_main_pd_remove_caps_for_redundant_rights(trusted_loader_t *context);
+void tsldr_main_pd_restore_caps_for_required_rights(tsldr_context_t *context);
+void tsldr_main_pd_remove_caps_for_redundant_rights(tsldr_context_t *context);
 
 
 /**
@@ -108,14 +108,14 @@ void tsldr_main_pd_remove_caps_for_redundant_rights(trusted_loader_t *context);
  * @param data Pointer to the signed message (signature || data).
  * @return true if the signature is valid, false otherwise.
  */
-void tsldr_main_declare_required_rights(trusted_loader_t *loader, void *data);
+void tsldr_main_declare_required_rights(tsldr_context_t *loader, void *data);
 
 /**
  * @brief Applies access rights to build allowed lists
  *
  * @param loader Pointer to the loader which contains recorded access rights table
  */
-void tsldr_main_pin_required_rights_before_pola(trusted_loader_t *loader);
+void tsldr_main_pin_required_rights_before_pola(tsldr_context_t *loader);
 
 
 void tsldr_main_init_metadata(tsldr_md_array_t *array, size_t id, uintptr_t local_metadata_base);
@@ -126,29 +126,29 @@ void tsldr_main_init_metadata(tsldr_md_array_t *array, size_t id, uintptr_t loca
  * @param loader Pointer to the trusted loader to initialise
  * @param id The id of child PD (for a template PD)
  */
-void tsldr_main_try_init_loader(trusted_loader_t *c, size_t id);
+void tsldr_main_try_init_loader(tsldr_context_t *c, size_t id);
 
 
-void tsldr_main_restore_caps(trusted_loader_t *loader);
+void tsldr_main_restore_caps(tsldr_context_t *loader);
 
 
-void tsldr_main_remove_caps(trusted_loader_t *loader);
+void tsldr_main_remove_caps(tsldr_context_t *loader);
 
 
 // FIXME: this function refresh the regions where the client elf should live
 void tsldr_main_loading_epilogue(uintptr_t client_exec, uintptr_t client_stack);
 
 
-void tsldr_main_loading_prologue(void *metadata_base, trusted_loader_t *loader);
+void tsldr_main_loading_prologue(void *metadata_base, tsldr_context_t *loader);
 
 
 __attribute__((noreturn)) void tsldr_main_jump_with_stack(void *new_stack, void (*entry)(void));
 
 
-void tsldr_main_handle_access_rights(trusted_loader_t *context, void *acrt_stat_base);
+void tsldr_main_handle_access_rights(tsldr_context_t *context, void *acrt_stat_base);
 
 
-void tsldr_main_self_loading(void *metadata_base, void *acrt_stat_base, trusted_loader_t *context, uintptr_t client_elf, uintptr_t client_exec_region, uintptr_t trampoline_elf, uintptr_t trampoline_stack_top);
+void tsldr_main_self_loading(void *metadata_base, void *acrt_stat_base, tsldr_context_t *context, uintptr_t client_elf, uintptr_t client_exec_region, uintptr_t trampoline_elf, uintptr_t trampoline_stack_top);
 
 
 

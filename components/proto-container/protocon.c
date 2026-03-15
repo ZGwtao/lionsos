@@ -33,13 +33,13 @@ uintptr_t container_stack_top   = (0x00FFFC00000);
  * vaddr: 0xE00000
  * Should not be static because it needs to be patched externally
  */
-trusted_loader_t *loader_context;
+tsldr_context_t *loader_context;
 
 
 void init(void)
 {
     __sel4_ipc_buffer = (seL4_IPCBuffer *)0x100000;
-    loader_context = (trusted_loader_t *)0xE00000;
+    loader_context = (tsldr_context_t *)0xE00000;
 
     tsldr_main_self_loading(tsldr_metadata, acgroup_metadata, loader_context, container_elf, container_exec, trampoline_elf, trampoline_stack_top);
 }

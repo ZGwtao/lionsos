@@ -37,7 +37,7 @@ inline uint8_t tsldr_acrtutil_check_irq(seL4_Word irq)
 void tsldr_acrtutil_restore_channels(void *data)
 {
     /* initialise trusted loader context */
-    trusted_loader_t *loader = (trusted_loader_t *)data;
+    tsldr_context_t *loader = (tsldr_context_t *)data;
 
     for (seL4_Word channel = 0; channel < MICROKIT_MAX_CHANNELS; channel++) {
         /*
@@ -71,7 +71,7 @@ void tsldr_acrtutil_restore_channels(void *data)
 void tsldr_acrtutil_restore_irqs(void *data)
 {
     /* initialise trusted loader context */
-    trusted_loader_t *loader = (trusted_loader_t *)data;
+    tsldr_context_t *loader = (tsldr_context_t *)data;
 
     for (seL4_Word irq = 0; irq < MICROKIT_MAX_CHANNELS; irq++) {
         /*
@@ -95,7 +95,7 @@ void tsldr_acrtutil_restore_irqs(void *data)
 void tsldr_acrtutil_restore_mappings(void *data)
 {
     /* initialise trusted loader context */
-    trusted_loader_t *loader = (trusted_loader_t *)data;
+    tsldr_context_t *loader = (tsldr_context_t *)data;
 
     tsldr_caputil_pd_grant_vspace_access();
 
@@ -125,7 +125,7 @@ void tsldr_acrtutil_restore_mappings(void *data)
 void tsldr_acrtutil_revoke_channels(void *data)
 {
     /* initialise trusted loader context */
-    trusted_loader_t *loader = (trusted_loader_t *)data;
+    tsldr_context_t *loader = (tsldr_context_t *)data;
 
     for (seL4_Word channel = 0; channel < MICROKIT_MAX_CHANNELS; channel++) {
 
@@ -158,7 +158,7 @@ void tsldr_acrtutil_revoke_channels(void *data)
 void tsldr_acrtutil_revoke_irqs(void *data)
 {
     /* initialise trusted loader context */
-    trusted_loader_t *loader = (trusted_loader_t *)data;
+    tsldr_context_t *loader = (tsldr_context_t *)data;
 
     for (seL4_Word irq = 0; irq < MICROKIT_MAX_CHANNELS; irq++) {
 
@@ -178,7 +178,7 @@ void tsldr_acrtutil_revoke_irqs(void *data)
 void tsldr_acrtutil_revoke_mappings(void *data)
 {
     /* initialise trusted loader context */
-    trusted_loader_t *loader = (trusted_loader_t *)data;
+    tsldr_context_t *loader = (tsldr_context_t *)data;
 
     tsldr_caputil_pd_grant_vspace_access();
 
@@ -216,7 +216,7 @@ void tsldr_acrtutil_populate_all_rights(void *context_data, void *src_data, seL4
         return;
     }
 
-    trusted_loader_t *loader = (trusted_loader_t *)context_data;
+    tsldr_context_t *loader = (tsldr_context_t *)context_data;
     acrt_entry_t *input_base = (acrt_entry_t *)(src_data);
 
     acrt_table_t *rights_table = NULL;
@@ -269,7 +269,7 @@ void tsldr_acrtutil_encode_rights(void *base, const uint64_t *channel_ids, size_
 
 void tsldr_acrtutil_add_rights_to_whitelist(void *data, void *input)
 {
-    trusted_loader_t *loader = (trusted_loader_t *)data;
+    tsldr_context_t *loader = (tsldr_context_t *)data;
     acrt_entry_t *entry = (acrt_entry_t *)input;
 
     switch (entry->type) {

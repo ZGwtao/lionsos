@@ -5,7 +5,7 @@
 
 #define LIB_NAME_MACRO "    => [@trustedlo] "
 
-void tsldr_main_declare_required_rights(trusted_loader_t *loader, void *data)
+void tsldr_main_declare_required_rights(tsldr_context_t *loader, void *data)
 {
     if (!loader || !data) {
         microkit_dbg_printf(LIB_NAME_MACRO "invalid loader pointer given\n");
@@ -21,7 +21,7 @@ void tsldr_main_declare_required_rights(trusted_loader_t *loader, void *data)
 }
 
 
-void tsldr_main_pin_required_rights_before_pola(trusted_loader_t *loader)
+void tsldr_main_pin_required_rights_before_pola(tsldr_context_t *loader)
 {
     if (!loader) {
         microkit_dbg_printf(LIB_NAME_MACRO "Invalid loader pointer given\n");
@@ -64,7 +64,7 @@ void tsldr_main_init_metadata(tsldr_md_array_t *array, size_t id, uintptr_t loca
     microkit_dbg_printf(LIB_NAME_MACRO "child_id: %d\n", ((tsldr_md_t *)local_metadata_base)->child_id);
 }
 
-void tsldr_main_try_init_loader(trusted_loader_t *c, size_t id)
+void tsldr_main_try_init_loader(tsldr_context_t *c, size_t id)
 {
     if (!c) {
         microkit_dbg_puts(LIB_NAME_MACRO "Try to init null loader\n");
@@ -77,7 +77,7 @@ void tsldr_main_try_init_loader(trusted_loader_t *c, size_t id)
     }
 }
 
-void tsldr_main_remove_caps(trusted_loader_t *loader)
+void tsldr_main_remove_caps(tsldr_context_t *loader)
 {
     if (!loader) {
         microkit_dbg_puts("tsldr_main_remove_caps:\n");
@@ -95,7 +95,7 @@ void tsldr_main_remove_caps(trusted_loader_t *loader)
     tsldr_acrtutil_restore_mappings(loader);
 }
 
-void tsldr_main_restore_caps(trusted_loader_t *loader)
+void tsldr_main_restore_caps(tsldr_context_t *loader)
 {
     if (!loader) {
         microkit_dbg_puts("tsldr_main_restore_caps:\n");
@@ -130,7 +130,7 @@ void tsldr_main_loading_epilogue(uintptr_t client_exec, uintptr_t client_stack)
 }
 
 
-void tsldr_main_loading_prologue(void *metadata_base, trusted_loader_t *loader)
+void tsldr_main_loading_prologue(void *metadata_base, tsldr_context_t *loader)
 {
     tsldr_md_t *md = (tsldr_md_t *)metadata_base;
     if (!md->init) {
@@ -189,17 +189,17 @@ void tsldr_main_check_elf_integrity(uintptr_t elf)
 }
 
 
-void tsldr_main_pd_restore_caps_for_required_rights(trusted_loader_t *context)
+void tsldr_main_pd_restore_caps_for_required_rights(tsldr_context_t *context)
 {
     tsldr_main_restore_caps(context);
 }
 
-void tsldr_main_pd_remove_caps_for_redundant_rights(trusted_loader_t *context)
+void tsldr_main_pd_remove_caps_for_redundant_rights(tsldr_context_t *context)
 {
     tsldr_main_remove_caps(context);
 }
 
-void tsldr_main_handle_access_rights(trusted_loader_t *context, void *acrt_stat_base)
+void tsldr_main_handle_access_rights(tsldr_context_t *context, void *acrt_stat_base)
 {
     /* populate the required access rights to the loader */
     /* but not populate the rights immediately */
@@ -224,7 +224,7 @@ void tsldr_main_handle_access_rights(trusted_loader_t *context, void *acrt_stat_
 }
 
 
-void tsldr_main_self_loading(void *metadata_base, void *acrt_stat_base, trusted_loader_t *context, uintptr_t client_elf, uintptr_t client_exec_region, uintptr_t trampoline_elf, uintptr_t trampoline_stack_top)
+void tsldr_main_self_loading(void *metadata_base, void *acrt_stat_base, tsldr_context_t *context, uintptr_t client_elf, uintptr_t client_exec_region, uintptr_t trampoline_elf, uintptr_t trampoline_stack_top)
 {
     tsldr_main_loading_prologue(metadata_base, context);
 

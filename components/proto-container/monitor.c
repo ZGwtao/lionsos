@@ -68,7 +68,7 @@ int client_stat[MAX_PERM_CL_NUM];
 #define TSLDR_METADATA_BASE 0xffc0000
 #define TSLDR_METADATA_SIZE SMALL_PAGE_SIZE
 
-trusted_loader_t loader_context[MAX_PERM_CL_NUM];
+tsldr_context_t loader_context[MAX_PERM_CL_NUM];
 
 /*
  * A shared memory region with container, containing content from tsldr_metadata_patched
@@ -243,12 +243,12 @@ void monitor_call_debute_lower()
 
     microkit_dbg_printf(PROGNAME "=>>> 0x%x\n", tsldr_metadata);
     // bring back target trusted loader context...
-    trusted_loader_t *context;
+    tsldr_context_t *context;
     // fetch target trusted loading context...
-    context = (trusted_loader_t *)((unsigned char *)TSLDR_CONTEXT_BASE + cid * TSLDR_CONTEXT_SIZE);
+    context = (tsldr_context_t *)((unsigned char *)TSLDR_CONTEXT_BASE + cid * TSLDR_CONTEXT_SIZE);
 
     // backup trusted loading context in target slot..
-    custom_memcpy(context, &loader_context[cid], sizeof(trusted_loader_t));
+    custom_memcpy(context, &loader_context[cid], sizeof(tsldr_context_t));
 
     tsldr_caputil_pd_privilege(cid);
 
@@ -315,7 +315,7 @@ void init(void)
     // global client state initialisation...
     custom_memset(client_stat, 0, sizeof(int) * MAX_PERM_CL_NUM);
     // clean all loader context...
-    custom_memset(loader_context, 0, sizeof(trusted_loader_t) * MAX_PERM_CL_NUM);
+    custom_memset(loader_context, 0, sizeof(tsldr_context_t) * MAX_PERM_CL_NUM);
 
     stack_ptrs_arg_array_t costacks = {
         _worker_thread_stack_one,
@@ -411,12 +411,12 @@ seL4_MessageInfo_t monitor_call_backup_tsldr_context(microkit_channel ch)
         return microkit_msginfo_new(-1, 0);
     }
 
-    trusted_loader_t *context;
+    tsldr_context_t *context;
     // fetch target trusted loading context...
-    context = (trusted_loader_t *)((unsigned char *)TSLDR_CONTEXT_BASE + (ch - 24) * TSLDR_CONTEXT_SIZE);
+    context = (tsldr_context_t *)((unsigned char *)TSLDR_CONTEXT_BASE + (ch - 24) * TSLDR_CONTEXT_SIZE);
 
     // backup trusted loading context in target slot..
-    custom_memcpy(&loader_context[ch - 24], context, sizeof(trusted_loader_t));
+    custom_memcpy(&loader_context[ch - 24], context, sizeof(tsldr_context_t));
 
     return microkit_msginfo_new(seL4_NoError, 0);
 }
