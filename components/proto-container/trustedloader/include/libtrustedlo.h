@@ -67,9 +67,9 @@ typedef struct {
      *   2. IRQs
      *   3. Mappings
      */
-    bool          allowed_channels[MICROKIT_MAX_CHANNELS];
-    bool          allowed_irqs[MICROKIT_MAX_CHANNELS];
-    MemoryMapping *allowed_mappings[MICROKIT_MAX_CHANNELS];
+    bool allowed_channels[MICROKIT_MAX_CHANNELS];
+    bool allowed_irqs[MICROKIT_MAX_CHANNELS];
+    seL4_Word allowed_mappings[MICROKIT_MAX_CHANNELS];
 
     int mp_cnt;
 
