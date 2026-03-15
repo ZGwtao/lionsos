@@ -7,14 +7,12 @@ PC_LIBTRUSTEDLO_DIR := $(LIONSOS)/dep/libtrustedlo
 LIBGCC := $(shell aarch64-none-elf-gcc -print-libgcc-file-name)
 
 LIBFSHELPER_SRC_DIR := $(PC_SRC_DIR)/fs
-LIBTSLDR_SRC_DIR  := $(PC_SRC_DIR)/trustedloader
 include $(LIBFSHELPER_SRC_DIR)/Makefile
-include $(LIBTSLDR_SRC_DIR)/Makefile
 
 PC_CLAGS := \
 	-I$(CONTAINER_LIBC_INCLUDE) \
 	-I$(PC_LIBMICROKITCO_DIR) \
-	-I$(PC_LIBTRUSTEDLO_DIR) \
+	-I$(PC_LIBTRUSTEDLO_DIR)/include \
 	-I$(PC_SRC_DIR)/config \
 	-I$(PC_SRC_DIR) \
 	-I$(LIBFSHELPER_SRC_DIR)/include
