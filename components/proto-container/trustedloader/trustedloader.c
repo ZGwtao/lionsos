@@ -21,25 +21,20 @@ void tsldr_main_declare_required_rights(trusted_loader_t *loader, void *data)
 }
 
 
-seL4_Error tsldr_populate_allowed(trusted_loader_t *loader)
+void tsldr_main_pin_required_rights_before_pola(trusted_loader_t *loader)
 {
     if (!loader) {
         microkit_dbg_printf(LIB_NAME_MACRO "Invalid loader pointer given\n");
-        return seL4_InvalidArgument;
+        microkit_internal_crash(-1);
     }
-    AccessRights *rights = &loader->access_rights;
-
+    loader->mp_cnt = 0;
     custom_memset(loader->allowed_channels, 0, sizeof(loader->allowed_channels));
     custom_memset(loader->allowed_irqs, 0, sizeof(loader->allowed_irqs));
 
-    loader->num_allowed_mappings = 0;
+    AccessRights *rights = &loader->access_rights;
+    for (int i = 0; i < rights->num_entries; i++)
+        tsldr_acrtutil_add_rights_to_whitelist((void *)loader, (void *)(&rights->entries[i]));
 
-    for (uint32_t i = 0; i < rights->num_entries; i++) {
-        const AccessRightEntry *entry = &rights->entries[i];
-        tsldr_acrtutil_add_rights_to_whitelist((void *)loader, (void *)entry);
-    }
-
-    return seL4_NoError;
 }
 
 void tsldr_main_init_metadata(tsldr_md_array_t *array, size_t id, uintptr_t local_metadata_base)
@@ -223,10 +218,7 @@ void tsldr_main_handle_access_rights(trusted_loader_t *context, void *acrt_stat_
     //  so we need the information of allowed resources that are recorded in "access_rights"
     //  and update the whitelist for resources to keep for this round
     //  we then will remove the unnecessary resources based on the whitelist to filter resources
-    seL4_Error error = tsldr_populate_allowed(context);
-    if (error != seL4_NoError) {
-        microkit_internal_crash(-1);
-    }
+    tsldr_main_pin_required_rights_before_pola(context);
 
     tsldr_main_pd_remove_caps_for_redundant_rights(context);
 }

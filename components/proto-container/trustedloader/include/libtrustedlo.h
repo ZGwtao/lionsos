@@ -74,8 +74,7 @@ typedef struct {
     bool          allowed_irqs[MICROKIT_MAX_CHANNELS];
     MemoryMapping *allowed_mappings[MICROKIT_MAX_CHANNELS];
 
-    /* Mapping bookkeeping */
-    int num_allowed_mappings;   /* 32-bit, but promotes with padding to 64-bit boundary */
+    int mp_cnt;
 
     bool restore;
 
@@ -123,7 +122,7 @@ void tsldr_main_declare_required_rights(trusted_loader_t *loader, void *data);
  *
  * @param loader Pointer to the loader which contains recorded access rights table
  */
-seL4_Error tsldr_populate_allowed(trusted_loader_t *loader);
+void tsldr_main_pin_required_rights_before_pola(trusted_loader_t *loader);
 
 
 void tsldr_main_init_metadata(tsldr_md_array_t *array, size_t id, uintptr_t local_metadata_base);

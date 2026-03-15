@@ -99,7 +99,7 @@ void tsldr_acrtutil_restore_mappings(void *data)
 
     tsldr_caputil_pd_grant_vspace_access();
 
-    for (seL4_Word i = 0; i < loader->num_allowed_mappings; i++) {
+    for (seL4_Word i = 0; i < loader->mp_cnt; i++) {
         const MemoryMapping *m = loader->allowed_mappings[i];
 
         seL4_CapRights_t rights = seL4_AllRights;
@@ -182,7 +182,7 @@ void tsldr_acrtutil_revoke_mappings(void *data)
 
     tsldr_caputil_pd_grant_vspace_access();
 
-    for (seL4_Word i = 0; i < loader->num_allowed_mappings; i++) {
+    for (seL4_Word i = 0; i < loader->mp_cnt; i++) {
         /*
          * for those mapping areas that are already mapped,
          * remove them before next run to create an empty PD
@@ -286,10 +286,10 @@ void tsldr_acrtutil_add_rights_to_whitelist(void *data, void *input)
             break;
 
         case TYPE_MEMORY:
-            TSLDR_ASSERT(loader->num_allowed_mappings < MICROKIT_MAX_CHANNELS);
+            TSLDR_ASSERT(loader->mp_cnt < MICROKIT_MAX_CHANNELS);
             MemoryMapping *m = (MemoryMapping *)tsldr_acrtutil_check_mapping(entry->data);
             TSLDR_ASSERT(m);
-            loader->allowed_mappings[loader->num_allowed_mappings++] = m;
+            loader->allowed_mappings[loader->mp_cnt++] = m;
             break;
 
         default:
