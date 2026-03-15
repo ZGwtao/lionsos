@@ -27,8 +27,6 @@ TSLDR_OBJS :=  \
 	caputils.o acrtutils.o miscutils.o \
 	acg.o
 
-LIBEXTELF_SRC_DIR ?= $(CURDIR)/../extelf
-
 LIBTSLDR_SRC_DIR ?= $(CURDIR)
 LIBTSLDR_BUILD_DIR := $(BUILD_DIR)/libtsldr
 LIBTSLDR_OBJS := $(addprefix $(LIBTSLDR_BUILD_DIR)/,$(TSLDR_OBJS))
@@ -37,8 +35,7 @@ LIBTSLDR := $(LIBTSLDR_BUILD_DIR)/libtsldr.a
 LIBTSLDR_CFLAGS ?= -mcpu=$(CPU) -mstrict-align -nostdlib -ffreestanding -g -O3 \
           			-Wall -Wno-unused-function -Werror \
           			-I$(BOARD_DIR)/include \
-					-I$(LIBTSLDR_SRC_DIR)/include \
-					-I$(LIBEXTELF_SRC_DIR)/include
+					-I$(LIBTSLDR_SRC_DIR)/include
 
 all: $(LIBTSLDR)
 
