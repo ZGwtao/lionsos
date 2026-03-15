@@ -239,7 +239,7 @@ void monitor_call_debute_lower()
     tsldr_metadata = (uintptr_t)((unsigned char *)TSLDR_METADATA_BASE + cid * TSLDR_METADATA_SIZE);
     microkit_dbg_printf(PROGNAME "tsldr_metadata: 0x%x\n", tsldr_metadata);
     // initialise the target tsldr_metadata
-    tsldr_main_pd_init_mdinfo((tsldr_mdinfodb_t *)microkit_template_spec, cid, (void *)tsldr_metadata);
+    tsldr_main_monitor_init_mdinfo((tsldr_mdinfodb_t *)microkit_template_spec, cid, (void *)tsldr_metadata);
 
     microkit_dbg_printf(PROGNAME "=>>> 0x%x\n", tsldr_metadata);
     // bring back target trusted loader context...
@@ -250,7 +250,7 @@ void monitor_call_debute_lower()
     // backup trusted loading context in target slot..
     custom_memcpy(context, &loader_context[cid], sizeof(tsldr_context_t));
 
-    tsldr_caputil_pd_privilege(cid);
+    tsldr_main_monitor_privilege_pd(cid);
 
     uintptr_t payload_base = container_elf + ELF_FILE_SIZE * cid;
     uintptr_t protocon_base = trusted_loader_exec + ELF_FILE_SIZE * cid;
@@ -305,7 +305,7 @@ void init(void)
         tsldr_metadata = (uintptr_t)((char *)TSLDR_METADATA_BASE + i * TSLDR_METADATA_SIZE);
         microkit_dbg_printf(PROGNAME "tsldr_metadata: 0x%x\n", tsldr_metadata);
         // initialise the target tsldr_metadata
-        tsldr_main_pd_init_mdinfo(ptr_spec_trusted_loader, i, (void *)tsldr_metadata);
+        tsldr_main_monitor_init_mdinfo(ptr_spec_trusted_loader, i, (void *)tsldr_metadata);
     }
     custom_memset(acg_stat_map, 0, sizeof(int) * MAX_PERM_CL_NUM * MAX_PERC_AK_NUM);
 

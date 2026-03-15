@@ -227,7 +227,7 @@ void tsldr_main_self_loading(void *mdinfo, void *acrt_stat_base, tsldr_context_t
 }
 
 
-void tsldr_main_pd_init_mdinfo(tsldr_mdinfodb_t *db, size_t id, void *mdinfo)
+void tsldr_main_monitor_init_mdinfo(tsldr_mdinfodb_t *db, size_t id, void *mdinfo)
 {
     if (!db || !mdinfo) {
         microkit_dbg_printf(LIB_NAME_MACRO "Invalid mdinfo database pointer given\n");
@@ -247,5 +247,11 @@ void tsldr_main_pd_init_mdinfo(tsldr_mdinfodb_t *db, size_t id, void *mdinfo)
 
     microkit_dbg_printf(LIB_NAME_MACRO "child_loc: %d\n", id);
     microkit_dbg_printf(LIB_NAME_MACRO "child_id: %d\n", dest->child_id);
+}
+
+
+void tsldr_main_monitor_privilege_pd(seL4_Word cid)
+{
+    tsldr_caputil_pd_privilege(cid);
 }
 
