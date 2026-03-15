@@ -6,8 +6,6 @@
 /* use ED25519 algorithm for encryption now */
 #define PUBLIC_KEY_BYTES        32
 
-#define NUM_ENTRIES_SIZE        sizeof(size_t)
-
 /* number of access rights (for seL4 capabilities only) */
 #define MAX_ACCESS_RIGHTS       MICROKIT_MAX_CHANNELS * 3
 
@@ -17,13 +15,13 @@ typedef struct {
     uint8_t type;
     uint8_t padding[7];
     seL4_Word data; // For CHANNEL and IRQ: ID; For MEMORY: VADDR
-} AccessRightEntry;
+} acrt_entry_t;
 
 // Structure to hold all access rights
 typedef struct {
     //seL4_Word system_hash;
     uint32_t num_entries;
-    AccessRightEntry entries[MAX_ACCESS_RIGHTS];
+    acrt_entry_t entries[MAX_ACCESS_RIGHTS];
 } AccessRights;
 
 // Structure for memory mapping
@@ -100,12 +98,8 @@ enum {
     } while (0)
 
 
-seL4_Error tsldr_parse_rights(Elf64_Ehdr *ehdr, char *ref_section[], seL4_Word *size);
-
-
 void tsldr_main_pd_restore_caps_for_required_rights(trusted_loader_t *context);
 void tsldr_main_pd_remove_caps_for_redundant_rights(trusted_loader_t *context);
-
 
 
 /**

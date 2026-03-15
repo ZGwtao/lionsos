@@ -217,10 +217,10 @@ void tsldr_acrtutil_populate_all_rights(void *context_data, void *src_data, seL4
     }
 
     trusted_loader_t *loader = (trusted_loader_t *)context_data;
-    AccessRightEntry *input_base = (AccessRightEntry *)(src_data);
+    acrt_entry_t *input_base = (acrt_entry_t *)(src_data);
 
     AccessRights *rights_table = NULL;
-    AccessRightEntry *rights_entries = NULL;
+    acrt_entry_t *rights_entries = NULL;
     
     rights_table = &loader->access_rights;
     custom_memset((void *)rights_table, 0, sizeof(AccessRights));
@@ -247,7 +247,7 @@ void tsldr_acrtutil_populate_all_rights(void *context_data, void *src_data, seL4
 
 void tsldr_acrtutil_encode_rights(void *base, const uint64_t *channel_ids, size_t n_channels, const uint64_t *irq_ids, size_t n_irqs, const uint64_t *memory_vaddrs, size_t n_vaddrs)
 {
-    AccessRightEntry *p = (AccessRightEntry *)base;
+    acrt_entry_t *p = (acrt_entry_t *)base;
 
     for (size_t i = 0; i < n_channels; ++i) {
         p->type = (uint8_t)TYPE_CHANNEL;
@@ -270,7 +270,7 @@ void tsldr_acrtutil_encode_rights(void *base, const uint64_t *channel_ids, size_
 void tsldr_acrtutil_add_rights_to_whitelist(void *data, void *input)
 {
     trusted_loader_t *loader = (trusted_loader_t *)data;
-    AccessRightEntry *entry = (AccessRightEntry *)input;
+    acrt_entry_t *entry = (acrt_entry_t *)input;
 
     switch (entry->type) {
         case TYPE_CHANNEL:
