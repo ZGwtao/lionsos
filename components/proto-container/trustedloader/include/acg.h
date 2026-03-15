@@ -125,4 +125,4 @@ typedef struct {
 
 
 
-int fetch_iface_section_info(void *elf_base, Elf64_Shdr *sh, acg_req_t *req);
+int fetch_iface_section_info(void *elf_base, void *sh, acg_req_t *req);

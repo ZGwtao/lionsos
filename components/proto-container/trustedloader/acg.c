@@ -1,4 +1,6 @@
 
+#include <acg.h>
+#include <elf_utils.h>
 #include <acrtutils.h>
 #include <libtrustedlo.h>
 #include <string.h>
@@ -139,11 +141,11 @@ void funq(int cid, acg_req_t *req, uintptr_t payload_base, patch_elf_connection_
 
 
 
-int fetch_iface_section_info(void *elf_base, Elf64_Shdr *sh, acg_req_t *req)
+int fetch_iface_section_info(void *elf_base, void *sh, acg_req_t *req)
 {
     // parse the interface section ...
     // i.e., get the user-defined section for declaring what acgroups are wanted
-    template_pd_iface_t *ib = (template_pd_iface_t *)(elf_base + (uint64_t)sh->sh_offset);
+    template_pd_iface_t *ib = (template_pd_iface_t *)(elf_base + (uint64_t)((Elf64_Shdr *)sh)->sh_offset);
 
     // the list of numbers of requested acgroups
     const uint8_t *nums = &ib->t1_num;

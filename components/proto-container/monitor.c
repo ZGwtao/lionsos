@@ -5,6 +5,7 @@
 #include <sddf/util/printf.h>
 #include <elf_utils.h>
 #include <libtrustedlo.h>
+#include <acg.h>
 
 #include <libmicrokitco.h>
 #include <lions/fs/config.h>
