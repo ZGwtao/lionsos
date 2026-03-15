@@ -3,9 +3,9 @@
 #include <caputils.h>
 #include <libtrustedlo.h>
 
-inline uintptr_t tsldr_acrtutil_check_mapping(seL4_Word vaddr, void *metadata_base)
+inline uintptr_t tsldr_acrtutil_check_mapping(seL4_Word vaddr, void *mdinfo)
 {
-    tsldr_md_t *md = (tsldr_md_t *)metadata_base;
+    tsldr_mdinfo_t *md = (tsldr_mdinfo_t *)mdinfo;
     for (int i = 0; i < MICROKIT_MAX_CHANNELS; i++) {
         if (md->mappings[i].vaddr == vaddr) {
             return (uintptr_t)&md->mappings[i];
@@ -14,25 +14,25 @@ inline uintptr_t tsldr_acrtutil_check_mapping(seL4_Word vaddr, void *metadata_ba
     return 0x0;
 }
 
-inline uint8_t tsldr_acrtutil_check_channel(seL4_Word channel, uint8_t *cstate, void *metadata_base)
+inline uint8_t tsldr_acrtutil_check_channel(seL4_Word channel, uint8_t *cstate, void *mdinfo)
 {
-    tsldr_md_t *md = (tsldr_md_t *)metadata_base;
+    tsldr_mdinfo_t *md = (tsldr_mdinfo_t *)mdinfo;
     if (cstate != NULL) {
         *cstate = md->cstate[channel];
     }
     return md->channels[channel];
 }
 
-inline uint8_t tsldr_acrtutil_check_irq(seL4_Word irq, void *metadata_base)
+inline uint8_t tsldr_acrtutil_check_irq(seL4_Word irq, void *mdinfo)
 {
-    tsldr_md_t *md = (tsldr_md_t *)metadata_base;
+    tsldr_mdinfo_t *md = (tsldr_mdinfo_t *)mdinfo;
     return md->irqs[irq];
 }
 
 
 
 /* Restore disallowed channel capabilities from last run */
-void tsldr_acrtutil_restore_channels(void *data, void *metadata_base)
+void tsldr_acrtutil_restore_channels(void *data, void *mdinfo)
 {
     /* initialise trusted loader context */
     tsldr_context_t *loader = (tsldr_context_t *)data;
@@ -49,7 +49,7 @@ void tsldr_acrtutil_restore_channels(void *data, void *metadata_base)
         uint8_t is_ppc = 0;
 
         /* the channel id given is invalid, skip it */
-        if (tsldr_acrtutil_check_channel(channel, &is_ppc, metadata_base) == false) {
+        if (tsldr_acrtutil_check_channel(channel, &is_ppc, mdinfo) == false) {
             continue;
         }
         if (is_ppc)
@@ -66,7 +66,7 @@ void tsldr_acrtutil_restore_channels(void *data, void *metadata_base)
 }
 
 /* Restore disallowed IRQ capabilities from last run */
-void tsldr_acrtutil_restore_irqs(void *data, void *metadata_base)
+void tsldr_acrtutil_restore_irqs(void *data, void *mdinfo)
 {
     /* initialise trusted loader context */
     tsldr_context_t *loader = (tsldr_context_t *)data;
@@ -76,7 +76,7 @@ void tsldr_acrtutil_restore_irqs(void *data, void *metadata_base)
          * If the IRQ id points to an allowed interrupt number,
          * we don't need to restore it as it stays in the CNode
          */
-        if (loader->allowed_irqs[irq] || !tsldr_acrtutil_check_irq(irq, metadata_base)) {
+        if (loader->allowed_irqs[irq] || !tsldr_acrtutil_check_irq(irq, mdinfo)) {
             continue;
         }
         
@@ -120,7 +120,7 @@ void tsldr_acrtutil_restore_mappings(void *data)
 }
 
 
-void tsldr_acrtutil_revoke_channels(void *data, void *metadata_base)
+void tsldr_acrtutil_revoke_channels(void *data, void *mdinfo)
 {
     /* initialise trusted loader context */
     tsldr_context_t *loader = (tsldr_context_t *)data;
@@ -136,7 +136,7 @@ void tsldr_acrtutil_revoke_channels(void *data, void *metadata_base)
         uint8_t is_ppc = 0;
 
         /* the channel id given is invalid, skip it as no need to delete it */
-        if (tsldr_acrtutil_check_channel(channel, &is_ppc, metadata_base) == false) {
+        if (tsldr_acrtutil_check_channel(channel, &is_ppc, mdinfo) == false) {
             continue;
         }
         if (is_ppc) {
@@ -153,14 +153,14 @@ void tsldr_acrtutil_revoke_channels(void *data, void *metadata_base)
     }
 }
 
-void tsldr_acrtutil_revoke_irqs(void *data, void *metadata_base)
+void tsldr_acrtutil_revoke_irqs(void *data, void *mdinfo)
 {
     /* initialise trusted loader context */
     tsldr_context_t *loader = (tsldr_context_t *)data;
 
     for (seL4_Word irq = 0; irq < MICROKIT_MAX_CHANNELS; irq++) {
 
-        if (loader->allowed_irqs[irq] || !tsldr_acrtutil_check_irq(irq, metadata_base)) {
+        if (loader->allowed_irqs[irq] || !tsldr_acrtutil_check_irq(irq, mdinfo)) {
             continue;
         }
         tsldr_caputil_revoke_irq_cap(irq);
@@ -265,7 +265,7 @@ void tsldr_acrtutil_encode_rights(void *base, const uint64_t *channel_ids, size_
 }
 
 
-void tsldr_acrtutil_add_rights_to_whitelist(void *data, void *input, void *metadata_base)
+void tsldr_acrtutil_add_rights_to_whitelist(void *data, void *input, void *mdinfo)
 {
     tsldr_context_t *loader = (tsldr_context_t *)data;
     acrt_entry_t *entry = (acrt_entry_t *)input;
@@ -273,19 +273,19 @@ void tsldr_acrtutil_add_rights_to_whitelist(void *data, void *input, void *metad
     switch (entry->type) {
         case TYPE_CHANNEL:
             TSLDR_ASSERT(entry->data < MICROKIT_MAX_CHANNELS);
-            TSLDR_ASSERT(tsldr_acrtutil_check_channel(entry->data, NULL, metadata_base));
+            TSLDR_ASSERT(tsldr_acrtutil_check_channel(entry->data, NULL, mdinfo));
             loader->allowed_channels[entry->data] = true;
             break;
 
         case TYPE_IRQ:
             TSLDR_ASSERT(entry->data < MICROKIT_MAX_CHANNELS);
-            TSLDR_ASSERT(tsldr_acrtutil_check_irq(entry->data, metadata_base));
+            TSLDR_ASSERT(tsldr_acrtutil_check_irq(entry->data, mdinfo));
             loader->allowed_irqs[entry->data] = true;
             break;
 
         case TYPE_MEMORY:
             TSLDR_ASSERT(loader->mp_cnt < MICROKIT_MAX_CHANNELS);
-            MemoryMapping *m = (MemoryMapping *)tsldr_acrtutil_check_mapping(entry->data, metadata_base);
+            MemoryMapping *m = (MemoryMapping *)tsldr_acrtutil_check_mapping(entry->data, mdinfo);
             TSLDR_ASSERT(m);
             loader->allowed_mappings[loader->mp_cnt++] = (seL4_Word)m;
             break;
