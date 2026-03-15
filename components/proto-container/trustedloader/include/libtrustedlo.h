@@ -1,6 +1,5 @@
 
 #include <elf_utils.h>
-#include <acg.h>
 #include <caputils.h>
 
 /* use ED25519 algorithm for encryption now */
@@ -31,7 +30,7 @@ typedef struct {
     seL4_Word page_size;
     seL4_Word rights;
     seL4_Word attrs;
-} MemoryMapping;
+} tsldr_mapping_t;
 
 
 typedef struct {
@@ -41,7 +40,7 @@ typedef struct {
     uint8_t       channels[MICROKIT_MAX_CHANNELS];
     uint8_t       cstate[MICROKIT_MAX_CHANNELS];
     seL4_Word     irqs[MICROKIT_MAX_CHANNELS];
-    MemoryMapping mappings[MICROKIT_MAX_CHANNELS];
+    tsldr_mapping_t mappings[MICROKIT_MAX_CHANNELS];
     bool          init;
 } tsldr_mdinfo_t;
 
