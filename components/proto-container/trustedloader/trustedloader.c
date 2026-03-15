@@ -1,7 +1,7 @@
 
 #include <elf_utils.h>
-#include <caputils.h>
 #include <acrtutils.h>
+#include <caputils.h>
 #include <libtrustedlo.h>
 #include <string.h>
 
@@ -30,8 +30,8 @@ void tsldr_main_pin_required_rights_before_pola(tsldr_context_t *loader, void *m
         microkit_internal_crash(-1);
     }
     loader->mp_cnt = 0;
-    custom_memset(loader->allowed_channels, 0, sizeof(loader->allowed_channels));
-    custom_memset(loader->allowed_irqs, 0, sizeof(loader->allowed_irqs));
+    tsldr_miscutil_memset(loader->allowed_channels, 0, sizeof(loader->allowed_channels));
+    tsldr_miscutil_memset(loader->allowed_irqs, 0, sizeof(loader->allowed_irqs));
 
     tsldr_acrt_table_t *rights = &loader->acrt_required_table;
     for (int i = 0; i < rights->num_entries; i++)
@@ -96,7 +96,7 @@ void tsldr_main_loading_epilogue(uintptr_t client_exec, uintptr_t client_stack)
     tsldr_caputil_pd_deprivilege();
 
     // FIXME: currently the size of exec section is fixed
-    custom_memset((void *)client_exec, 0, 0x1000);
+    tsldr_miscutil_memset((void *)client_exec, 0, 0x1000);
 
     // TODO: refresh the client stack...
     // -> the client should use a different stack with the trusted loader
@@ -154,11 +154,8 @@ void tsldr_main_check_elf_integrity(uintptr_t elf)
 {
     Elf64_Ehdr *ehdr = (Elf64_Ehdr *)elf;
     /* check elf integrity */
-    if (custom_memcmp(ehdr->e_ident, (const unsigned char*)ELFMAG, SELFMAG) != 0) {
-        //microkit_dbg_printf("[@protocon]" "Data in shared memory region must be an ELF file\n");
+    if (tsldr_miscutil_memcmp(ehdr->e_ident, (const unsigned char*)ELFMAG, SELFMAG) != 0) {
         microkit_internal_crash(-1);
-    //} else {
-    //    microkit_dbg_printf("[@protocon]" "Data in shared memory region is an ELF file\n");
     }
     microkit_dbg_printf("[@protocon] " "verified ELF header\n");
 }
@@ -216,10 +213,10 @@ void tsldr_main_self_loading(void *mdinfo, void *acrt_stat_base, tsldr_context_t
 
     tsldr_main_loading_epilogue(client_exec_region, (uintptr_t)0x0);
 
-    load_elf((void *)ehdr->e_entry, ehdr);
+    tsldr_miscutil_load_elf((void *)ehdr->e_entry, ehdr);
     microkit_dbg_printf("[@protocon]" "Load client elf to the targeting memory region\n");
 
-    load_elf((void *)trampoline_ehdr->e_entry, trampoline_ehdr);
+    tsldr_miscutil_load_elf((void *)trampoline_ehdr->e_entry, trampoline_ehdr);
     microkit_dbg_printf("[@protocon]" "Load trampoline elf to the targeting memory region\n");
 
     /* -- now we are ready to jump to the trampoline -- */
@@ -242,8 +239,8 @@ void tsldr_main_monitor_init_mdinfo(tsldr_mdinfodb_t *db, size_t id, void *mdinf
     tsldr_mdinfo_t *dest = (tsldr_mdinfo_t *)mdinfo;
     tsldr_mdinfo_t *src = &db->infodb[id];
 
-    custom_memset(dest, 0, sizeof(tsldr_mdinfo_t));
-    custom_memcpy(dest, src, sizeof(tsldr_mdinfo_t));
+    tsldr_miscutil_memset(dest, 0, sizeof(tsldr_mdinfo_t));
+    tsldr_miscutil_memcpy(dest, src, sizeof(tsldr_mdinfo_t));
 
     dest->init = true;
 

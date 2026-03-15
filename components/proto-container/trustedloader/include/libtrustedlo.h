@@ -3,6 +3,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include <microkit.h>
+#include <miscutils.h>
 
 /* use ED25519 algorithm for encryption now */
 #define PUBLIC_KEY_BYTES        32

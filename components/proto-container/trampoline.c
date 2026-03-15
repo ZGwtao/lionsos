@@ -1,7 +1,6 @@
 #include <microkit.h>
 #include <stdint.h>
-#include <elf.h>
-#include <elf_utils.h>
+#include <libtrustedlo.h>
 
 typedef void (*entry_fn_t)(void);
 
@@ -19,20 +18,20 @@ void init(void)
     microkit_dbg_puts("[@trampoline] Entry of trampoline.\n");
 
     /* say goodbye to the old stack */
-    custom_memset((void *)tsldr_stack_bottom, 0, 0x1000);
+    tsldr_miscutil_memset((void *)tsldr_stack_bottom, 0, 0x1000);
 
     /* clean up trusted loader metadata... */
-    custom_memset((void *)tsldr_metadata, 0, 0x1000);
+    tsldr_miscutil_memset((void *)tsldr_metadata, 0, 0x1000);
 
     /* clean up access rights group metadata */
     // is disposable...
-    custom_memset((void *)acgroup_metadata, 0, 0x1000);
+    tsldr_miscutil_memset((void *)acgroup_metadata, 0, 0x1000);
 
     /* clean up trusted loader... */
-    custom_memset((void *)tsldr_program, 0, 0x800000);
+    tsldr_miscutil_memset((void *)tsldr_program, 0, 0x800000);
 
     /* clean up container stack... */
-    custom_memset((void *)container_stack_bottom, 0, 0x1000);
+    tsldr_miscutil_memset((void *)container_stack_bottom, 0, 0x1000);
 
     // syscall for tsldr_context cleanup
     microkit_mr_set(0, 20);
@@ -43,7 +42,7 @@ void init(void)
         microkit_internal_crash(error);
     }
     // clean up trusted loading context...
-    custom_memset((void *)tsldr_context, 0, 0x1000);
+    tsldr_miscutil_memset((void *)tsldr_context, 0, 0x1000);
 
     /* at this point we dont have access to the data section of tsldr */
     microkit_dbg_puts("[@trampoline] Exit of trampoline.\n");

@@ -26,12 +26,7 @@ void puthex(uint64_t num);
  */
 void putdec(uint64_t num);
 
-void* custom_memcpy(void* dest, const void* src, uint64_t n);
-void custom_memset(void *dest, int value, uint64_t size);
-int custom_strcmp(const char *str1, const char *str2);
-int custom_memcmp(const unsigned char* s1, const unsigned char* s2, int n);
 void putvar(uint64_t var, char* name);
 void microkit_dbg_printf(const char *format, ...);
-void load_elf(void *dest_vaddr, const Elf64_Ehdr *ehdr);
 
 #endif /* ELF_CHECKER_H */

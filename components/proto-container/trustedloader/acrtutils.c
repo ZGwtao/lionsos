@@ -2,6 +2,7 @@
 #include <elf_utils.h>
 #include <acrtutils.h>
 #include <caputils.h>
+#include <miscutils.h>
 #include <libtrustedlo.h>
 
 inline uintptr_t tsldr_acrtutil_check_mapping(seL4_Word vaddr, void *mdinfo)
@@ -222,7 +223,7 @@ void tsldr_acrtutil_populate_all_rights(void *context_data, void *src_data, seL4
     tsldr_acrt_entry_t *rights_entries = NULL;
     
     rights_table = &loader->acrt_required_table;
-    custom_memset((void *)rights_table, 0, sizeof(tsldr_acrt_table_t));
+    tsldr_miscutil_memset((void *)rights_table, 0, sizeof(tsldr_acrt_table_t));
     rights_table->num_entries = num;
 
     for (int i = 0; i < rights_table->num_entries; ++i) {

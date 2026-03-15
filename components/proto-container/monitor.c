@@ -25,7 +25,7 @@ uintptr_t container_elf         = 0x50000000;
 // shared memory with the frontend PD
 uintptr_t ext_protocon_elf      = 0x6000000;
 uintptr_t ext_trampoline_elf    = 0x6800000;
-uintptr_t ext_payload_elf       = 0x7000000;
+uintptr_t ext_paytsldr_miscutil_load_elf       = 0x7000000;
 
 __attribute__((__section__(".fs_client_config"))) fs_client_config_t fs_config;
 
@@ -183,7 +183,7 @@ void monitor_call_debute_lower()
     Elf64_Ehdr *ehdr = (Elf64_Ehdr *)ext_protocon_elf;
 
     // FIXME: should not use shared memory to determine state...
-    Elf64_Ehdr *eh = (Elf64_Ehdr *)ext_payload_elf;
+    Elf64_Ehdr *eh = (Elf64_Ehdr *)ext_paytsldr_miscutil_load_elf;
     if (eh->e_shoff == 0 || eh->e_shnum == 0 || eh->e_shentsize != sizeof(Elf64_Shdr))
         microkit_dbg_printf(PROGNAME "no section headers present or unexpected shentsize\n");
     if (eh->e_shstrndx == SHN_UNDEF || eh->e_shstrndx >= eh->e_shnum)
@@ -191,7 +191,7 @@ void monitor_call_debute_lower()
 
     // FIXME: should not use shared memory to determine state...
     Elf64_Shdr *iface_sh;
-    iface_sh = elf_find_section((void *)ext_payload_elf, IFACE_SECTION_NAME);
+    iface_sh = elf_find_section((void *)ext_paytsldr_miscutil_load_elf, IFACE_SECTION_NAME);
     if (!iface_sh) {
         microkit_dbg_printf(PROGNAME "Failed to restart container as no iface section specified\n");
         ////
@@ -219,7 +219,7 @@ void monitor_call_debute_lower()
     // a request stat for the client payload...
     acg_req_t req;
 
-    int cid = fetch_iface_section_info((void *)ext_payload_elf, iface_sh, &req);
+    int cid = fetch_iface_section_info((void *)ext_paytsldr_miscutil_load_elf, iface_sh, &req);
     if (cid >= MAX_PERM_CL_NUM || cid < 0) {
         microkit_dbg_printf(PROGNAME "Failed to find suitable container for payload\n");
         microkit_dbg_printf(PROGNAME "Fetched cid number is: %d\n", cid);
@@ -234,7 +234,7 @@ void monitor_call_debute_lower()
 
     tsldr_main_monitor_init_mdinfo((tsldr_mdinfodb_t *)microkit_template_spec, cid, (void *)((char *)TSLDR_METADATA_BASE + cid * TSLDR_METADATA_SIZE));
 
-    custom_memcpy((char *)TSLDR_CONTEXT_BASE + cid * TSLDR_CONTEXT_SIZE, &loader_context[cid], sizeof(tsldr_context_t));
+    tsldr_miscutil_memcpy((char *)TSLDR_CONTEXT_BASE + cid * TSLDR_CONTEXT_SIZE, &loader_context[cid], sizeof(tsldr_context_t));
 
     tsldr_main_monitor_privilege_pd(cid);
 
@@ -243,13 +243,13 @@ void monitor_call_debute_lower()
     uintptr_t trampoline_base = trampoline_elf + ELF_FILE_SIZE * cid;
     uintptr_t entry = ehdr->e_entry;
 
-    load_elf((void*)protocon_base, ehdr);
+    tsldr_miscutil_load_elf((void*)protocon_base, ehdr);
     microkit_dbg_printf(PROGNAME "Copied trusted loader to child PD's memory region\n");
 
-    custom_memcpy((void*)payload_base, (char *)ext_payload_elf, ELF_FILE_SIZE);
+    tsldr_miscutil_memcpy((void*)payload_base, (char *)ext_paytsldr_miscutil_load_elf, ELF_FILE_SIZE);
     microkit_dbg_printf(PROGNAME "Copied client program to child PD's memory region\n");
 
-    custom_memcpy((void*)trampoline_base, (char *)ext_trampoline_elf, ELF_FILE_SIZE);
+    tsldr_miscutil_memcpy((void*)trampoline_base, (char *)ext_trampoline_elf, ELF_FILE_SIZE);
     microkit_dbg_printf(PROGNAME "Copied trampoline program to child PD's memory region\n");
 
     funq(cid, &req, payload_base, patch_elf_connection);
@@ -293,15 +293,15 @@ void init(void)
         // initialise the target tsldr_metadata
         tsldr_main_monitor_init_mdinfo(ptr_spec_trusted_loader, i, (void *)tsldr_metadata);
     }
-    custom_memset(acg_stat_map, 0, sizeof(int) * MAX_PERM_CL_NUM * MAX_PERC_AK_NUM);
+    tsldr_miscutil_memset(acg_stat_map, 0, sizeof(int) * MAX_PERM_CL_NUM * MAX_PERC_AK_NUM);
 
     // global acgroup state initialisation...
     init_acg_state_map();
 
     // global client state initialisation...
-    custom_memset(client_stat, 0, sizeof(int) * MAX_PERM_CL_NUM);
+    tsldr_miscutil_memset(client_stat, 0, sizeof(int) * MAX_PERM_CL_NUM);
     // clean all loader context...
-    custom_memset(loader_context, 0, sizeof(tsldr_context_t) * MAX_PERM_CL_NUM);
+    tsldr_miscutil_memset(loader_context, 0, sizeof(tsldr_context_t) * MAX_PERM_CL_NUM);
 
     stack_ptrs_arg_array_t costacks = {
         _worker_thread_stack_one,
@@ -353,7 +353,7 @@ seL4_Bool fault(microkit_child child, microkit_msginfo msginfo, microkit_msginfo
 seL4_MessageInfo_t monitor_call_debute(void)
 {
     Elf64_Ehdr *ehdr = (Elf64_Ehdr *)ext_protocon_elf;
-    if (custom_memcmp(ehdr->e_ident, (const unsigned char*)ELFMAG, SELFMAG) != 0) {
+    if (tsldr_miscutil_memcmp(ehdr->e_ident, (const unsigned char*)ELFMAG, SELFMAG) != 0) {
         microkit_dbg_printf(PROGNAME "Data in shared memory region must be an ELF file\n");
         return microkit_msginfo_new(seL4_InvalidArgument, 0);
     }
@@ -402,7 +402,7 @@ seL4_MessageInfo_t monitor_call_backup_tsldr_context(microkit_channel ch)
     context = (tsldr_context_t *)((unsigned char *)TSLDR_CONTEXT_BASE + (ch - 24) * TSLDR_CONTEXT_SIZE);
 
     // backup trusted loading context in target slot..
-    custom_memcpy(&loader_context[ch - 24], context, sizeof(tsldr_context_t));
+    tsldr_miscutil_memcpy(&loader_context[ch - 24], context, sizeof(tsldr_context_t));
 
     return microkit_msginfo_new(seL4_NoError, 0);
 }

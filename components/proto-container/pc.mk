@@ -86,8 +86,8 @@ protocon.elf: $(PC_PROTOCON_OBJS) \
 		$^ $(LIBS) -o $@
 
 trampoline.elf: LIBS += $(LIBGCC)
-trampoline.elf: LDFLAGS += -L$(BOARD_DIR)/lib -L$(LIBEXTELF_BUILD_DIR)
-trampoline.elf: $(PC_TRAMPOLINE_OBJS) $(LIBEXTELF)
+trampoline.elf: LDFLAGS += -L$(BOARD_DIR)/lib -L$(LIBEXTELF_BUILD_DIR) -L$(LIBTSLDR_BUILD_DIR)
+trampoline.elf: $(PC_TRAMPOLINE_OBJS) $(LIBEXTELF) $(LIBTSLDR)
 	$(LD) $(LDFLAGS) -Ttext=0x1800000 $^ $(LIBS) -o $@
 
 
