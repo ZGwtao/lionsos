@@ -31,7 +31,7 @@ void tsldr_main_pin_required_rights_before_pola(tsldr_context_t *loader, void *m
     custom_memset(loader->allowed_channels, 0, sizeof(loader->allowed_channels));
     custom_memset(loader->allowed_irqs, 0, sizeof(loader->allowed_irqs));
 
-    acrt_table_t *rights = &loader->access_rights;
+    acrt_table_t *rights = &loader->acrt_required_table;
     for (int i = 0; i < rights->num_entries; i++)
         tsldr_acrtutil_add_rights_to_whitelist((void *)loader, (void *)(&rights->entries[i]), mdinfo);
 

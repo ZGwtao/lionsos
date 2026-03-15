@@ -220,7 +220,7 @@ void tsldr_acrtutil_populate_all_rights(void *context_data, void *src_data, seL4
     acrt_table_t *rights_table = NULL;
     acrt_entry_t *rights_entries = NULL;
     
-    rights_table = &loader->access_rights;
+    rights_table = &loader->acrt_required_table;
     custom_memset((void *)rights_table, 0, sizeof(acrt_table_t));
     rights_table->num_entries = num;
 

@@ -56,24 +56,20 @@ typedef struct {
 
 /* Trusted loader metadata / state */
 typedef struct {
-    /* Access right table */
-    acrt_table_t access_rights;
 
     size_t child_id;
-    bool init;
-    /*
-     * Rights bitmaps / filters:
-     *   1. Channels
-     *   2. IRQs
-     *   3. Mappings
-     */
-    bool allowed_channels[MICROKIT_MAX_CHANNELS];
-    bool allowed_irqs[MICROKIT_MAX_CHANNELS];
-    seL4_Word allowed_mappings[MICROKIT_MAX_CHANNELS];
 
-    int mp_cnt;
+    acrt_table_t acrt_required_table;
 
     bool restore;
+    bool init;
+
+    bool allowed_channels[MICROKIT_MAX_CHANNELS];
+
+    bool allowed_irqs[MICROKIT_MAX_CHANNELS];
+
+    int mp_cnt;
+    seL4_Word allowed_mappings[MICROKIT_MAX_CHANNELS];
 
 } tsldr_context_t;
 
