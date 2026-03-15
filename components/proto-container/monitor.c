@@ -231,25 +231,10 @@ void monitor_call_debute_lower()
         return;
     }
     microkit_dbg_printf(PROGNAME "cid available: %d\n", cid);
-    //
-    // from the iface section, get how many kinds of service the client need, and the number of each kind
-    // we plan to use this information to find a matched child PD whose acgroup array can cover
-    // 
 
-    // adjust global pointer
-    tsldr_metadata = (uintptr_t)((unsigned char *)TSLDR_METADATA_BASE + cid * TSLDR_METADATA_SIZE);
-    microkit_dbg_printf(PROGNAME "tsldr_metadata: 0x%x\n", tsldr_metadata);
-    // initialise the target tsldr_metadata
-    tsldr_main_monitor_init_mdinfo((tsldr_mdinfodb_t *)microkit_template_spec, cid, (void *)tsldr_metadata);
+    tsldr_main_monitor_init_mdinfo((tsldr_mdinfodb_t *)microkit_template_spec, cid, (void *)((char *)TSLDR_METADATA_BASE + cid * TSLDR_METADATA_SIZE));
 
-    microkit_dbg_printf(PROGNAME "=>>> 0x%x\n", tsldr_metadata);
-    // bring back target trusted loader context...
-    tsldr_context_t *context;
-    // fetch target trusted loading context...
-    context = (tsldr_context_t *)((unsigned char *)TSLDR_CONTEXT_BASE + cid * TSLDR_CONTEXT_SIZE);
-
-    // backup trusted loading context in target slot..
-    custom_memcpy(context, &loader_context[cid], sizeof(tsldr_context_t));
+    custom_memcpy((char *)TSLDR_CONTEXT_BASE + cid * TSLDR_CONTEXT_SIZE, &loader_context[cid], sizeof(tsldr_context_t));
 
     tsldr_main_monitor_privilege_pd(cid);
 
