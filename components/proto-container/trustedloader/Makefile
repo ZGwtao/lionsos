@@ -24,8 +24,7 @@ BOARD_DIR ?= $(MICROKIT_SDK)/board/$(MICROKIT_BOARD)/$(MICROKIT_CONFIG)
 
 TSLDR_OBJS :=  \
 	trustedloader.o \
-	caputils.o acrtutils.o miscutils.o \
-	acg.o
+	caputils.o acrtutils.o miscutils.o
 
 LIBTSLDR_SRC_DIR ?= $(CURDIR)
 LIBTSLDR_BUILD_DIR := $(BUILD_DIR)/libtsldr

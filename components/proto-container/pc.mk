@@ -20,6 +20,7 @@ PC_CLAGS := \
 	-I$(CONTAINER_LIBC_INCLUDE) \
 	-I$(PC_LIBMICROKITCO_DIR) \
 	-I$(PC_SRC_DIR)/config \
+	-I$(PC_SRC_DIR) \
 	-I$(LIBKRMALLOC_SRC_DIR)/include \
 	-I$(LIBFSHELPER_SRC_DIR)/include \
 	-I$(LIBCRYPTO_SRC_DIR)/include \
@@ -30,7 +31,7 @@ PC_LIBMICROKITCO_OBJ := libmicrokitco/libmicrokitco.a
 PC_LIBMICROKITCO_OPT_PATH := $(PC_SRC_DIR)/config
 
 PC_CLIENT_OBJS := pc/client.o
-PC_MONITOR_OBJS := pc/monitor.o
+PC_MONITOR_OBJS := pc/monitor.o pc/acg.o
 PC_FRONTEND_OBJS :=	pc/frontend.o
 PC_PROTOCON_OBJS := pc/protocon.o
 PC_TRAMPOLINE_OBJS := pc/trampoline.o
@@ -77,7 +78,7 @@ monitor.elf: $(PC_MONITOR_OBJS) pc/$(PC_LIBMICROKITCO_OBJ) \
 	$(LD) $(LDFLAGS) $^ $(LIBS) -o $@
 
 protocon.elf: LIBS += $(LIBGCC)
-protocon.elf: LDFLAGS += -L$(BOARD_DIR)/lib -L$(LIBCRYPTO_BUILD_DIR) -L$(LIBEXTELF_BUILD_DIR) -L$(LIBTSLDR_BUILD_DIR)
+protocon.elf: LDFLAGS += -L$(BOARD_DIR)/lib -L$(LIBCRYPTO_BUILD_DIR) -L$(LIBEXTELF_BUILD_DIR) -L$(LIBTSLDR_BUILD_DIR) 
 protocon.elf: $(PC_PROTOCON_OBJS) \
               ${LIBEXTELF} $(LIBTSLDR) $(LIBCRYPTO)
 	$(LD) $(LDFLAGS) \

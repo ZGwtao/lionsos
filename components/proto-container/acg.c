@@ -1,6 +1,5 @@
 
 #include <acg.h>
-#include <elf_utils.h>
 #include <acrtutils.h>
 #include <libtrustedlo.h>
 #include <string.h>

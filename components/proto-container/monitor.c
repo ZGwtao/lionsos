@@ -4,8 +4,8 @@
 #include <string.h>
 #include <sddf/util/printf.h>
 #include <libtrustedlo.h>
-#include <acg.h>
 
+#include <acg.h>
 #include <libmicrokitco.h>
 #include <lions/fs/config.h>
 #include <pico_vfs.h>
