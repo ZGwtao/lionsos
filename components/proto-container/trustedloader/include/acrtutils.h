@@ -24,5 +24,7 @@ void tsldr_acrtutil_add_rights_to_whitelist(void *data, void *input, void *mdinf
 void tsldr_acrtutil_populate_all_rights(void *context_data, void *src_data, seL4_Word num);
 
 
-void tsldr_acrtutil_encode_rights(void *base, const uint64_t *channel_ids, size_t n_channels, const uint64_t *irq_ids, size_t n_irqs, const uint64_t *memory_vaddrs, size_t n_vaddrs);
+void tsldr_acrtutil_encode_rights(void *base, seL4_Word channels[], size_t n_channels, seL4_Word irqs[], size_t n_irqs, seL4_Word mappings[], size_t n_mps);
+
+
 seL4_Word tsldr_acrtutil_check_access_rights_table(void *base);

@@ -243,23 +243,22 @@ void tsldr_acrtutil_populate_all_rights(void *context_data, void *src_data, seL4
 }
 
 
-void tsldr_acrtutil_encode_rights(void *base, const uint64_t *channel_ids, size_t n_channels, const uint64_t *irq_ids, size_t n_irqs, const uint64_t *memory_vaddrs, size_t n_vaddrs)
+void tsldr_acrtutil_encode_rights(void *base, seL4_Word channels[], size_t n_channels, seL4_Word irqs[], size_t n_irqs, seL4_Word mappings[], size_t n_mps)
 {
     acrt_entry_t *p = (acrt_entry_t *)base;
-
     for (size_t i = 0; i < n_channels; ++i) {
         p->type = (uint8_t)TYPE_CHANNEL;
-        p->data = (seL4_Word)channel_ids[i];
+        p->data = channels[i];
         p++;
     }
     for (size_t i = 0; i < n_irqs; ++i) {
         p->type = (uint8_t)TYPE_IRQ;
-        p->data = (seL4_Word)irq_ids[i];
+        p->data = irqs[i];
         p++;
     }
-    for (size_t i = 0; i < n_vaddrs; ++i) {
+    for (size_t i = 0; i < n_mps; ++i) {
         p->type = (uint8_t)TYPE_MEMORY;
-        p->data = (seL4_Word)memory_vaddrs[i];
+        p->data = mappings[i];
         p++;
     }
 }

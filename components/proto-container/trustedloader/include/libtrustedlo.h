@@ -152,3 +152,6 @@ void tsldr_main_self_loading(void *mdinfo, void *acrt_stat_base, tsldr_context_t
 
 void tsldr_main_monitor_privilege_pd(seL4_Word cid);
 
+
+void tsldr_main_monitor_encode_required_rights(void *base, seL4_Word channels[], size_t n_channels, seL4_Word irqs[], size_t n_irqs, seL4_Word mappings[], size_t n_mps);
+
