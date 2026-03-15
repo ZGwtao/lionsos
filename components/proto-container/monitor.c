@@ -3,7 +3,6 @@
 #include <stdarg.h>
 #include <string.h>
 #include <sddf/util/printf.h>
-#include <elf_utils.h>
 #include <libtrustedlo.h>
 #include <acg.h>
 
@@ -90,15 +89,15 @@ void test_entrypoint(void)
     memset(request_metadata, 0, sizeof(request_metadata_t) * FS_QUEUE_CAPACITY);
     memset(buffer_metadata, 0, sizeof(buffer_metadata_t) * FS_QUEUE_CAPACITY);
 
-    microkit_dbg_printf(PROGNAME "(fs mount) start fs initialisation\n");
+    TSLDR_DBG_PRINT(PROGNAME "(fs mount) start fs initialisation\n");
     fs_cmpl_t completion;
     int err = fs_command_blocking(&completion, (fs_cmd_t){ .type = FS_CMD_INITIALISE });
     if (err || completion.status != FS_STATUS_SUCCESS) {
-        microkit_dbg_printf(PROGNAME "MP|ERROR: Failed to mount\n");
+        TSLDR_DBG_PRINT(PROGNAME "MP|ERROR: Failed to mount\n");
     }
     fs_init = true;
 
-    microkit_dbg_printf(PROGNAME "(fs mount) finished fs initialisation\n");
+    TSLDR_DBG_PRINT(PROGNAME "(fs mount) finished fs initialisation\n");
 }
 
 static Elf64_Shdr *elf_find_section(void *elf_base, char section_name[])
@@ -144,7 +143,7 @@ static int patch_elf_section(void *elf_base, char section_name[], char data_file
     // find target elf section for patching
     target_sh= elf_find_section(elf_base, section_name);
     if (!target_sh) {
-        microkit_dbg_printf(PROGNAME "section '%s' not found\n", section_name);
+        TSLDR_DBG_PRINT(PROGNAME "section '%s' not found\n", section_name);
         return -1;
     }
 
@@ -154,9 +153,9 @@ static int patch_elf_section(void *elf_base, char section_name[], char data_file
         // halt...
         while (1);
     }
-    microkit_dbg_printf(PROGNAME "  %d \n", (void *)(elf_base));
-    microkit_dbg_printf(PROGNAME "  %d \n", (void *)(elf_base + (uint64_t)target_sh->sh_offset));
-    microkit_dbg_printf(PROGNAME "  %d \n", (void *)(((Elf64_Ehdr *)elf_base)->e_entry + (uint64_t)target_sh->sh_offset));
+    TSLDR_DBG_PRINT(PROGNAME "  %d \n", (void *)(elf_base));
+    TSLDR_DBG_PRINT(PROGNAME "  %d \n", (void *)(elf_base + (uint64_t)target_sh->sh_offset));
+    TSLDR_DBG_PRINT(PROGNAME "  %d \n", (void *)(((Elf64_Ehdr *)elf_base)->e_entry + (uint64_t)target_sh->sh_offset));
     return err;
 }
 
@@ -172,7 +171,7 @@ static void patch_elf_connection(void *elf_base, char data_file[], uintptr_t vad
     pico_vfs_readfile2buf((void *)target_sh, data_file, &err);
     if (err != seL4_NoError) {
         // halt...
-        microkit_dbg_printf(PROGNAME "Failed to establish connection for %s iface: %d", data_file, vaddr);
+        TSLDR_DBG_PRINT(PROGNAME "Failed to establish connection for %s iface: %d", data_file, vaddr);
         while (1);
     }
 }
@@ -185,15 +184,15 @@ void monitor_call_debute_lower()
     // FIXME: should not use shared memory to determine state...
     Elf64_Ehdr *eh = (Elf64_Ehdr *)ext_paytsldr_miscutil_load_elf;
     if (eh->e_shoff == 0 || eh->e_shnum == 0 || eh->e_shentsize != sizeof(Elf64_Shdr))
-        microkit_dbg_printf(PROGNAME "no section headers present or unexpected shentsize\n");
+        TSLDR_DBG_PRINT(PROGNAME "no section headers present or unexpected shentsize\n");
     if (eh->e_shstrndx == SHN_UNDEF || eh->e_shstrndx >= eh->e_shnum)
-        microkit_dbg_printf(PROGNAME "invalid e_shstrndx");
+        TSLDR_DBG_PRINT(PROGNAME "invalid e_shstrndx");
 
     // FIXME: should not use shared memory to determine state...
     Elf64_Shdr *iface_sh;
     iface_sh = elf_find_section((void *)ext_paytsldr_miscutil_load_elf, IFACE_SECTION_NAME);
     if (!iface_sh) {
-        microkit_dbg_printf(PROGNAME "Failed to restart container as no iface section specified\n");
+        TSLDR_DBG_PRINT(PROGNAME "Failed to restart container as no iface section specified\n");
         ////
         // FIXME:
         //  try to signal frontend to print instruction for next step
@@ -221,8 +220,8 @@ void monitor_call_debute_lower()
 
     int cid = fetch_iface_section_info((void *)ext_paytsldr_miscutil_load_elf, iface_sh, &req);
     if (cid >= MAX_PERM_CL_NUM || cid < 0) {
-        microkit_dbg_printf(PROGNAME "Failed to find suitable container for payload\n");
-        microkit_dbg_printf(PROGNAME "Fetched cid number is: %d\n", cid);
+        TSLDR_DBG_PRINT(PROGNAME "Failed to find suitable container for payload\n");
+        TSLDR_DBG_PRINT(PROGNAME "Fetched cid number is: %d\n", cid);
         //
         // FIXME:
         //  try to signal frontend to print instruction for next step
@@ -230,7 +229,7 @@ void monitor_call_debute_lower()
         microkit_notify(15);
         return;
     }
-    microkit_dbg_printf(PROGNAME "cid available: %d\n", cid);
+    TSLDR_DBG_PRINT(PROGNAME "cid available: %d\n", cid);
 
     tsldr_main_monitor_init_mdinfo((tsldr_mdinfodb_t *)microkit_template_spec, cid, (void *)((char *)TSLDR_METADATA_BASE + cid * TSLDR_METADATA_SIZE));
 
@@ -244,13 +243,13 @@ void monitor_call_debute_lower()
     uintptr_t entry = ehdr->e_entry;
 
     tsldr_miscutil_load_elf((void*)protocon_base, ehdr);
-    microkit_dbg_printf(PROGNAME "Copied trusted loader to child PD's memory region\n");
+    TSLDR_DBG_PRINT(PROGNAME "Copied trusted loader to child PD's memory region\n");
 
     tsldr_miscutil_memcpy((void*)payload_base, (char *)ext_paytsldr_miscutil_load_elf, ELF_FILE_SIZE);
-    microkit_dbg_printf(PROGNAME "Copied client program to child PD's memory region\n");
+    TSLDR_DBG_PRINT(PROGNAME "Copied client program to child PD's memory region\n");
 
     tsldr_miscutil_memcpy((void*)trampoline_base, (char *)ext_trampoline_elf, ELF_FILE_SIZE);
-    microkit_dbg_printf(PROGNAME "Copied trampoline program to child PD's memory region\n");
+    TSLDR_DBG_PRINT(PROGNAME "Copied trampoline program to child PD's memory region\n");
 
     funq(cid, &req, payload_base, patch_elf_connection);
     //
@@ -261,7 +260,7 @@ void monitor_call_debute_lower()
 
     /* switch to trusted loader */
     microkit_pd_restart(cid, entry);
-    microkit_dbg_printf(PROGNAME "Started child PD at entrypoint address: 0x%x\n", (unsigned long long)entry);
+    TSLDR_DBG_PRINT(PROGNAME "Started child PD at entrypoint address: 0x%x\n", (unsigned long long)entry);
 }
 
 
@@ -277,8 +276,8 @@ void init(void)
     fs_init = false;
 
     tsldr_mdinfodb_t *ptr_spec_trusted_loader = (tsldr_mdinfodb_t *)microkit_template_spec;
-    microkit_dbg_printf(PROGNAME "%d\n", ptr_spec_trusted_loader->avails);
-    microkit_dbg_printf(PROGNAME "%s\n", microkit_name);
+    TSLDR_DBG_PRINT(PROGNAME "%d\n", ptr_spec_trusted_loader->avails);
+    TSLDR_DBG_PRINT(PROGNAME "%s\n", microkit_name);
 
     // practically we use 16 indices...
     for (int i = 0; i < ptr_spec_trusted_loader->avails; ++i) {
@@ -289,7 +288,7 @@ void init(void)
         }
         // adjust global pointer
         tsldr_metadata = (uintptr_t)((char *)TSLDR_METADATA_BASE + i * TSLDR_METADATA_SIZE);
-        microkit_dbg_printf(PROGNAME "tsldr_metadata: 0x%x\n", tsldr_metadata);
+        TSLDR_DBG_PRINT(PROGNAME "tsldr_metadata: 0x%x\n", tsldr_metadata);
         // initialise the target tsldr_metadata
         tsldr_main_monitor_init_mdinfo(ptr_spec_trusted_loader, i, (void *)tsldr_metadata);
     }
@@ -314,12 +313,12 @@ void init(void)
     }
 
     if (microkit_cothread_spawn(test_entrypoint, NULL) == LIBMICROKITCO_NULL_HANDLE) {
-        microkit_dbg_printf(PROGNAME "Cannot initialise frontend cothread1\n");
+        TSLDR_DBG_PRINT(PROGNAME "Cannot initialise frontend cothread1\n");
         microkit_internal_crash(-1);
     }
     microkit_cothread_yield();
 
-    microkit_dbg_printf(PROGNAME "Finished init\n");
+    TSLDR_DBG_PRINT(PROGNAME "Finished init\n");
 }
 
 void notified(microkit_channel ch)
@@ -331,17 +330,17 @@ void notified(microkit_channel ch)
 
 seL4_Bool fault(microkit_child child, microkit_msginfo msginfo, microkit_msginfo *reply_msginfo)
 {
-    microkit_dbg_printf(PROGNAME "Received fault message for child PD: %d\n", child);
+    TSLDR_DBG_PRINT(PROGNAME "Received fault message for child PD: %d\n", child);
 
     seL4_Word label = microkit_msginfo_get_label(msginfo);
-    microkit_dbg_printf(PROGNAME "Fault label: %d\n", label);
+    TSLDR_DBG_PRINT(PROGNAME "Fault label: %d\n", label);
 
     if (label == seL4_Fault_VMFault) {
         seL4_Word ip = microkit_mr_get(seL4_VMFault_IP);
         seL4_Word address = microkit_mr_get(seL4_VMFault_Addr);
-        microkit_dbg_printf(PROGNAME "seL4_Fault_VMFault\n");
-        microkit_dbg_printf(PROGNAME "Fault address: 0x%x\n", (unsigned long long)address);
-        microkit_dbg_printf(PROGNAME "Fault instruction pointer: 0x%x\n", (unsigned long long)ip);
+        TSLDR_DBG_PRINT(PROGNAME "seL4_Fault_VMFault\n");
+        TSLDR_DBG_PRINT(PROGNAME "Fault address: 0x%x\n", (unsigned long long)address);
+        TSLDR_DBG_PRINT(PROGNAME "Fault instruction pointer: 0x%x\n", (unsigned long long)ip);
     }
 
     microkit_pd_stop(child);
@@ -354,18 +353,18 @@ seL4_MessageInfo_t monitor_call_debute(void)
 {
     Elf64_Ehdr *ehdr = (Elf64_Ehdr *)ext_protocon_elf;
     if (tsldr_miscutil_memcmp(ehdr->e_ident, (const unsigned char*)ELFMAG, SELFMAG) != 0) {
-        microkit_dbg_printf(PROGNAME "Data in shared memory region must be an ELF file\n");
+        TSLDR_DBG_PRINT(PROGNAME "Data in shared memory region must be an ELF file\n");
         return microkit_msginfo_new(seL4_InvalidArgument, 0);
     }
-    microkit_dbg_printf(PROGNAME "Verified ELF header\n");
+    TSLDR_DBG_PRINT(PROGNAME "Verified ELF header\n");
 
     if (microkit_cothread_spawn(monitor_call_debute_lower, NULL) == LIBMICROKITCO_NULL_HANDLE) {
-        microkit_dbg_printf(PROGNAME "Cannot initialise monitor cothread\n");
+        TSLDR_DBG_PRINT(PROGNAME "Cannot initialise monitor cothread\n");
         microkit_internal_crash(-1);
     }
     microkit_cothread_yield();
 
-    microkit_dbg_printf(PROGNAME "finished with loading data files\n");
+    TSLDR_DBG_PRINT(PROGNAME "finished with loading data files\n");
     return microkit_msginfo_new(seL4_NoError, 0);
 }
 
@@ -373,7 +372,7 @@ seL4_MessageInfo_t monitor_call_restore(microkit_channel ch)
 {
     // sanity check for the channel ID
     if (ch < 24 || ch >= 56) {
-        microkit_dbg_printf(PROGNAME "Received signal from non-client PD that tries to uninstantiate client PD!\n");
+        TSLDR_DBG_PRINT(PROGNAME "Received signal from non-client PD that tries to uninstantiate client PD!\n");
         return microkit_msginfo_new(-1, 0);
     }
     assert(client_stat[ch - 24]);
@@ -393,7 +392,7 @@ seL4_MessageInfo_t monitor_call_backup_tsldr_context(microkit_channel ch)
 {
     // sanity check for the channel ID
     if (ch < 24 || ch >= 56) {
-        microkit_dbg_printf(PROGNAME "Received signal from non-client PD that tries to uninstantiate client PD!\n");
+        TSLDR_DBG_PRINT(PROGNAME "Received signal from non-client PD that tries to uninstantiate client PD!\n");
         return microkit_msginfo_new(-1, 0);
     }
 
@@ -410,7 +409,7 @@ seL4_MessageInfo_t monitor_call_backup_tsldr_context(microkit_channel ch)
 
 seL4_MessageInfo_t protected(microkit_channel ch, microkit_msginfo msginfo)
 {
-    microkit_dbg_printf(PROGNAME "Received protected message on channel: %d\n", ch);
+    TSLDR_DBG_PRINT(PROGNAME "Received protected message on channel: %d\n", ch);
 
     /* get the first word of the message */
     seL4_Word monitorcall_number = microkit_mr_get(0);
@@ -420,24 +419,24 @@ seL4_MessageInfo_t protected(microkit_channel ch, microkit_msginfo msginfo)
     /* call for the container monitor */
     switch (monitorcall_number) {
     case 1:
-        microkit_dbg_printf(PROGNAME "Loading trusted loader and the first client\n");
+        TSLDR_DBG_PRINT(PROGNAME "Loading trusted loader and the first client\n");
         ret = monitor_call_debute();
         break;
     //case 2:
-    //    microkit_dbg_printf(PROGNAME "Restart trusted loader and a new client\n");
+    //    TSLDR_DBG_PRINT(PROGNAME "Restart trusted loader and a new client\n");
     //    ret = monitor_call_restart(ch - 15);
     //    break;
     case 20:
-        microkit_dbg_printf(PROGNAME "Exit to uninstantiated container\n");
+        TSLDR_DBG_PRINT(PROGNAME "Exit to uninstantiated container\n");
         ret = monitor_call_backup_tsldr_context(ch);
         break;
     case 0x100:
-        microkit_dbg_printf(PROGNAME "Exit to uninstantiated container\n");
+        TSLDR_DBG_PRINT(PROGNAME "Exit to uninstantiated container\n");
         ret = monitor_call_restore(ch);
         break;
     default:
         /* do nothing for now */
-        microkit_dbg_printf(PROGNAME "Undefined container monitor call: %lu\n", monitorcall_number);
+        TSLDR_DBG_PRINT(PROGNAME "Undefined container monitor call: %lu\n", monitorcall_number);
         break;
     }
 

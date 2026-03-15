@@ -3,7 +3,6 @@
  *
  * SPDX-License-Identifier: BSD-2-Clause
  */
-#include <elf_utils.h>
 #include <stdarg.h>
 #include <stdint.h>
 #include <microkit.h>
@@ -13,6 +12,7 @@
 #include <sddf/serial/config.h>
 #include <sddf/util/printf.h>
 
+#include <libtrustedlo.h>
 #include <libmicrokitco.h>
 #include <lions/fs/config.h>
 #include <pico_vfs.h>
@@ -73,15 +73,15 @@ void test_entrypoint(void)
     memset(request_metadata, 0, sizeof(request_metadata_t) * FS_QUEUE_CAPACITY);
     memset(buffer_metadata, 0, sizeof(buffer_metadata_t) * FS_QUEUE_CAPACITY);
 
-    microkit_dbg_printf(PROGNAME "(fs mount) start fs initialisation\n");
+    TSLDR_DBG_PRINT(PROGNAME "(fs mount) start fs initialisation\n");
     fs_cmpl_t completion;
     int err = fs_command_blocking(&completion, (fs_cmd_t){ .type = FS_CMD_INITIALISE });
     if (err || completion.status != FS_STATUS_SUCCESS) {
-        microkit_dbg_printf(PROGNAME "MP|ERROR: Failed to mount\n");
+        TSLDR_DBG_PRINT(PROGNAME "MP|ERROR: Failed to mount\n");
     }
     fs_init = true;
 
-    microkit_dbg_printf(PROGNAME "(fs mount) finished fs initialisation\n");
+    TSLDR_DBG_PRINT(PROGNAME "(fs mount) finished fs initialisation\n");
 }
 
 void load_entrypoint(void)
@@ -97,14 +97,14 @@ void load_entrypoint(void)
         // halt...
         while (1);
     }
-    microkit_dbg_printf(PROGNAME "Wrote proto-container's ELF file into memory\n");
+    TSLDR_DBG_PRINT(PROGNAME "Wrote proto-container's ELF file into memory\n");
 
     pos = pico_vfs_readfile2buf((void *)shared3, "trampoline.elf", &err);
     if (err != seL4_NoError) {
         // halt...
         while (1);
     }
-    microkit_dbg_printf(PROGNAME "Wrote trampoline's ELF file into memory\n");
+    TSLDR_DBG_PRINT(PROGNAME "Wrote trampoline's ELF file into memory\n");
 
     sddf_putchar_unbuffered('\n');
     print_prompt();
@@ -113,13 +113,13 @@ void load_entrypoint(void)
 
 void init(void)
 {
-    microkit_dbg_printf(PROGNAME "Entered init\n");
+    TSLDR_DBG_PRINT(PROGNAME "Entered init\n");
 
     cookie = mspace_bootstrap_allocator(POOL_SIZE, morecore);
     if (!cookie) {
         microkit_internal_crash(-1);
     }
-    microkit_dbg_printf(PROGNAME "Init memory allocator\n");
+    TSLDR_DBG_PRINT(PROGNAME "Init memory allocator\n");
 #if 0
     char *c = mspace_k_r_malloc_alloc(&cookie->k_r_malloc, sizeof(c));
     if (c != NULL) {
@@ -153,18 +153,18 @@ void init(void)
     }
 
     if (microkit_cothread_spawn(test_entrypoint, NULL) == LIBMICROKITCO_NULL_HANDLE) {
-        microkit_dbg_printf(PROGNAME "Cannot initialise frontend cothread1\n");
+        TSLDR_DBG_PRINT(PROGNAME "Cannot initialise frontend cothread1\n");
         microkit_internal_crash(-1);
     }
 
     if (microkit_cothread_spawn(load_entrypoint, NULL) == LIBMICROKITCO_NULL_HANDLE) {
-        microkit_dbg_printf(PROGNAME "Cannot initialise frontend cothread1\n");
+        TSLDR_DBG_PRINT(PROGNAME "Cannot initialise frontend cothread1\n");
         microkit_internal_crash(-1);
     }
 
     microkit_cothread_yield();
 
-    microkit_dbg_printf(PROGNAME "Finished init\n");
+    TSLDR_DBG_PRINT(PROGNAME "Finished init\n");
 }
 
 #define INPUT_BUF_SIZE 128
@@ -180,7 +180,7 @@ void load_elf_payload(void)
     while(!fs_init) {
         microkit_cothread_yield();
     }
-    microkit_dbg_printf(PROGNAME "entry of load_elf_payload\n");
+    TSLDR_DBG_PRINT(PROGNAME "entry of load_elf_payload\n");
 
     int err;
     uint64_t pos;
@@ -189,10 +189,10 @@ void load_elf_payload(void)
 
     pos = pico_vfs_readfile2buf((void *)shared2, fname_buf, &err);
     if (err != seL4_NoError) {
-        microkit_dbg_printf(PROGNAME "Failed to read %s\n", fname_buf);
+        TSLDR_DBG_PRINT(PROGNAME "Failed to read %s\n", fname_buf);
         return;
     }
-    microkit_dbg_printf(PROGNAME "Wrote test's ELF file into memory\n");
+    TSLDR_DBG_PRINT(PROGNAME "Wrote test's ELF file into memory\n");
 
     microkit_mr_set(0, 1);
     info = microkit_ppcall(1, microkit_msginfo_new(0, 1));
@@ -228,7 +228,7 @@ static void parse_start_cmd(const char *arg)
     sddf_printf("\nValid command: start %s\n> ", fname_buf);
 
     if (microkit_cothread_spawn(load_elf_payload, NULL) == LIBMICROKITCO_NULL_HANDLE) {
-        microkit_dbg_printf(PROGNAME "Cannot frontend cothread to load payload\n");
+        TSLDR_DBG_PRINT(PROGNAME "Cannot frontend cothread to load payload\n");
         microkit_internal_crash(-1);
     }
     microkit_cothread_yield();

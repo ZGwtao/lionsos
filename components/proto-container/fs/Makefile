@@ -26,18 +26,18 @@ FSHELPER_OBJS :=  \
 	fs_helpers.o \
 	pico_vfs.o
 
-LIBEXTELF_SRC_DIR ?= $(CURDIR)/../extelf
+LIBTSLDR_SRC_DIR ?= $(CURDIR)/../trustedloader
 
 LIBFSHELPER_SRC_DIR ?= $(CURDIR)
 LIBFSHELPER_BUILD_DIR := $(BUILD_DIR)/libfshelper
-LIBFSHELPER_OBJS := $(addprefix $(LIBFSHELPER_BUILD_DIR)/,$(FSHELPER_OBJS))
+LIBFSHELPER_OBJS := $(addprefix $(LIBFSHELPER_BUILD_DIR)/,$(FSHELPER_OBJS)) $(LIBTSLDR)
 LIBFSHELPER := $(LIBFSHELPER_BUILD_DIR)/libfshelper.a
 
 LIBFSHELPER_CFLAGS ?= -mcpu=$(CPU) -mstrict-align -nostdlib -ffreestanding -g -O3 \
           			-Wall -Wno-unused-function -Werror \
           			-I$(BOARD_DIR)/include \
 					-I$(LIBFSHELPER_SRC_DIR)/include \
-					-I$(LIBEXTELF_SRC_DIR)/include \
+					-I$(LIBTSLDR_SRC_DIR)/include \
 					-I$(LIONSOS)/include \
 					-I$(SDDF)/include
 

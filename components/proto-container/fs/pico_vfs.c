@@ -1,22 +1,21 @@
 
-#include <microkit.h>
 #include <pico_vfs.h>
 #include <string.h>
 #include <assert.h>
 #include <microkit.h>
-#include <elf_utils.h>
+#include <libtrustedlo.h>
 
 #define PROGNAME "  => [@picovfs] "
 
 
 uint64_t opendir(char path[])
 {
-    microkit_dbg_printf(PROGNAME "Entry of opendir func\n");
+    TSLDR_DBG_PRINT(PROGNAME "Entry of opendir func\n");
 
     ptrdiff_t path_buffer;
     int err = fs_buffer_allocate(&path_buffer);
     if (err) {
-        microkit_dbg_printf(PROGNAME "Failed to allocate buffer for a path\n");
+        TSLDR_DBG_PRINT(PROGNAME "Failed to allocate buffer for a path\n");
         return -1;
     }
     uint64_t path_len = strlen(path);
@@ -32,12 +31,12 @@ uint64_t opendir(char path[])
     });
     fs_buffer_free(path_buffer);
     if (err) {
-        microkit_dbg_printf(PROGNAME "Failed to open directory: %s\n", path);
+        TSLDR_DBG_PRINT(PROGNAME "Failed to open directory: %s\n", path);
         return -1;
     }
 
     if (completion.status != FS_STATUS_SUCCESS) {
-        microkit_dbg_printf(PROGNAME "Failed to open directory: %s\n", path);
+        TSLDR_DBG_PRINT(PROGNAME "Failed to open directory: %s\n", path);
         return -1;
     }
     return completion.data.dir_open.fd;
@@ -49,7 +48,7 @@ static void listdir(uint64_t fd)
         ptrdiff_t name_buffer;
         int err = fs_buffer_allocate(&name_buffer);
         if (err != seL4_NoError) {
-            microkit_dbg_printf(PROGNAME "failed to allocate buffer to list directory");
+            TSLDR_DBG_PRINT(PROGNAME "failed to allocate buffer to list directory");
             // halt...
             while (1);
         }
@@ -65,7 +64,7 @@ static void listdir(uint64_t fd)
         });
 
         if (completion.status != FS_STATUS_SUCCESS) {
-            microkit_dbg_printf(PROGNAME "Failed to read directory with fd: %d\n", fd);
+            TSLDR_DBG_PRINT(PROGNAME "Failed to read directory with fd: %d\n", fd);
             fs_buffer_free(name_buffer);
             break;
         }
@@ -95,7 +94,7 @@ static uint64_t openfile(char fname[])
     ptrdiff_t buffer;
     int err = fs_buffer_allocate(&buffer);
     if (err != seL4_NoError) {
-        microkit_dbg_printf(PROGNAME "failed to allocate buffer to open file");
+        TSLDR_DBG_PRINT(PROGNAME "failed to allocate buffer to open file");
         // halt...
         while (1);
     }
@@ -128,7 +127,7 @@ static uint64_t openfile(char fname[])
             .params.file_close.fd = fd,
         });
         fs_buffer_free(buffer);
-        microkit_dbg_printf(PROGNAME "failed to size file");
+        TSLDR_DBG_PRINT(PROGNAME "failed to size file");
         return -1;
     }
     return fd;
@@ -139,7 +138,7 @@ static uint64_t readfile(void *dest, uint64_t size, uint64_t fd, uint64_t pos)
     ptrdiff_t read_buffer;
     int err = fs_buffer_allocate(&read_buffer);
     if (err != seL4_NoError) {
-        microkit_dbg_printf(PROGNAME "failed to allocate buffer to read file");
+        TSLDR_DBG_PRINT(PROGNAME "failed to allocate buffer to read file");
         // halt...
         while (1);
     }
@@ -156,7 +155,7 @@ static uint64_t readfile(void *dest, uint64_t size, uint64_t fd, uint64_t pos)
     });
     if (err || completion.status != FS_STATUS_SUCCESS) {
         fs_buffer_free(read_buffer);
-        microkit_dbg_printf(PROGNAME "failed to read file");
+        TSLDR_DBG_PRINT(PROGNAME "failed to read file");
         return -1;
     }
 
@@ -182,10 +181,10 @@ uint64_t pico_vfs_readfile2buf(void *buf, char *path, int *err)
 
     uint64_t file_fd = openfile(path);
     if (file_fd != (uint64_t)-1) {
-        microkit_dbg_printf(PROGNAME "(file open): fd is %d opened\n", file_fd);
+        TSLDR_DBG_PRINT(PROGNAME "(file open): fd is %d opened\n", file_fd);
     } else {
         *err = -1;
-        microkit_dbg_printf(PROGNAME "(file open): failed to open %s\n", path);
+        TSLDR_DBG_PRINT(PROGNAME "(file open): failed to open %s\n", path);
         return 0;
     }
 
@@ -196,16 +195,16 @@ uint64_t pico_vfs_readfile2buf(void *buf, char *path, int *err)
         pos = readfile(buf, FS_BUFFER_SIZE, file_fd, pos);
         if (pos == (uint64_t)-1) {
             *err = -1;
-            microkit_dbg_printf(PROGNAME "(file read): failed to read from fd: %d\n", file_fd);
+            TSLDR_DBG_PRINT(PROGNAME "(file read): failed to read from fd: %d\n", file_fd);
             return 0;
         }
         if (pos == pre) {
-            microkit_dbg_printf(PROGNAME "(file read): all read from %d\n", file_fd);
+            TSLDR_DBG_PRINT(PROGNAME "(file read): all read from %d\n", file_fd);
             break;
         }
         buf += pos - pre;
     }
-    microkit_dbg_printf(PROGNAME "(file read): read %d data from %d \n", pos, file_fd);
+    TSLDR_DBG_PRINT(PROGNAME "(file read): read %d data from %d \n", pos, file_fd);
 
     closefile(file_fd);
 

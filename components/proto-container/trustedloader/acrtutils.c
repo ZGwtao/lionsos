@@ -1,5 +1,4 @@
 
-#include <elf_utils.h>
 #include <acrtutils.h>
 #include <caputils.h>
 #include <miscutils.h>

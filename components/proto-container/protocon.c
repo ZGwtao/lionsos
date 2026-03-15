@@ -3,15 +3,11 @@
  *
  * SPDX-License-Identifier: BSD-2-Clause
  */
-#include "elf.h"
-#include "elf_utils.h"
 #include <stddef.h>
 #include <stdint.h>
 #include <microkit.h>
-#include <ed25519.h>
 #include <libtrustedlo.h>
 #include <string.h>
-#include <sddf/timer/config.h>
 
 #define PROGNAME "[@protocon] "
 
@@ -46,5 +42,5 @@ void init(void)
 
 void notified(microkit_channel ch)
 {
-    microkit_dbg_printf(PROGNAME "Received notification on channel: %d\n", ch);
+    TSLDR_DBG_PRINT(PROGNAME "Received notification on channel: %d\n", ch);
 }

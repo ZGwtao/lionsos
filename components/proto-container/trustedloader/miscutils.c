@@ -1,6 +1,6 @@
 
 #include <miscutils.h>
-
+#include <stdarg.h>
 
 void* tsldr_miscutil_memcpy(void* dest, const void* src, uint64_t n)
 {
@@ -30,6 +30,125 @@ int tsldr_miscutil_memcmp(const unsigned char* s1, const unsigned char* s2, int 
     return 0;
 }
 
+
+void putc(uint8_t ch)
+{
+#if defined(CONFIG_PRINTING)
+    seL4_DebugPutChar(ch);
+#endif
+}
+
+void puts(const char *s)
+{
+    while (*s) {
+        putc(*s);
+        s++;
+    }
+}
+
+static char hexchar(unsigned int v)
+{
+    return v < 10 ? '0' + v : ('a' - 10) + v;
+}
+
+void puthex32(uint32_t val)
+{
+    char buffer[8 + 3];
+    buffer[0] = '0';
+    buffer[1] = 'x';
+    buffer[8 + 3 - 1] = 0;
+    for (unsigned i = 8 + 1; i > 1; i--) {
+        buffer[i] = hexchar(val & 0xf);
+        val >>= 4;
+    }
+    puts(buffer);
+}
+
+void puthex64(uint64_t val)
+{
+    char buffer[16 + 3];
+    buffer[0] = '0';
+    buffer[1] = 'x';
+    buffer[16 + 3 - 1] = 0;
+    for (unsigned i = 16 + 1; i > 1; i--) {
+        buffer[i] = hexchar(val & 0xf);
+        val >>= 4;
+    }
+    puts(buffer);
+}
+
+void putdecimal(uint8_t val)
+{
+    if (0 <= val && val <= 9) {
+        putc('0' + val);
+    } else {
+        /* fallback, shouldn't really happen */
+        puthex32(val);
+    }
+}
+
+void tsldr_miscutil_dbg_print(const char *format, ...)
+{
+    va_list args;
+    va_start(args, format);
+
+    const char *ptr = format;
+
+    while (*ptr != '\0') {
+        if (*ptr == '%') {
+            ptr++; // Move past '%'
+
+            switch (*ptr) {
+                case 's': {
+                    // String
+                    const char *str = va_arg(args, const char *);
+                    if (str != 0) {
+                        microkit_dbg_puts(str);
+                    } else {
+                        microkit_dbg_puts("(null)");
+                    }
+                    break;
+                }
+                case 'd': {
+                    // Decimal
+                    uint64_t val = va_arg(args, uint64_t);
+                    putdecimal(val);
+                    break;
+                }
+                case 'x': {
+                    // Hexadecimal
+                    uint64_t val = va_arg(args, uint64_t);
+                    puthex64(val);
+                    break;
+                }
+                case 'c': {
+                    // Character
+                    int c = va_arg(args, int); // char is promoted to int
+                    microkit_dbg_putc((char)c);
+                    break;
+                }
+                case '%': {
+                    // Literal '%'
+                    microkit_dbg_putc('%');
+                    break;
+                }
+                default: {
+                    // Unsupported format specifier, print it literally
+                    microkit_dbg_putc('%');
+                    microkit_dbg_putc(*ptr);
+                    break;
+                }
+            }
+            ptr++; // Move past format specifier
+        } else {
+            // Regular character
+            microkit_dbg_putc(*ptr);
+            ptr++;
+        }
+    }
+
+    va_end(args);
+}
 
 
 void tsldr_miscutil_load_elf(void *dest_vaddr, const Elf64_Ehdr *ehdr)

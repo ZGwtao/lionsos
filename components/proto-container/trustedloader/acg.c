@@ -19,17 +19,17 @@ extern acgrp_arr_list_t *acgroup_metadata_base;
 void init_acg_state_map(void)
 {
     acgrp_arr_list_t *ptr_spec_ar = (acgrp_arr_list_t *)microkit_template_spec_ar;
-    microkit_dbg_printf(LIB_NAME_MACRO "%d\n", ptr_spec_ar->len);
+    TSLDR_DBG_PRINT(LIB_NAME_MACRO "%d\n", ptr_spec_ar->len);
 
     acgrp_array_t *acg_arr_ptr;
     size_t pd_num = ptr_spec_ar->len;
 
-    microkit_dbg_printf(LIB_NAME_MACRO "number of available PDs that have acg: %d\n", pd_num);
+    TSLDR_DBG_PRINT(LIB_NAME_MACRO "number of available PDs that have acg: %d\n", pd_num);
 
     for (int i = 0; i < pd_num; ++i) {
         // fetch a client PD that contains acgroups
         acg_arr_ptr = &ptr_spec_ar->list[i];
-        microkit_dbg_printf(LIB_NAME_MACRO "[acg_arr] - PD idx: %d\n", acg_arr_ptr->pd_idx);
+        TSLDR_DBG_PRINT(LIB_NAME_MACRO "[acg_arr] - PD idx: %d\n", acg_arr_ptr->pd_idx);
         //assert(acg_arr_ptr->pd_idx <= MAX_PERM_CL_NUM);
 
         for (int j = 0; j < acg_arr_ptr->grp_num; ++j) {
@@ -45,14 +45,14 @@ void init_acg_state_map(void)
                 // check if we have enough connections of a type
                 if (cur_num >= MAX_PERK_NUM) {
                     // halt...
-                    microkit_dbg_printf(LIB_NAME_MACRO "current number of %d type acg in PD%d is %d\n", grp_ptr->grp_type, i, cur_num);
+                    TSLDR_DBG_PRINT(LIB_NAME_MACRO "current number of %d type acg in PD%d is %d\n", grp_ptr->grp_type, i, cur_num);
                     microkit_internal_crash(-1);
                 }
                 // FIXME here...
                 acg_stat_map[i][grp_ptr->grp_type]++;
 
-                microkit_dbg_printf(LIB_NAME_MACRO "[acg_arr][acg: %d]: grp id:   %d\n", j, grp_ptr->grp_idx);
-                microkit_dbg_printf(LIB_NAME_MACRO "[acg_arr][acg: %d]: grp type: %d\n", j, grp_ptr->grp_type);
+                TSLDR_DBG_PRINT(LIB_NAME_MACRO "[acg_arr][acg: %d]: grp id:   %d\n", j, grp_ptr->grp_idx);
+                TSLDR_DBG_PRINT(LIB_NAME_MACRO "[acg_arr][acg: %d]: grp type: %d\n", j, grp_ptr->grp_type);
 
                 // iterate all available mapings of this acg...
                 StrippedMapping *map_ptr = grp_ptr->mappings;
@@ -60,7 +60,7 @@ void init_acg_state_map(void)
                     if (!map_ptr[k].vaddr) {
                         continue;
                     }
-                    microkit_dbg_printf(LIB_NAME_MACRO "  =>: mappings[%d] vaddr: 0x%x, pn: %d, size: 0x%x\n",
+                    TSLDR_DBG_PRINT(LIB_NAME_MACRO "  =>: mappings[%d] vaddr: 0x%x, pn: %d, size: 0x%x\n",
                                         k, map_ptr[k].vaddr, map_ptr[k].number_of_pages, map_ptr[k].page_size);
                 }
                 uint8_t *e_ptr = grp_ptr->channels;
@@ -68,7 +68,7 @@ void init_acg_state_map(void)
                     if (e_ptr[k] >= 62) {
                         continue;
                     }
-                    microkit_dbg_printf(LIB_NAME_MACRO "  =>: channel[%d]: %d\n", k, e_ptr[k]);
+                    TSLDR_DBG_PRINT(LIB_NAME_MACRO "  =>: channel[%d]: %d\n", k, e_ptr[k]);
                 }
             }
         }
@@ -90,8 +90,8 @@ void funq(int cid, acg_req_t *req, uintptr_t payload_base, patch_elf_connection_
 
     // this is the current alternative to choose a subset from...
     acgrp_array_t *acg_arr_ptr = &((acgrp_arr_list_t *)microkit_template_spec_ar)->list[cid];
-    microkit_dbg_printf(LIB_NAME_MACRO "pd index of the given acg arr: %d\n", acg_arr_ptr->pd_idx);
-    microkit_dbg_printf(LIB_NAME_MACRO "number of acgs in the acg arr: %d\n", acg_arr_ptr->grp_num);
+    TSLDR_DBG_PRINT(LIB_NAME_MACRO "pd index of the given acg arr: %d\n", acg_arr_ptr->pd_idx);
+    TSLDR_DBG_PRINT(LIB_NAME_MACRO "number of acgs in the acg arr: %d\n", acg_arr_ptr->grp_num);
 
     size_t num_channels = 0;
     size_t num_mappings = 0;
@@ -129,7 +129,7 @@ void funq(int cid, acg_req_t *req, uintptr_t payload_base, patch_elf_connection_
         // update the payload with given data path...
         fn((void *)payload_base, grp_array[i].data_path, req->acg_attr[type][req->acg_per_type_num[type] - 1]);
 
-        microkit_dbg_printf(LIB_NAME_MACRO "update section with offset: 0x%x with %s\n", req->acg_attr[type][req->acg_per_type_num[type] - 1], grp_array[i].data_path);
+        TSLDR_DBG_PRINT(LIB_NAME_MACRO "update section with offset: 0x%x with %s\n", req->acg_attr[type][req->acg_per_type_num[type] - 1], grp_array[i].data_path);
 
         // update number of element under given type
         req->acg_per_type_num[type]--;
@@ -181,7 +181,7 @@ int fetch_iface_section_info(void *elf_base, void *sh, acg_req_t *req)
             break;
         }
         default:
-            microkit_dbg_printf(LIB_NAME_MACRO "Unsupported interface type: %d", types[i]);
+            TSLDR_DBG_PRINT(LIB_NAME_MACRO "Unsupported interface type: %d", types[i]);
             break;
         };
     }
@@ -203,7 +203,7 @@ int fetch_iface_section_info(void *elf_base, void *sh, acg_req_t *req)
         // we are now sure that we have found one available empty template PD.
         for (int j = 0; j < MAX_PERC_AK_NUM; ++j) {
             b |= (req->acg_per_type_num[j] > acg_stat_map[i][j]);
-            microkit_dbg_printf(LIB_NAME_MACRO "i: %d, requested type: %d, req num: %d, avail num: %d\n", i, j, req->acg_per_type_num[j], acg_stat_map[i][j]);
+            TSLDR_DBG_PRINT(LIB_NAME_MACRO "i: %d, requested type: %d, req num: %d, avail num: %d\n", i, j, req->acg_per_type_num[j], acg_stat_map[i][j]);
         }
         // if b is false, return the id of the child PD, which represents an available alternative
         if (!b) {

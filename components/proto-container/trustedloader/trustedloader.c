@@ -1,5 +1,4 @@
 
-#include <elf_utils.h>
 #include <acrtutils.h>
 #include <caputils.h>
 #include <libtrustedlo.h>
@@ -10,7 +9,7 @@
 void tsldr_main_declare_required_rights(tsldr_context_t *loader, void *data)
 {
     if (!loader || !data) {
-        microkit_dbg_printf(LIB_NAME_MACRO "invalid loader pointer given\n");
+        TSLDR_DBG_PRINT(LIB_NAME_MACRO "invalid loader pointer given\n");
         microkit_internal_crash(-1);
     }
 
@@ -19,14 +18,14 @@ void tsldr_main_declare_required_rights(tsldr_context_t *loader, void *data)
 
     tsldr_acrtutil_populate_all_rights(loader, ++p, num);
 
-    microkit_dbg_printf(LIB_NAME_MACRO "finished up access rights integrity checking\n");
+    TSLDR_DBG_PRINT(LIB_NAME_MACRO "finished up access rights integrity checking\n");
 }
 
 
 void tsldr_main_pin_required_rights_before_pola(tsldr_context_t *loader, void *mdinfo)
 {
     if (!loader) {
-        microkit_dbg_printf(LIB_NAME_MACRO "Invalid loader pointer given\n");
+        TSLDR_DBG_PRINT(LIB_NAME_MACRO "Invalid loader pointer given\n");
         microkit_internal_crash(-1);
     }
     loader->mp_cnt = 0;
@@ -91,7 +90,7 @@ void tsldr_main_restore_caps(tsldr_context_t *loader, void *mdinfo)
 
 void tsldr_main_loading_epilogue(uintptr_t client_exec, uintptr_t client_stack)
 {
-    microkit_dbg_printf(LIB_NAME_MACRO "Entry of trusted loader epilogue\n");
+    TSLDR_DBG_PRINT(LIB_NAME_MACRO "Entry of trusted loader epilogue\n");
 
     tsldr_caputil_pd_deprivilege();
 
@@ -101,7 +100,7 @@ void tsldr_main_loading_epilogue(uintptr_t client_exec, uintptr_t client_stack)
     // TODO: refresh the client stack...
     // -> the client should use a different stack with the trusted loader
 
-    microkit_dbg_printf(LIB_NAME_MACRO "Exit of trusted loader epilogue\n");
+    TSLDR_DBG_PRINT(LIB_NAME_MACRO "Exit of trusted loader epilogue\n");
 }
 
 
@@ -109,11 +108,11 @@ void tsldr_main_loading_prologue(void *mdinfo, tsldr_context_t *loader)
 {
     tsldr_mdinfo_t *md = (tsldr_mdinfo_t *)mdinfo;
     if (!md->init) {
-        microkit_dbg_printf("[@protocon] trusted loading metadata is not prepared...\n");
+        TSLDR_DBG_PRINT("[@protocon] trusted loading metadata is not prepared...\n");
         microkit_internal_crash(-1);
     }
-    microkit_dbg_printf("[@protocon]" "trusted loading metadata is ready...\n");
-    microkit_dbg_printf(LIB_NAME_MACRO "trusted loader init prologue\n");
+    TSLDR_DBG_PRINT("[@protocon]" "trusted loading metadata is ready...\n");
+    TSLDR_DBG_PRINT(LIB_NAME_MACRO "trusted loader init prologue\n");
 
     /* do some id activation here before actually parsing access rights... */
     tsldr_main_try_init_loader(loader, md->child_id);
@@ -157,7 +156,7 @@ void tsldr_main_check_elf_integrity(uintptr_t elf)
     if (tsldr_miscutil_memcmp(ehdr->e_ident, (const unsigned char*)ELFMAG, SELFMAG) != 0) {
         microkit_internal_crash(-1);
     }
-    microkit_dbg_printf("[@protocon] " "verified ELF header\n");
+    TSLDR_DBG_PRINT("[@protocon] " "verified ELF header\n");
 }
 
 
@@ -214,14 +213,14 @@ void tsldr_main_self_loading(void *mdinfo, void *acrt_stat_base, tsldr_context_t
     tsldr_main_loading_epilogue(client_exec_region, (uintptr_t)0x0);
 
     tsldr_miscutil_load_elf((void *)ehdr->e_entry, ehdr);
-    microkit_dbg_printf("[@protocon]" "Load client elf to the targeting memory region\n");
+    TSLDR_DBG_PRINT("[@protocon]" "Load client elf to the targeting memory region\n");
 
     tsldr_miscutil_load_elf((void *)trampoline_ehdr->e_entry, trampoline_ehdr);
-    microkit_dbg_printf("[@protocon]" "Load trampoline elf to the targeting memory region\n");
+    TSLDR_DBG_PRINT("[@protocon]" "Load trampoline elf to the targeting memory region\n");
 
     /* -- now we are ready to jump to the trampoline -- */
 
-    microkit_dbg_printf("[@protocon]" "Switch to the trampoline's code to execute\n");
+    TSLDR_DBG_PRINT("[@protocon]" "Switch to the trampoline's code to execute\n");
     tsldr_main_jump_with_stack((void *)trampoline_stack_top, (entry_fn_t)trampoline_ehdr->e_entry);   
 }
 
@@ -229,11 +228,11 @@ void tsldr_main_self_loading(void *mdinfo, void *acrt_stat_base, tsldr_context_t
 void tsldr_main_monitor_init_mdinfo(tsldr_mdinfodb_t *db, size_t id, void *mdinfo)
 {
     if (!db || !mdinfo) {
-        microkit_dbg_printf(LIB_NAME_MACRO "Invalid mdinfo database pointer given\n");
+        TSLDR_DBG_PRINT(LIB_NAME_MACRO "Invalid mdinfo database pointer given\n");
         return;
     }
     if (id >= 16 || id < 0) {
-        microkit_dbg_printf(LIB_NAME_MACRO "Invalid template PD child ID given: %d\n", id);
+        TSLDR_DBG_PRINT(LIB_NAME_MACRO "Invalid template PD child ID given: %d\n", id);
         return;
     }
     tsldr_mdinfo_t *dest = (tsldr_mdinfo_t *)mdinfo;
@@ -244,8 +243,8 @@ void tsldr_main_monitor_init_mdinfo(tsldr_mdinfodb_t *db, size_t id, void *mdinf
 
     dest->init = true;
 
-    microkit_dbg_printf(LIB_NAME_MACRO "child_loc: %d\n", id);
-    microkit_dbg_printf(LIB_NAME_MACRO "child_id: %d\n", dest->child_id);
+    TSLDR_DBG_PRINT(LIB_NAME_MACRO "child_loc: %d\n", id);
+    TSLDR_DBG_PRINT(LIB_NAME_MACRO "child_id: %d\n", dest->child_id);
 }
 
 

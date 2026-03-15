@@ -27,6 +27,5 @@ void puthex(uint64_t num);
 void putdec(uint64_t num);
 
 void putvar(uint64_t var, char* name);
-void microkit_dbg_printf(const char *format, ...);
 
 #endif /* ELF_CHECKER_H */
