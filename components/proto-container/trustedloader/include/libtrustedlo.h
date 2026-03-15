@@ -1,6 +1,8 @@
 
-#include <elf_utils.h>
-#include <caputils.h>
+#include <stddef.h>
+#include <stdbool.h>
+#include <stdint.h>
+#include <microkit.h>
 
 /* use ED25519 algorithm for encryption now */
 #define PUBLIC_KEY_BYTES        32
@@ -14,13 +16,13 @@ typedef struct {
     uint8_t type;
     uint8_t padding[7];
     seL4_Word data; // For CHANNEL and IRQ: ID; For MEMORY: VADDR
-} acrt_entry_t;
+} tsldr_acrt_entry_t;
 
 // Structure to hold all access rights
 typedef struct {
     uint32_t num_entries;
-    acrt_entry_t entries[MAX_ACCESS_RIGHTS];
-} acrt_table_t;
+    tsldr_acrt_entry_t entries[MAX_ACCESS_RIGHTS];
+} tsldr_acrt_table_t;
 
 // Structure for memory mapping
 typedef struct {
@@ -58,7 +60,7 @@ typedef struct {
 
     size_t child_id;
 
-    acrt_table_t acrt_required_table;
+    tsldr_acrt_table_t acrt_required_table;
 
     bool restore;
     bool init;
@@ -99,7 +101,7 @@ void tsldr_main_pd_remove_caps_for_redundant_rights(tsldr_context_t *context, vo
 /**
  * @brief Populates access rights and verifies signature of the data.
  *
- * @param loader Pointer to where the acrt_table_t structure to be populated and stored.
+ * @param loader Pointer to where the tsldr_acrt_table_t structure to be populated and stored.
  * @param data Pointer to the signed message (signature || data).
  * @return true if the signature is valid, false otherwise.
  */

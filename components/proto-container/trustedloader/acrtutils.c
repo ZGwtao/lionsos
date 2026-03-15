@@ -1,4 +1,5 @@
 
+#include <elf_utils.h>
 #include <acrtutils.h>
 #include <caputils.h>
 #include <libtrustedlo.h>
@@ -215,13 +216,13 @@ void tsldr_acrtutil_populate_all_rights(void *context_data, void *src_data, seL4
     }
 
     tsldr_context_t *loader = (tsldr_context_t *)context_data;
-    acrt_entry_t *input_base = (acrt_entry_t *)(src_data);
+    tsldr_acrt_entry_t *input_base = (tsldr_acrt_entry_t *)(src_data);
 
-    acrt_table_t *rights_table = NULL;
-    acrt_entry_t *rights_entries = NULL;
+    tsldr_acrt_table_t *rights_table = NULL;
+    tsldr_acrt_entry_t *rights_entries = NULL;
     
     rights_table = &loader->acrt_required_table;
-    custom_memset((void *)rights_table, 0, sizeof(acrt_table_t));
+    custom_memset((void *)rights_table, 0, sizeof(tsldr_acrt_table_t));
     rights_table->num_entries = num;
 
     for (int i = 0; i < rights_table->num_entries; ++i) {
@@ -245,7 +246,7 @@ void tsldr_acrtutil_populate_all_rights(void *context_data, void *src_data, seL4
 
 void tsldr_acrtutil_encode_rights(void *base, seL4_Word channels[], size_t n_channels, seL4_Word irqs[], size_t n_irqs, seL4_Word mappings[], size_t n_mps)
 {
-    acrt_entry_t *p = (acrt_entry_t *)base;
+    tsldr_acrt_entry_t *p = (tsldr_acrt_entry_t *)base;
     for (size_t i = 0; i < n_channels; ++i) {
         p->type = (uint8_t)TYPE_CHANNEL;
         p->data = channels[i];
@@ -267,7 +268,7 @@ void tsldr_acrtutil_encode_rights(void *base, seL4_Word channels[], size_t n_cha
 void tsldr_acrtutil_add_rights_to_whitelist(void *data, void *input, void *mdinfo)
 {
     tsldr_context_t *loader = (tsldr_context_t *)data;
-    acrt_entry_t *entry = (acrt_entry_t *)input;
+    tsldr_acrt_entry_t *entry = (tsldr_acrt_entry_t *)input;
 
     switch (entry->type) {
         case TYPE_CHANNEL:
