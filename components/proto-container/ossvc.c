@@ -159,25 +159,27 @@ void monitor_ossvc_parse_req_from_elf_section(void *elf_base, void *sh, protocon
     protocon_svc_desc_t *ib = (protocon_svc_desc_t *)(elf_base + (uint64_t)((Elf64_Shdr *)sh)->sh_offset);
 
     // the list of numbers of requested acgroups
-    const uint8_t *nums = &ib->t1_num;
+    const uint8_t *svc_req_num_per_type = &ib->t1_num;
     // the corresponding types which map to the above list of numbers
-    const protocon_svc_type_t *types = &ib->type1;
-    const uintptr_t (*ifaces[PC_SVC_TYPE_MAX_NUM])[PC_SVC_PER_PD_MAX_NUM] = {
+    const protocon_svc_type_t *svc_req_types = &ib->type1;
+
+    seL4_Word (*svc_per_type_data_map[PC_SVC_TYPE_MAX_NUM])[PC_SVC_PER_PD_MAX_NUM] = {
         &ib->t1_iface, &ib->t2_iface, &ib->t3_iface, &ib->t4_iface,
         &ib->t5_iface, &ib->t6_iface, &ib->t7_iface, &ib->t8_iface
     };
 
     for (int i = 0; i < PC_SVC_TYPE_MAX_NUM; ++i) {
-        if (nums[i] == 0) { // pass...
+        if (svc_req_num_per_type[i] == 0) { // pass...
             continue;
         }
-        // fetch the number of interfaces...
-        uint8_t n = nums[i] > PC_SVC_PER_PD_MAX_NUM ? PC_SVC_PER_PD_MAX_NUM : nums[i];
+        protocon_svc_type_t curr_type = svc_req_types[i];
 
-        req->num_svc_per_type[types[i]] = n;
+        // fetch the number of svc requested...
+        uint8_t n = svc_req_num_per_type[i] > PC_SVC_PER_PD_MAX_NUM ? PC_SVC_PER_PD_MAX_NUM : svc_req_num_per_type[i];
+        req->num_svc_per_type[curr_type] = n;
 
-        seL4_Word *svc_data_list = *ifaces[i];
-        monitor_ossvc_init_req_per_type(req, types[i], n, svc_data_list);
+        seL4_Word *svc_data_list = *svc_per_type_data_map[i];
+        monitor_ossvc_init_req_per_type(req, curr_type, n, svc_data_list);
     }
 }
 
