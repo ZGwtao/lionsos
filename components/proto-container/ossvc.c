@@ -85,13 +85,7 @@ void monitor_patch_payload_with_ossvc_info(int cid, acg_req_t *req, uintptr_t pa
     TSLDR_DBG_PRINT(LIB_NAME_MACRO "pd index of the given acg arr: %d\n", acg_arr_ptr->pd_idx);
     TSLDR_DBG_PRINT(LIB_NAME_MACRO "number of acgs in the acg arr: %d\n", acg_arr_ptr->grp_num);
 
-    size_t num_channels = 0;
-    size_t num_mappings = 0;
-    // IRQ TODO
-
-    seL4_Word channels[100];
-    seL4_Word mappings[100];
-    // IRQ TODO
+    tsldr_acrtreq_t req_acrt;
 
     // get the subset from the above according to the instructions given in req...
     protocon_svc_t *grp_array = acg_arr_ptr->array;
@@ -106,17 +100,17 @@ void monitor_patch_payload_with_ossvc_info(int cid, acg_req_t *req, uintptr_t pa
         }
         //
         for (int j = 0; j < 4; ++j) {
-            if (grp_array[i].channels[j] >= 62) {
+            if (grp_array[i].channels[j] >= MICROKIT_MAX_CHANNELS) {
                 continue;
             }
-            channels[num_channels++] = grp_array[i].channels[j];
+            req_acrt.channels[req_acrt.num_req_channels++] = (seL4_Word)grp_array[i].channels[j];
         }
         // IRQ TODO
         for (int j = 0; j < 4; ++j) {
             if (!grp_array[i].mappings[j].vaddr) {
                 continue;
             }
-            mappings[num_mappings++] = grp_array[i].mappings[j].vaddr;
+            req_acrt.mappings[req_acrt.num_req_mappings++] = (seL4_Word)grp_array[i].mappings[j].vaddr;
         }
         // update the payload with given data path...
         fn((void *)payload_base, grp_array[i].data_path, req->acg_attr[type][req->acg_per_type_num[type] - 1]);
@@ -130,9 +124,9 @@ void monitor_patch_payload_with_ossvc_info(int cid, acg_req_t *req, uintptr_t pa
     seL4_Word *svc_num_ptr = (seL4_Word *)((char *)monitor_svcdb_base + 0x1000 * cid);
     unsigned char *svc_data_ptr = (unsigned char*)(svc_num_ptr + 1);
 
-    *svc_num_ptr = num_channels + num_mappings;
+    *svc_num_ptr = req_acrt.num_req_channels + req_acrt.num_req_mappings + req_acrt.num_req_irqs;
 
-    tsldr_main_monitor_encode_required_rights(svc_data_ptr, channels, num_channels, NULL, 0, mappings, num_mappings);
+    tsldr_main_monitor_encode_required_rights(svc_data_ptr, &req_acrt);
 }
 
 
