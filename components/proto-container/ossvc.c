@@ -71,6 +71,38 @@ void monitor_init_ossvc_map(void)
     }
 }
 
+void monitor_patch_payload_with_ossvc__worker_func(protocon_svc_t *svc, acg_req_t *req, tsldr_acrtreq_t *req_acrt, patch_elf_connection_fn fn, uintptr_t payload_base)
+{
+    if (!svc->grp_init) {
+        return;
+    }
+    uint8_t type = svc->grp_type;
+    if (!req->acg_per_type_num[type]) {
+        return;
+    }
+    for (int i = 0; i < 4; ++i) {
+        if (svc->channels[i] >= MICROKIT_MAX_CHANNELS) {
+            continue;
+        }
+        seL4_Word channel = req_acrt->num_req_channels;
+        req_acrt->channels[channel] = (seL4_Word)svc->channels[i];
+        req_acrt->num_req_channels++;
+    }
+    for (int i = 0; i < 4; ++i) {
+        if (!svc->mappings[i].vaddr) {
+            continue;
+        }
+        seL4_Word mapping = req_acrt->num_req_mappings;
+        req_acrt->mappings[mapping] = (seL4_Word)svc->mappings[i].vaddr;
+        req_acrt->num_req_mappings++;
+    }
+
+    fn((void *)payload_base, svc->data_path, req->acg_attr[type][req->acg_per_type_num[type] - 1]);
+
+    req->acg_per_type_num[type]--;
+}
+
+
 typedef void (*patch_elf_connection_fn)(void *elf_base, char data_file[], uintptr_t vaddr);
 
 void monitor_patch_payload_with_ossvc_info(int cid, acg_req_t *req, uintptr_t payload_base, uintptr_t monitor_svcdb_base, patch_elf_connection_fn fn)
@@ -91,34 +123,7 @@ void monitor_patch_payload_with_ossvc_info(int cid, acg_req_t *req, uintptr_t pa
     protocon_svc_t *curr_svc = svcdb->array;
     // check all available acgroups...
     for (int i = 0; i < svcdb->grp_num; ++i) {
-        if (!curr_svc[i].grp_init) {
-            continue;
-        }
-        uint8_t type = curr_svc[i].grp_type;
-        if (!req->acg_per_type_num[type]) {
-            continue;
-        }
-        //
-        for (int j = 0; j < 4; ++j) {
-            if (curr_svc[i].channels[j] >= MICROKIT_MAX_CHANNELS) {
-                continue;
-            }
-            req_acrt.channels[req_acrt.num_req_channels++] = (seL4_Word)curr_svc[i].channels[j];
-        }
-        // IRQ TODO
-        for (int j = 0; j < 4; ++j) {
-            if (!curr_svc[i].mappings[j].vaddr) {
-                continue;
-            }
-            req_acrt.mappings[req_acrt.num_req_mappings++] = (seL4_Word)curr_svc[i].mappings[j].vaddr;
-        }
-        // update the payload with given data path...
-        fn((void *)payload_base, curr_svc[i].data_path, req->acg_attr[type][req->acg_per_type_num[type] - 1]);
-
-        TSLDR_DBG_PRINT(LIB_NAME_MACRO "update section with offset: 0x%x with %s\n", req->acg_attr[type][req->acg_per_type_num[type] - 1], curr_svc[i].data_path);
-
-        // update number of element under given type
-        req->acg_per_type_num[type]--;
+        monitor_patch_payload_with_ossvc__worker_func(&curr_svc[i], req, &req_acrt, fn, payload_base);
     }
 
     seL4_Word *svc_num_ptr = (seL4_Word *)((char *)monitor_svcdb_base + 0x1000 * cid);
