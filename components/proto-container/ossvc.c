@@ -119,7 +119,7 @@ static inline seL4_Word monitor_match_ossvc_request_with_unipd(protocon_svc_req_
     return mask;
 }
 
-int monitor_match_ossvc_request__worker_func(protocon_svc_req_t *req, protocon_lifecycle_state_t *protocon_states)
+static inline int monitor_match_ossvc_request__worker_func(protocon_svc_req_t *req, protocon_lifecycle_state_t *protocon_states)
 {
     for (int i = 0; i < PC_CHILD_PER_MONITOR_MAX_NUM; ++i) {
         if (protocon_states[i] == PROTOCON_ACTIVE) {
@@ -182,6 +182,5 @@ int monitor_match_ossvc_request_with_available_pd(void *elf_base, void *sh, prot
 {
     monitor_ossvc_parse_req_from_elf_section(elf_base, sh, req);
 
-    int cid = monitor_match_ossvc_request__worker_func(req, protocon_states);
-    return cid;
+    return monitor_match_ossvc_request__worker_func(req, protocon_states);
 }
