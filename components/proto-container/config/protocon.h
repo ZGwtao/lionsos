@@ -41,14 +41,14 @@ typedef struct {
     protocon_svc_type_t type7;
     protocon_svc_type_t type8;
 /* ptrs */
-    uintptr_t t1_iface[PC_SVC_PER_PD_MAX_NUM];
-    uintptr_t t2_iface[PC_SVC_PER_PD_MAX_NUM];
-    uintptr_t t3_iface[PC_SVC_PER_PD_MAX_NUM];
-    uintptr_t t4_iface[PC_SVC_PER_PD_MAX_NUM];
-    uintptr_t t5_iface[PC_SVC_PER_PD_MAX_NUM];
-    uintptr_t t6_iface[PC_SVC_PER_PD_MAX_NUM];
-    uintptr_t t7_iface[PC_SVC_PER_PD_MAX_NUM];
-    uintptr_t t8_iface[PC_SVC_PER_PD_MAX_NUM];
+    seL4_Word t1_iface[PC_SVC_PER_PD_MAX_NUM];
+    seL4_Word t2_iface[PC_SVC_PER_PD_MAX_NUM];
+    seL4_Word t3_iface[PC_SVC_PER_PD_MAX_NUM];
+    seL4_Word t4_iface[PC_SVC_PER_PD_MAX_NUM];
+    seL4_Word t5_iface[PC_SVC_PER_PD_MAX_NUM];
+    seL4_Word t6_iface[PC_SVC_PER_PD_MAX_NUM];
+    seL4_Word t7_iface[PC_SVC_PER_PD_MAX_NUM];
+    seL4_Word t8_iface[PC_SVC_PER_PD_MAX_NUM];
 
 } protocon_svc_desc_t; /* template PD interface */
 

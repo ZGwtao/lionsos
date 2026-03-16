@@ -133,6 +133,24 @@ static inline int monitor_match_ossvc_request__worker_func(protocon_svc_req_t *r
     return PC_CHILD_PER_MONITOR_MAX_NUM;
 }
 
+static inline void monitor_ossvc_init_req_per_type(protocon_svc_req_t *req, protocon_svc_type_t svc_type, uint8_t svc_num_per_type, seL4_Word svc_data_list[])
+{
+    switch(svc_type) {
+    case FS_IFACE:
+    case TIMER_IFACE:
+    case SERIAL_IFACE: {
+        for (uint8_t i = 0; i < svc_num_per_type; ++i) {
+            seL4_Word svc_data = svc_data_list[i];
+            req->data_per_svc_instance[svc_type][i] = svc_data;
+        }
+        break;
+    }
+    default:
+        TSLDR_DBG_PRINT("Unsupported SVC type: %d\n", svc_type);
+        break;
+    };
+}
+
 
 void monitor_ossvc_parse_req_from_elf_section(void *elf_base, void *sh, protocon_svc_req_t *req)
 {
@@ -157,23 +175,9 @@ void monitor_ossvc_parse_req_from_elf_section(void *elf_base, void *sh, protocon
         uint8_t n = nums[i] > PC_SVC_PER_PD_MAX_NUM ? PC_SVC_PER_PD_MAX_NUM : nums[i];
 
         req->num_svc_per_type[types[i]] = n;
-        // fetch interface array
-        const uintptr_t *arr = *ifaces[i];
-        // check interface type and establish connections...
 
-        switch(types[i]) {
-        case FS_IFACE:
-        case TIMER_IFACE:
-        case SERIAL_IFACE: {
-            for (uint8_t j = 0; j < n; ++j) {
-                req->data_per_svc_instance[types[i]][j] = arr[j];
-            }
-            break;
-        }
-        default:
-            TSLDR_DBG_PRINT(LIB_NAME_MACRO "Unsupported interface type: %d", types[i]);
-            break;
-        };
+        seL4_Word *svc_data_list = *ifaces[i];
+        monitor_ossvc_init_req_per_type(req, types[i], n, svc_data_list);
     }
 }
 
