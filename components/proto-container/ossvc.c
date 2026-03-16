@@ -108,8 +108,38 @@ void monitor_patch_payload_with_ossvc_info(int cid, acg_req_t *req, uintptr_t pa
 }
 
 
+int monitor_match_ossvc_request__worker_func(acg_req_t *req, protocon_lifecycle_state_t *protocon_states)
+{
+    int cid = MAX_PERM_CL_NUM;
+    // try to get available cid with subset match
+    for (int i = 0; i < MAX_PERM_CL_NUM; ++i) {
+        // if true, the client is occupied, need to find next empty template PD
+        if (protocon_states[i] == PROTOCON_ACTIVE) {
+            // iterate the PD list to find next available cid...
+            continue;
+        }
+        size_t b = 0;
+        // for every access_control_group type, see if the available number is larger
+        // than the requested number.
+        // if requested number is larger, b will be true, making it not a valid alternative
+        // if requested number is smaller, b will be false
+        // if be at the end of the loop is still false,
+        // we are now sure that we have found one available empty template PD.
+        for (int j = 0; j < MAX_PERC_AK_NUM; ++j) {
+            b |= (req->acg_per_type_num[j] > acg_stat_map[i][j]);
+            TSLDR_DBG_PRINT(LIB_NAME_MACRO "i: %d, requested type: %d, req num: %d, avail num: %d\n", i, j, req->acg_per_type_num[j], acg_stat_map[i][j]);
+        }
+        // if b is false, return the id of the child PD, which represents an available alternative
+        if (!b) {
+            cid = i;
+            break;
+        }
+    }
+    return cid;
+}
 
-int monitor_match_ossvc_request_with_available_pd(void *elf_base, void *sh, acg_req_t *req, protocon_lifecycle_state_t *protocon_states)
+
+void monitor_ossvc_parse_req_from_elf_section(void *elf_base, void *sh, acg_req_t *req)
 {
     // parse the interface section ...
     // i.e., get the user-defined section for declaring what acgroups are wanted
@@ -153,31 +183,13 @@ int monitor_match_ossvc_request_with_available_pd(void *elf_base, void *sh, acg_
             break;
         };
     }
+}
 
-    int cid = MAX_PERM_CL_NUM;
-    // try to get available cid with subset match
-    for (int i = 0; i < MAX_PERM_CL_NUM; ++i) {
-        // if true, the client is occupied, need to find next empty template PD
-        if (protocon_states[i] == PROTOCON_ACTIVE) {
-            // iterate the PD list to find next available cid...
-            continue;
-        }
-        size_t b = 0;
-        // for every access_control_group type, see if the available number is larger
-        // than the requested number.
-        // if requested number is larger, b will be true, making it not a valid alternative
-        // if requested number is smaller, b will be false
-        // if be at the end of the loop is still false,
-        // we are now sure that we have found one available empty template PD.
-        for (int j = 0; j < MAX_PERC_AK_NUM; ++j) {
-            b |= (req->acg_per_type_num[j] > acg_stat_map[i][j]);
-            TSLDR_DBG_PRINT(LIB_NAME_MACRO "i: %d, requested type: %d, req num: %d, avail num: %d\n", i, j, req->acg_per_type_num[j], acg_stat_map[i][j]);
-        }
-        // if b is false, return the id of the child PD, which represents an available alternative
-        if (!b) {
-            cid = i;
-            break;
-        }
-    }
+
+int monitor_match_ossvc_request_with_available_pd(void *elf_base, void *sh, acg_req_t *req, protocon_lifecycle_state_t *protocon_states)
+{
+    monitor_ossvc_parse_req_from_elf_section(elf_base, sh, req);
+
+    int cid = monitor_match_ossvc_request__worker_func(req, protocon_states);
     return cid;
 }
