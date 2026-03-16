@@ -32,7 +32,7 @@ typedef struct {
     StrippedMapping mappings[4];
     // data_path
     char data_path[64];
-} acgrp_t;
+} protocon_svc_t;
 
 typedef struct {
     // specify which PD this array belongs to
@@ -40,7 +40,7 @@ typedef struct {
     // number of available acgrp in the array
     uint8_t grp_num;
     // array of acgroups
-    acgrp_t array[16];
+    protocon_svc_t array[16];
 } acgrp_array_t;
 
 typedef struct {
@@ -73,7 +73,10 @@ void monitor_init_ossvc_map(void);
 
 typedef void (*patch_elf_connection_fn)(void *elf_base, char data_file[], uintptr_t vaddr);
 
-void funq(int cid, acg_req_t *req, uintptr_t payload_base, patch_elf_connection_fn fn);
+void monitor_patch_payload_with_ossvc_info(int cid, acg_req_t *req, uintptr_t payload_base, patch_elf_connection_fn fn);
+
+
+int monitor_match_ossvc_request_with_available_pd(void *elf_base, void *sh, acg_req_t *req);
 
 
 // maximum 8 interface per OS service type
@@ -124,5 +127,3 @@ typedef struct {
 #define IFACE_SECTION_NAME   ".template_pd_iface"
 
 
-
-int fetch_iface_section_info(void *elf_base, void *sh, acg_req_t *req);

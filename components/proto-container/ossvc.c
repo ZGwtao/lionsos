@@ -32,7 +32,7 @@ void monitor_init_ossvc_map(void)
 
         for (int j = 0; j < acg_arr_ptr->grp_num; ++j) {
             // check each acgroup
-            acgrp_t *grp_ptr = &acg_arr_ptr->array[j];
+            protocon_svc_t *grp_ptr = &acg_arr_ptr->array[j];
             // if this is a valid group (which means initiliased)
             if (grp_ptr->grp_init != false) {
                 // ensure this is a valid type...
@@ -75,7 +75,7 @@ void monitor_init_ossvc_map(void)
 
 typedef void (*patch_elf_connection_fn)(void *elf_base, char data_file[], uintptr_t vaddr);
 
-void funq(int cid, acg_req_t *req, uintptr_t payload_base, patch_elf_connection_fn fn)
+void monitor_patch_payload_with_ossvc_info(int cid, acg_req_t *req, uintptr_t payload_base, patch_elf_connection_fn fn)
 {
     // fill access rights group metadata now for the payload...
     // then the trusted loader will revoke unnecessary capabilities beside the ones we can to establish...
@@ -100,7 +100,7 @@ void funq(int cid, acg_req_t *req, uintptr_t payload_base, patch_elf_connection_
     // IRQ TODO
 
     // get the subset from the above according to the instructions given in req...
-    acgrp_t *grp_array = acg_arr_ptr->array;
+    protocon_svc_t *grp_array = acg_arr_ptr->array;
     // check all available acgroups...
     for (int i = 0; i < acg_arr_ptr->grp_num; ++i) {
         if (!grp_array[i].grp_init) {
@@ -139,7 +139,7 @@ void funq(int cid, acg_req_t *req, uintptr_t payload_base, patch_elf_connection_
 
 
 
-int fetch_iface_section_info(void *elf_base, void *sh, acg_req_t *req)
+int monitor_match_ossvc_request_with_available_pd(void *elf_base, void *sh, acg_req_t *req)
 {
     // parse the interface section ...
     // i.e., get the user-defined section for declaring what acgroups are wanted
