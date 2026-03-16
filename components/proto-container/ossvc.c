@@ -17,20 +17,20 @@ void monitor_init_ossvc_map(void)
     monitor_svcdb_t *ptr_spec_ar = (monitor_svcdb_t *)microkit_template_spec_ar;
     TSLDR_DBG_PRINT(LIB_NAME_MACRO "%d\n", ptr_spec_ar->len);
 
-    protocon_svcdb_t *acg_arr_ptr;
+    protocon_svcdb_t *svcdb;
     size_t pd_num = ptr_spec_ar->len;
 
     TSLDR_DBG_PRINT(LIB_NAME_MACRO "number of available PDs that have acg: %d\n", pd_num);
 
     for (int i = 0; i < pd_num; ++i) {
         // fetch a client PD that contains acgroups
-        acg_arr_ptr = &ptr_spec_ar->list[i];
-        TSLDR_DBG_PRINT(LIB_NAME_MACRO "[acg_arr] - PD idx: %d\n", acg_arr_ptr->pd_idx);
-        //assert(acg_arr_ptr->pd_idx <= MAX_PERM_CL_NUM);
+        svcdb = &ptr_spec_ar->list[i];
+        TSLDR_DBG_PRINT(LIB_NAME_MACRO "[acg_arr] - PD idx: %d\n", svcdb->pd_idx);
+        //assert(svcdb->pd_idx <= MAX_PERM_CL_NUM);
 
-        for (int j = 0; j < acg_arr_ptr->grp_num; ++j) {
+        for (int j = 0; j < svcdb->grp_num; ++j) {
             // check each acgroup
-            protocon_svc_t *grp_ptr = &acg_arr_ptr->array[j];
+            protocon_svc_t *grp_ptr = &svcdb->array[j];
             // if this is a valid group (which means initiliased)
             if (grp_ptr->grp_init != false) {
                 // ensure this is a valid type...
@@ -81,41 +81,41 @@ void monitor_patch_payload_with_ossvc_info(int cid, acg_req_t *req, uintptr_t pa
     // but still, we need to choose a subset from the acgroup ...
 
     // this is the current alternative to choose a subset from...
-    protocon_svcdb_t *acg_arr_ptr = &((monitor_svcdb_t *)microkit_template_spec_ar)->list[cid];
-    TSLDR_DBG_PRINT(LIB_NAME_MACRO "pd index of the given acg arr: %d\n", acg_arr_ptr->pd_idx);
-    TSLDR_DBG_PRINT(LIB_NAME_MACRO "number of acgs in the acg arr: %d\n", acg_arr_ptr->grp_num);
+    protocon_svcdb_t *svcdb = &((monitor_svcdb_t *)microkit_template_spec_ar)->list[cid];
+    TSLDR_DBG_PRINT(LIB_NAME_MACRO "pd index of the given acg arr: %d\n", svcdb->pd_idx);
+    TSLDR_DBG_PRINT(LIB_NAME_MACRO "number of acgs in the acg arr: %d\n", svcdb->grp_num);
 
     tsldr_acrtreq_t req_acrt;
 
     // get the subset from the above according to the instructions given in req...
-    protocon_svc_t *grp_array = acg_arr_ptr->array;
+    protocon_svc_t *curr_svc = svcdb->array;
     // check all available acgroups...
-    for (int i = 0; i < acg_arr_ptr->grp_num; ++i) {
-        if (!grp_array[i].grp_init) {
+    for (int i = 0; i < svcdb->grp_num; ++i) {
+        if (!curr_svc[i].grp_init) {
             continue;
         }
-        uint8_t type = grp_array[i].grp_type;
+        uint8_t type = curr_svc[i].grp_type;
         if (!req->acg_per_type_num[type]) {
             continue;
         }
         //
         for (int j = 0; j < 4; ++j) {
-            if (grp_array[i].channels[j] >= MICROKIT_MAX_CHANNELS) {
+            if (curr_svc[i].channels[j] >= MICROKIT_MAX_CHANNELS) {
                 continue;
             }
-            req_acrt.channels[req_acrt.num_req_channels++] = (seL4_Word)grp_array[i].channels[j];
+            req_acrt.channels[req_acrt.num_req_channels++] = (seL4_Word)curr_svc[i].channels[j];
         }
         // IRQ TODO
         for (int j = 0; j < 4; ++j) {
-            if (!grp_array[i].mappings[j].vaddr) {
+            if (!curr_svc[i].mappings[j].vaddr) {
                 continue;
             }
-            req_acrt.mappings[req_acrt.num_req_mappings++] = (seL4_Word)grp_array[i].mappings[j].vaddr;
+            req_acrt.mappings[req_acrt.num_req_mappings++] = (seL4_Word)curr_svc[i].mappings[j].vaddr;
         }
         // update the payload with given data path...
-        fn((void *)payload_base, grp_array[i].data_path, req->acg_attr[type][req->acg_per_type_num[type] - 1]);
+        fn((void *)payload_base, curr_svc[i].data_path, req->acg_attr[type][req->acg_per_type_num[type] - 1]);
 
-        TSLDR_DBG_PRINT(LIB_NAME_MACRO "update section with offset: 0x%x with %s\n", req->acg_attr[type][req->acg_per_type_num[type] - 1], grp_array[i].data_path);
+        TSLDR_DBG_PRINT(LIB_NAME_MACRO "update section with offset: 0x%x with %s\n", req->acg_attr[type][req->acg_per_type_num[type] - 1], curr_svc[i].data_path);
 
         // update number of element under given type
         req->acg_per_type_num[type]--;
