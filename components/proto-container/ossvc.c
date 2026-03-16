@@ -151,21 +151,18 @@ void monitor_ossvc_parse_req_from_elf_section(void *elf_base, void *sh, protocon
     const uint8_t *nums = &ib->t1_num;
     // the corresponding types which map to the above list of numbers
     const protocon_svc_type_t *types = &ib->type1;
-    const uintptr_t (*ifaces[8])[PC_MAX_IFACE_NUM] = {
+    const uintptr_t (*ifaces[PC_SVC_TYPE_MAX_NUM])[PC_SVC_PER_PD_MAX_NUM] = {
         &ib->t1_iface, &ib->t2_iface, &ib->t3_iface, &ib->t4_iface,
         &ib->t5_iface, &ib->t6_iface, &ib->t7_iface, &ib->t8_iface
     };
 
-    for (int i = 0; i < PC_MAX_IFACE_TYPE; ++i) {
+    for (int i = 0; i < PC_SVC_TYPE_MAX_NUM; ++i) {
         if (nums[i] == 0) { // pass...
             continue;
         }
         // fetch the number of interfaces...
-        uint8_t n = nums[i];
-        // sanity checks (dump unused ones)
-        if (n > PC_MAX_IFACE_NUM) {
-            n = PC_MAX_IFACE_NUM;
-        }
+        uint8_t n = nums[i] > PC_SVC_PER_PD_MAX_NUM ? PC_SVC_PER_PD_MAX_NUM : nums[i];
+
         req->num_svc_per_type[types[i]] = n;
         // fetch interface array
         const uintptr_t *arr = *ifaces[i];

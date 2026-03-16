@@ -2,9 +2,9 @@
 #pragma once
 
 // maximum 8 interface per OS service type
-#define PC_MAX_IFACE_NUM    8
+#define PC_SVC_PER_PD_MAX_NUM (8)
 // maximum 8 interface type
-#define PC_MAX_IFACE_TYPE   8
+#define PC_SVC_TYPE_MAX_NUM (8)
 
 typedef enum {
     FS_IFACE = 0,
@@ -41,14 +41,14 @@ typedef struct {
     protocon_svc_type_t type7;
     protocon_svc_type_t type8;
 /* ptrs */
-    uintptr_t t1_iface[PC_MAX_IFACE_NUM];
-    uintptr_t t2_iface[PC_MAX_IFACE_NUM];
-    uintptr_t t3_iface[PC_MAX_IFACE_NUM];
-    uintptr_t t4_iface[PC_MAX_IFACE_NUM];
-    uintptr_t t5_iface[PC_MAX_IFACE_NUM];
-    uintptr_t t6_iface[PC_MAX_IFACE_NUM];
-    uintptr_t t7_iface[PC_MAX_IFACE_NUM];
-    uintptr_t t8_iface[PC_MAX_IFACE_NUM];
+    uintptr_t t1_iface[PC_SVC_PER_PD_MAX_NUM];
+    uintptr_t t2_iface[PC_SVC_PER_PD_MAX_NUM];
+    uintptr_t t3_iface[PC_SVC_PER_PD_MAX_NUM];
+    uintptr_t t4_iface[PC_SVC_PER_PD_MAX_NUM];
+    uintptr_t t5_iface[PC_SVC_PER_PD_MAX_NUM];
+    uintptr_t t6_iface[PC_SVC_PER_PD_MAX_NUM];
+    uintptr_t t7_iface[PC_SVC_PER_PD_MAX_NUM];
+    uintptr_t t8_iface[PC_SVC_PER_PD_MAX_NUM];
 
 } protocon_svc_desc_t; /* template PD interface */
 
