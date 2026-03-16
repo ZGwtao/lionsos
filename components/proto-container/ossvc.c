@@ -1,5 +1,4 @@
-
-#include <acg.h>
+#include <ossvc.h>
 #include <acrtutils.h>
 #include <libtrustedlo.h>
 #include <string.h>
@@ -15,7 +14,7 @@ extern acgrp_arr_list_t *acgroup_metadata_base;
 // initialise the global acgroup state map
 //  => everything is read from the microkit patched metadata
 //
-void init_acg_state_map(void)
+void monitor_init_ossvc_map(void)
 {
     acgrp_arr_list_t *ptr_spec_ar = (acgrp_arr_list_t *)microkit_template_spec_ar;
     TSLDR_DBG_PRINT(LIB_NAME_MACRO "%d\n", ptr_spec_ar->len);

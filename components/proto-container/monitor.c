@@ -5,7 +5,7 @@
 #include <sddf/util/printf.h>
 #include <libtrustedlo.h>
 
-#include <acg.h>
+#include <ossvc.h>
 #include <libmicrokitco.h>
 #include <lions/fs/config.h>
 #include <pico_vfs.h>
@@ -295,7 +295,7 @@ void init(void)
     tsldr_miscutil_memset(acg_stat_map, 0, sizeof(int) * MAX_PERM_CL_NUM * MAX_PERC_AK_NUM);
 
     // global acgroup state initialisation...
-    init_acg_state_map();
+    monitor_init_ossvc_map();
 
     // global client state initialisation...
     tsldr_miscutil_memset(client_stat, 0, sizeof(int) * MAX_PERM_CL_NUM);

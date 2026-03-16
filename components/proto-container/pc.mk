@@ -23,7 +23,7 @@ PC_LIBMICROKITCO_OPT_PATH := $(PC_SRC_DIR)/config
 PC_LIBTRUSTEDLO_OBJ := libtrustedlo/libtrustedlo.a
 
 PC_CLIENT_OBJS := pc/client.o
-PC_MONITOR_OBJS := pc/monitor.o pc/acg.o
+PC_MONITOR_OBJS := pc/monitor.o pc/ossvc.o
 PC_FRONTEND_OBJS :=	pc/frontend.o
 PC_PROTOCON_OBJS := pc/protocon.o
 PC_TRAMPOLINE_OBJS := pc/trampoline.o
