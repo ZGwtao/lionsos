@@ -8,68 +8,41 @@
 extern int acg_stat_map[MAX_PERM_CL_NUM][MAX_PERC_AK_NUM];
 extern protocon_lifecycle_state_t protocon_states[MAX_PERM_CL_NUM];
 
-//
-// initialise the global acgroup state map
-//  => everything is read from the microkit patched metadata
-//
-void monitor_init_ossvc_map(void)
+
+void monitor_ossvc_populate_all_svc_of_unipd(protocon_svcdb_t *svcdb, int map[])
 {
-    monitor_svcdb_t *ptr_spec_ar = (monitor_svcdb_t *)microkit_template_spec_ar;
-    TSLDR_DBG_PRINT(LIB_NAME_MACRO "%d\n", ptr_spec_ar->len);
-
-    protocon_svcdb_t *svcdb;
-    size_t pd_num = ptr_spec_ar->len;
-
-    TSLDR_DBG_PRINT(LIB_NAME_MACRO "number of available PDs that have acg: %d\n", pd_num);
-
-    for (int i = 0; i < pd_num; ++i) {
-        // fetch a client PD that contains acgroups
-        svcdb = &ptr_spec_ar->list[i];
-        TSLDR_DBG_PRINT(LIB_NAME_MACRO "[acg_arr] - PD idx: %d\n", svcdb->pd_idx);
-        //assert(svcdb->pd_idx <= MAX_PERM_CL_NUM);
-
-        for (int j = 0; j < svcdb->svc_num; ++j) {
-            // check each acgroup
-            protocon_svc_t *grp_ptr = &svcdb->array[j];
-            // if this is a valid group (which means initiliased)
-            if (grp_ptr->svc_init != false) {
-                // ensure this is a valid type...
-                //assert(grp_ptr->svc_type <= MAX_PERC_AK_NUM);
-
-                // FIXME here..
-                int cur_num = acg_stat_map[i][grp_ptr->svc_type];
-                // check if we have enough connections of a type
-                if (cur_num >= MAX_PERK_NUM) {
-                    // halt...
-                    TSLDR_DBG_PRINT(LIB_NAME_MACRO "current number of %d type acg in PD%d is %d\n", grp_ptr->svc_type, i, cur_num);
-                    microkit_internal_crash(-1);
-                }
-                // FIXME here...
-                acg_stat_map[i][grp_ptr->svc_type]++;
-
-                TSLDR_DBG_PRINT(LIB_NAME_MACRO "[acg_arr][acg: %d]: grp id:   %d\n", j, grp_ptr->svc_idx);
-                TSLDR_DBG_PRINT(LIB_NAME_MACRO "[acg_arr][acg: %d]: grp type: %d\n", j, grp_ptr->svc_type);
-
-                // iterate all available mapings of this acg...
-                StrippedMapping *map_ptr = grp_ptr->mappings;
-                for (int k = 0; k < 4; ++k) {
-                    if (!map_ptr[k].vaddr) {
-                        continue;
-                    }
-                    TSLDR_DBG_PRINT(LIB_NAME_MACRO "  =>: mappings[%d] vaddr: 0x%x, pn: %d, size: 0x%x\n",
-                                        k, map_ptr[k].vaddr, map_ptr[k].number_of_pages, map_ptr[k].page_size);
-                }
-                uint8_t *e_ptr = grp_ptr->channels;
-                for (int k = 0; k < 4; ++k) {
-                    if (e_ptr[k] >= 62) {
-                        continue;
-                    }
-                    TSLDR_DBG_PRINT(LIB_NAME_MACRO "  =>: channel[%d]: %d\n", k, e_ptr[k]);
-                }
-            }
+    protocon_svc_t *curr_svc;
+    for (int i = 0; i < svcdb->svc_num; ++i) {
+        /* Iterate all OS services of a PD */
+        curr_svc = &svcdb->array[i];
+        if (curr_svc->svc_init == false) {
+            continue;
         }
+        /* Determine what type the OS service is */
+        int svc_type = curr_svc->svc_type;
+        /* Check the number of OS service of the same type */
+        int num_curr_type = map[svc_type];
+        if (num_curr_type >= MAX_PERK_NUM) {
+            microkit_dbg_puts("Too many OS services of the same type\n");
+            microkit_internal_crash(-1);
+        }
+        /* Pin the OS service on the map */
+        map[curr_svc->svc_type]++;
     }
 }
+
+void monitor_init_ossvc_map()
+{
+    monitor_svcdb_t *svcdb_list = (monitor_svcdb_t *)microkit_template_spec_ar;
+
+    for (int i = 0; i < svcdb_list->len; ++i) {
+
+        protocon_svcdb_t *curr_svcdb = &svcdb_list->list[i];
+
+        monitor_ossvc_populate_all_svc_of_unipd(curr_svcdb, acg_stat_map[i]);
+    }
+}
+
 
 void monitor_patch_payload_with_ossvc__worker_func(protocon_svc_t *svc, acg_req_t *req, tsldr_acrtreq_t *req_acrt, patch_elf_connection_fn fn, uintptr_t payload_base)
 {
@@ -112,8 +85,8 @@ void monitor_patch_payload_with_ossvc_info(int cid, acg_req_t *req, uintptr_t pa
     // now the job is to collect all access rights from the acgroup from the given acg
     // but still, we need to choose a subset from the acgroup ...
 
-    // this is the current alternative to choose a subset from...
     protocon_svcdb_t *svcdb = &((monitor_svcdb_t *)microkit_template_spec_ar)->list[cid];
+
     TSLDR_DBG_PRINT(LIB_NAME_MACRO "pd index of the given acg arr: %d\n", svcdb->pd_idx);
     TSLDR_DBG_PRINT(LIB_NAME_MACRO "number of acgs in the acg arr: %d\n", svcdb->svc_num);
 
@@ -121,6 +94,7 @@ void monitor_patch_payload_with_ossvc_info(int cid, acg_req_t *req, uintptr_t pa
 
     // get the subset from the above according to the instructions given in req...
     protocon_svc_t *curr_svc = svcdb->array;
+
     // check all available acgroups...
     for (int i = 0; i < svcdb->svc_num; ++i) {
         monitor_patch_payload_with_ossvc__worker_func(&curr_svc[i], req, &req_acrt, fn, payload_base);

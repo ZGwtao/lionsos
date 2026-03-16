@@ -66,7 +66,7 @@ typedef struct {
 } acg_req_t;
 
 
-void monitor_init_ossvc_map(void);
+void monitor_init_ossvc_map();
 
 
 typedef void (*patch_elf_connection_fn)(void *elf_base, char data_file[], uintptr_t vaddr);
