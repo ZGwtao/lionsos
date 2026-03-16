@@ -43,13 +43,13 @@ void monitor_init_ossvc_map()
 }
 
 
-void monitor_patch_payload_with_ossvc__worker_func(protocon_svc_t *svc, acg_req_t *req, tsldr_acrtreq_t *req_acrt, patch_elf_connection_fn fn, uintptr_t payload_base)
+void monitor_patch_payload_with_ossvc__worker_func(protocon_svc_t *svc, protocon_svc_req_t *req, tsldr_acrtreq_t *req_acrt, patch_elf_connection_fn fn, uintptr_t payload_base)
 {
     if (!svc->svc_init) {
         return;
     }
     uint8_t type = svc->svc_type;
-    if (!req->acg_per_type_num[type]) {
+    if (!req->num_svc_per_type[type]) {
         return;
     }
     for (int i = 0; i < 4; ++i) {
@@ -69,15 +69,16 @@ void monitor_patch_payload_with_ossvc__worker_func(protocon_svc_t *svc, acg_req_
         req_acrt->num_req_mappings++;
     }
 
-    fn((void *)payload_base, svc->data_path, req->acg_attr[type][req->acg_per_type_num[type] - 1]);
+    // the third arg is vaddr for loading the datafile in the target elf??
+    fn((void *)payload_base, svc->data_path, req->data_per_svc_instance[type][req->num_svc_per_type[type] - 1]);
 
-    req->acg_per_type_num[type]--;
+    req->num_svc_per_type[type]--;
 }
 
 
 typedef void (*patch_elf_connection_fn)(void *elf_base, char data_file[], uintptr_t vaddr);
 
-void monitor_patch_payload_with_ossvc_info(int cid, acg_req_t *req, uintptr_t payload_base, uintptr_t monitor_svcdb_base, patch_elf_connection_fn fn)
+void monitor_patch_payload_with_ossvc_info(int cid, protocon_svc_req_t *req, uintptr_t payload_base, uintptr_t monitor_svcdb_base, patch_elf_connection_fn fn)
 {
     // so the trusted loader will not care how these access rights entry sit
     // all we have to do is specifying a number of total rights while put them after the number
@@ -108,7 +109,7 @@ void monitor_patch_payload_with_ossvc_info(int cid, acg_req_t *req, uintptr_t pa
 }
 
 
-int monitor_match_ossvc_request__worker_func(acg_req_t *req, protocon_lifecycle_state_t *protocon_states)
+int monitor_match_ossvc_request__worker_func(protocon_svc_req_t *req, protocon_lifecycle_state_t *protocon_states)
 {
     int cid = MAX_PERM_CL_NUM;
     // try to get available cid with subset match
@@ -126,8 +127,8 @@ int monitor_match_ossvc_request__worker_func(acg_req_t *req, protocon_lifecycle_
         // if be at the end of the loop is still false,
         // we are now sure that we have found one available empty template PD.
         for (int j = 0; j < MAX_PERC_AK_NUM; ++j) {
-            b |= (req->acg_per_type_num[j] > acg_stat_map[i][j]);
-            TSLDR_DBG_PRINT(LIB_NAME_MACRO "i: %d, requested type: %d, req num: %d, avail num: %d\n", i, j, req->acg_per_type_num[j], acg_stat_map[i][j]);
+            b |= (req->num_svc_per_type[j] > acg_stat_map[i][j]);
+            TSLDR_DBG_PRINT(LIB_NAME_MACRO "i: %d, requested type: %d, req num: %d, avail num: %d\n", i, j, req->num_svc_per_type[j], acg_stat_map[i][j]);
         }
         // if b is false, return the id of the child PD, which represents an available alternative
         if (!b) {
@@ -139,7 +140,7 @@ int monitor_match_ossvc_request__worker_func(acg_req_t *req, protocon_lifecycle_
 }
 
 
-void monitor_ossvc_parse_req_from_elf_section(void *elf_base, void *sh, acg_req_t *req)
+void monitor_ossvc_parse_req_from_elf_section(void *elf_base, void *sh, protocon_svc_req_t *req)
 {
     // parse the interface section ...
     // i.e., get the user-defined section for declaring what acgroups are wanted
@@ -164,7 +165,7 @@ void monitor_ossvc_parse_req_from_elf_section(void *elf_base, void *sh, acg_req_
         if (n > PC_MAX_IFACE_NUM) {
             n = PC_MAX_IFACE_NUM;
         }
-        req->acg_per_type_num[types[i]] = n;
+        req->num_svc_per_type[types[i]] = n;
         // fetch interface array
         const uintptr_t *arr = *ifaces[i];
         // check interface type and establish connections...
@@ -174,7 +175,7 @@ void monitor_ossvc_parse_req_from_elf_section(void *elf_base, void *sh, acg_req_
         case TIMER_IFACE:
         case SERIAL_IFACE: {
             for (uint8_t j = 0; j < n; ++j) {
-                req->acg_attr[types[i]][j] = arr[j];
+                req->data_per_svc_instance[types[i]][j] = arr[j];
             }
             break;
         }
@@ -186,7 +187,7 @@ void monitor_ossvc_parse_req_from_elf_section(void *elf_base, void *sh, acg_req_
 }
 
 
-int monitor_match_ossvc_request_with_available_pd(void *elf_base, void *sh, acg_req_t *req, protocon_lifecycle_state_t *protocon_states)
+int monitor_match_ossvc_request_with_available_pd(void *elf_base, void *sh, protocon_svc_req_t *req, protocon_lifecycle_state_t *protocon_states)
 {
     monitor_ossvc_parse_req_from_elf_section(elf_base, sh, req);
 
