@@ -6,9 +6,9 @@
 #define LIB_NAME_MACRO "    => [@trustedlo] "
 
 extern int acg_stat_map[MAX_PERM_CL_NUM][MAX_PERC_AK_NUM];
-extern int client_stat[MAX_PERM_CL_NUM];
+extern protocon_lifecycle_state_t protocon_states[MAX_PERM_CL_NUM];
 
-extern acgrp_arr_list_t *acgroup_metadata_base;
+extern monitor_svcdb_t *acgroup_metadata_base;
 
 //
 // initialise the global acgroup state map
@@ -16,10 +16,10 @@ extern acgrp_arr_list_t *acgroup_metadata_base;
 //
 void monitor_init_ossvc_map(void)
 {
-    acgrp_arr_list_t *ptr_spec_ar = (acgrp_arr_list_t *)microkit_template_spec_ar;
+    monitor_svcdb_t *ptr_spec_ar = (monitor_svcdb_t *)microkit_template_spec_ar;
     TSLDR_DBG_PRINT(LIB_NAME_MACRO "%d\n", ptr_spec_ar->len);
 
-    acgrp_array_t *acg_arr_ptr;
+    protocon_svcdb_t *acg_arr_ptr;
     size_t pd_num = ptr_spec_ar->len;
 
     TSLDR_DBG_PRINT(LIB_NAME_MACRO "number of available PDs that have acg: %d\n", pd_num);
@@ -87,7 +87,7 @@ void monitor_patch_payload_with_ossvc_info(int cid, acg_req_t *req, uintptr_t pa
     // but still, we need to choose a subset from the acgroup ...
 
     // this is the current alternative to choose a subset from...
-    acgrp_array_t *acg_arr_ptr = &((acgrp_arr_list_t *)microkit_template_spec_ar)->list[cid];
+    protocon_svcdb_t *acg_arr_ptr = &((monitor_svcdb_t *)microkit_template_spec_ar)->list[cid];
     TSLDR_DBG_PRINT(LIB_NAME_MACRO "pd index of the given acg arr: %d\n", acg_arr_ptr->pd_idx);
     TSLDR_DBG_PRINT(LIB_NAME_MACRO "number of acgs in the acg arr: %d\n", acg_arr_ptr->grp_num);
 
@@ -188,7 +188,7 @@ int monitor_match_ossvc_request_with_available_pd(void *elf_base, void *sh, acg_
     // try to get available cid with subset match
     for (int i = 0; i < MAX_PERM_CL_NUM; ++i) {
         // if true, the client is occupied, need to find next empty template PD
-        if (client_stat[i]) {
+        if (protocon_states[i] == PROTOCON_ACTIVE) {
             // iterate the PD list to find next available cid...
             continue;
         }

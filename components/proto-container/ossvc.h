@@ -41,14 +41,14 @@ typedef struct {
     uint8_t grp_num;
     // array of acgroups
     protocon_svc_t array[16];
-} acgrp_array_t;
+} protocon_svcdb_t;
 
 typedef struct {
     // overall length of this region
     size_t len;
     // list of acgrp arrays
-    acgrp_array_t list[16];
-} acgrp_arr_list_t;
+    protocon_svcdb_t list[16];
+} monitor_svcdb_t;
 
 
 // we use this to parse non-revokable capabilities
@@ -58,6 +58,13 @@ typedef struct {
     // ...
 } access_rights_table_t;
 
+
+typedef enum {
+    
+    PROTOCON_ACTIVE = 1,
+    PROTOCON_PASSIVE,
+
+} protocon_lifecycle_state_t;
 
 
 typedef struct {

@@ -57,8 +57,12 @@ bool fs_init;
 //
 int acg_stat_map[MAX_PERM_CL_NUM][MAX_PERC_AK_NUM];
 
-// availability of current PDs...
-int client_stat[MAX_PERM_CL_NUM];
+
+tsldr_context_t protocon_ctx_db[MAX_PERM_CL_NUM];
+
+protocon_lifecycle_state_t protocon_states[MAX_PERM_CL_NUM];
+
+
 
 #define SMALL_PAGE_SIZE     0x1000
 
@@ -68,16 +72,12 @@ int client_stat[MAX_PERM_CL_NUM];
 #define TSLDR_METADATA_BASE 0xffc0000
 #define TSLDR_METADATA_SIZE SMALL_PAGE_SIZE
 
-tsldr_context_t loader_context[MAX_PERM_CL_NUM];
+#define TSLDR_MDINFO_HASH   0xffff
 
-/*
- * A shared memory region with container, containing content from tsldr_metadata_patched
- * Will be init each time the container restarts by copying the data from above
- */
-uintptr_t tsldr_metadata;
+
 
 // base of all shared acgroup metadata regions
-acgrp_arr_list_t *acgroup_metadata_base = (acgrp_arr_list_t *)0x0ff80000;
+monitor_svcdb_t *acgroup_metadata_base = (monitor_svcdb_t *)0x0ff80000;
 
 fs_queue_t *fs_command_queue;
 fs_queue_t *fs_completion_queue;
@@ -249,14 +249,14 @@ void monitor_call_debute_lower()
 
     tsldr_main_monitor_init_mdinfo((tsldr_mdinfodb_t *)microkit_template_spec, cid, (void *)((char *)TSLDR_METADATA_BASE + cid * TSLDR_METADATA_SIZE));
 
-    tsldr_miscutil_memcpy((char *)TSLDR_CONTEXT_BASE + cid * TSLDR_CONTEXT_SIZE, &loader_context[cid], sizeof(tsldr_context_t));
+    tsldr_miscutil_memcpy((char *)TSLDR_CONTEXT_BASE + cid * TSLDR_CONTEXT_SIZE, &protocon_ctx_db[cid], sizeof(tsldr_context_t));
 
     tsldr_main_monitor_privilege_pd(cid);
     //
     // set the client PD to restart as exclusive... 
     // mark current client[cid] PD in use
     //
-    client_stat[cid] = 1;
+    protocon_states[cid] = PROTOCON_ACTIVE;
 
     /* switch to trusted loader */
     microkit_pd_restart(cid, entry);
@@ -275,32 +275,19 @@ void init(void)
     fs_share = fs_config.server.share.vaddr;
     fs_init = false;
 
-    tsldr_mdinfodb_t *ptr_spec_trusted_loader = (tsldr_mdinfodb_t *)microkit_template_spec;
-    TSLDR_DBG_PRINT(PROGNAME "%d\n", ptr_spec_trusted_loader->avails);
+    tsldr_mdinfodb_t *mdinfodb = (tsldr_mdinfodb_t *)microkit_template_spec;
+    TSLDR_DBG_PRINT(PROGNAME "%d\n", mdinfodb->avails);
     TSLDR_DBG_PRINT(PROGNAME "%s\n", microkit_name);
 
-    // practically we use 16 indices...
-    for (int i = 0; i < ptr_spec_trusted_loader->avails; ++i) {
-        // must provide valid hash to 
-        if (ptr_spec_trusted_loader->infodb[i].system_hash != 0xffff) {
-            // do not initialise unspecified tsldr metadata
-            continue;
-        }
-        // adjust global pointer
-        tsldr_metadata = (uintptr_t)((char *)TSLDR_METADATA_BASE + i * TSLDR_METADATA_SIZE);
-        TSLDR_DBG_PRINT(PROGNAME "tsldr_metadata: 0x%x\n", tsldr_metadata);
-        // initialise the target tsldr_metadata
-        tsldr_main_monitor_init_mdinfo(ptr_spec_trusted_loader, i, (void *)tsldr_metadata);
-    }
     tsldr_miscutil_memset(acg_stat_map, 0, sizeof(int) * MAX_PERM_CL_NUM * MAX_PERC_AK_NUM);
 
     // global acgroup state initialisation...
     monitor_init_ossvc_map();
 
     // global client state initialisation...
-    tsldr_miscutil_memset(client_stat, 0, sizeof(int) * MAX_PERM_CL_NUM);
+    tsldr_miscutil_memset(protocon_states, PROTOCON_PASSIVE, sizeof(int) * MAX_PERM_CL_NUM);
     // clean all loader context...
-    tsldr_miscutil_memset(loader_context, 0, sizeof(tsldr_context_t) * MAX_PERM_CL_NUM);
+    tsldr_miscutil_memset(protocon_ctx_db, 0, sizeof(tsldr_context_t) * MAX_PERM_CL_NUM);
 
     stack_ptrs_arg_array_t costacks = {
         _worker_thread_stack_one,
@@ -375,10 +362,10 @@ seL4_MessageInfo_t monitor_call_restore(microkit_channel ch)
         TSLDR_DBG_PRINT(PROGNAME "Received signal from non-client PD that tries to uninstantiate client PD!\n");
         return microkit_msginfo_new(-1, 0);
     }
-    assert(client_stat[ch - 24]);
+    assert(protocon_states[ch - 24] == PROTOCON_ACTIVE);
 
     // restore client PD state...
-    client_stat[ch - 24] = 0;
+    protocon_states[ch - 24] = PROTOCON_PASSIVE;
 
     // TODO
     // => call frontend's shell to dump instructions for switching work env
@@ -401,7 +388,7 @@ seL4_MessageInfo_t monitor_call_backup_tsldr_context(microkit_channel ch)
     context = (tsldr_context_t *)((unsigned char *)TSLDR_CONTEXT_BASE + (ch - 24) * TSLDR_CONTEXT_SIZE);
 
     // backup trusted loading context in target slot..
-    tsldr_miscutil_memcpy(&loader_context[ch - 24], context, sizeof(tsldr_context_t));
+    tsldr_miscutil_memcpy(&protocon_ctx_db[ch - 24], context, sizeof(tsldr_context_t));
 
     return microkit_msginfo_new(seL4_NoError, 0);
 }
