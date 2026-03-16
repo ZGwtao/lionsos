@@ -6,7 +6,6 @@
 #define LIB_NAME_MACRO "    => [@trustedlo] "
 
 extern int acg_stat_map[MAX_PERM_CL_NUM][MAX_PERC_AK_NUM];
-extern protocon_lifecycle_state_t protocon_states[MAX_PERM_CL_NUM];
 
 
 void monitor_ossvc_populate_all_svc_of_unipd(protocon_svcdb_t *svcdb, int map[])
@@ -110,7 +109,7 @@ void monitor_patch_payload_with_ossvc_info(int cid, acg_req_t *req, uintptr_t pa
 
 
 
-int monitor_match_ossvc_request_with_available_pd(void *elf_base, void *sh, acg_req_t *req)
+int monitor_match_ossvc_request_with_available_pd(void *elf_base, void *sh, acg_req_t *req, protocon_lifecycle_state_t *protocon_states)
 {
     // parse the interface section ...
     // i.e., get the user-defined section for declaring what acgroups are wanted

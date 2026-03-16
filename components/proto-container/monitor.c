@@ -218,7 +218,7 @@ void monitor_call_debute_lower()
     // a request stat for the client payload...
     acg_req_t req;
 
-    int cid = monitor_match_ossvc_request_with_available_pd((void *)ext_payload_elf, iface_sh, &req);
+    int cid = monitor_match_ossvc_request_with_available_pd((void *)ext_payload_elf, iface_sh, &req, protocon_states);
     if (cid >= MAX_PERM_CL_NUM || cid < 0) {
         TSLDR_DBG_PRINT(PROGNAME "Failed to find suitable container for payload\n");
         TSLDR_DBG_PRINT(PROGNAME "Fetched cid number is: %d\n", cid);

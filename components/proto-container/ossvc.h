@@ -74,7 +74,7 @@ typedef void (*patch_elf_connection_fn)(void *elf_base, char data_file[], uintpt
 void monitor_patch_payload_with_ossvc_info(int cid, acg_req_t *req, uintptr_t payload_base, uintptr_t monitor_svcdb_base, patch_elf_connection_fn fn);
 
 
-int monitor_match_ossvc_request_with_available_pd(void *elf_base, void *sh, acg_req_t *req);
+int monitor_match_ossvc_request_with_available_pd(void *elf_base, void *sh, acg_req_t *req, protocon_lifecycle_state_t *protocon_states);
 
 
 // maximum 8 interface per OS service type
