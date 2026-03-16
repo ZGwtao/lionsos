@@ -110,34 +110,27 @@ void monitor_patch_payload_with_ossvc_info(int cid, protocon_svc_req_t *req, uin
 }
 
 
+static inline seL4_Word monitor_match_ossvc_request_with_unipd(protocon_svc_req_t *req, int svc_dist_map[])
+{
+    seL4_Word mask = 0;
+    for (int i = 0; i < SVC_TYPE_MAX_NUM; ++i) {
+        mask |= (req->num_svc_per_type[i] > svc_dist_map[i]);
+    }
+    return mask;
+}
+
 int monitor_match_ossvc_request__worker_func(protocon_svc_req_t *req, protocon_lifecycle_state_t *protocon_states)
 {
-    int cid = PC_CHILD_PER_MONITOR_MAX_NUM;
-    // try to get available cid with subset match
     for (int i = 0; i < PC_CHILD_PER_MONITOR_MAX_NUM; ++i) {
-        // if true, the client is occupied, need to find next empty template PD
         if (protocon_states[i] == PROTOCON_ACTIVE) {
-            // iterate the PD list to find next available cid...
             continue;
         }
-        size_t b = 0;
-        // for every access_control_group type, see if the available number is larger
-        // than the requested number.
-        // if requested number is larger, b will be true, making it not a valid alternative
-        // if requested number is smaller, b will be false
-        // if be at the end of the loop is still false,
-        // we are now sure that we have found one available empty template PD.
-        for (int j = 0; j < SVC_TYPE_MAX_NUM; ++j) {
-            b |= (req->num_svc_per_type[j] > monitor_svc_dist_map[i][j]);
-            TSLDR_DBG_PRINT(LIB_NAME_MACRO "i: %d, requested type: %d, req num: %d, avail num: %d\n", i, j, req->num_svc_per_type[j], monitor_svc_dist_map[i][j]);
-        }
-        // if b is false, return the id of the child PD, which represents an available alternative
-        if (!b) {
-            cid = i;
-            break;
+        seL4_Word mask = monitor_match_ossvc_request_with_unipd(req, monitor_svc_dist_map[i]);
+        if (mask == 0) {
+            return i;
         }
     }
-    return cid;
+    return PC_CHILD_PER_MONITOR_MAX_NUM;
 }
 
 
