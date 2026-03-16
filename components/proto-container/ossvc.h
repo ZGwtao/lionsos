@@ -3,13 +3,6 @@
 #include <stdint.h>
 #include <microkit.h>
 
-// maximum per monitor client container number
-#define MAX_PERM_CL_NUM 16
-// maximum kinds of connection (acgroup kinds) each container has
-#define MAX_PERC_AK_NUM 8
-// maximum number of one connection in a container...
-#define MAX_PERK_NUM    8
-
 #define SVC_TYPE_MAX_NUM (8)
 
 #define SVC_PER_TYPE_MAX_NUM (8)

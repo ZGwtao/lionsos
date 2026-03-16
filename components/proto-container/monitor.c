@@ -43,11 +43,11 @@ bool fs_init;
 
 
 
-int acg_stat_map[MAX_PERM_CL_NUM][MAX_PERC_AK_NUM];
+int monitor_svc_dist_map[PC_CHILD_PER_MONITOR_MAX_NUM][SVC_TYPE_MAX_NUM];
 
-tsldr_context_t protocon_ctx_db[MAX_PERM_CL_NUM];
+tsldr_context_t protocon_ctx_db[PC_CHILD_PER_MONITOR_MAX_NUM];
 
-protocon_lifecycle_state_t protocon_states[MAX_PERM_CL_NUM];
+protocon_lifecycle_state_t protocon_states[PC_CHILD_PER_MONITOR_MAX_NUM];
 
 
 
@@ -206,7 +206,7 @@ void monitor_call_debute_lower()
     protocon_svc_req_t req;
 
     int cid = monitor_match_ossvc_request_with_available_pd((void *)ext_payload_elf, iface_sh, &req, protocon_states);
-    if (cid >= MAX_PERM_CL_NUM || cid < 0) {
+    if (cid >= PC_CHILD_PER_MONITOR_MAX_NUM || cid < 0) {
         TSLDR_DBG_PRINT(PROGNAME "Failed to find suitable container for payload\n");
         TSLDR_DBG_PRINT(PROGNAME "Fetched cid number is: %d\n", cid);
         //
@@ -266,15 +266,15 @@ void init(void)
     TSLDR_DBG_PRINT(PROGNAME "%d\n", mdinfodb->avails);
     TSLDR_DBG_PRINT(PROGNAME "%s\n", microkit_name);
 
-    tsldr_miscutil_memset(acg_stat_map, 0, sizeof(int) * MAX_PERM_CL_NUM * MAX_PERC_AK_NUM);
+    tsldr_miscutil_memset(monitor_svc_dist_map, 0, sizeof(int) * PC_CHILD_PER_MONITOR_MAX_NUM * SVC_TYPE_MAX_NUM);
 
     // global acgroup state initialisation...
     monitor_init_ossvc_map();
 
     // global client state initialisation...
-    tsldr_miscutil_memset(protocon_states, PROTOCON_PASSIVE, sizeof(int) * MAX_PERM_CL_NUM);
+    tsldr_miscutil_memset(protocon_states, PROTOCON_PASSIVE, sizeof(int) * PC_CHILD_PER_MONITOR_MAX_NUM);
     // clean all loader context...
-    tsldr_miscutil_memset(protocon_ctx_db, 0, sizeof(tsldr_context_t) * MAX_PERM_CL_NUM);
+    tsldr_miscutil_memset(protocon_ctx_db, 0, sizeof(tsldr_context_t) * PC_CHILD_PER_MONITOR_MAX_NUM);
 
     stack_ptrs_arg_array_t costacks = {
         _worker_thread_stack_one,

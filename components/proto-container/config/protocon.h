@@ -17,6 +17,8 @@ typedef enum {
 } protocon_svc_type_t;
 
 
+#define PC_CHILD_PER_MONITOR_MAX_NUM (16)
+
 #define PC_SVC_DESC_SECTION_NAME ".pc_svc_desc"
 
 

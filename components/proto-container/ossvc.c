@@ -6,7 +6,7 @@
 
 #define LIB_NAME_MACRO "    => [@trustedlo] "
 
-extern int acg_stat_map[MAX_PERM_CL_NUM][MAX_PERC_AK_NUM];
+extern int monitor_svc_dist_map[PC_CHILD_PER_MONITOR_MAX_NUM][SVC_TYPE_MAX_NUM];
 
 
 void monitor_ossvc_populate_all_svc_of_unipd(protocon_svcdb_t *svcdb, int map[])
@@ -22,7 +22,7 @@ void monitor_ossvc_populate_all_svc_of_unipd(protocon_svcdb_t *svcdb, int map[])
         int svc_type = curr_svc->svc_type;
         /* Check the number of OS service of the same type */
         int num_curr_type = map[svc_type];
-        if (num_curr_type >= MAX_PERK_NUM) {
+        if (num_curr_type >= SVC_PER_TYPE_MAX_NUM) {
             microkit_dbg_puts("Too many OS services of the same type\n");
             microkit_internal_crash(-1);
         }
@@ -39,7 +39,7 @@ void monitor_init_ossvc_map()
 
         protocon_svcdb_t *curr_svcdb = &svcdb_list->list[i];
 
-        monitor_ossvc_populate_all_svc_of_unipd(curr_svcdb, acg_stat_map[i]);
+        monitor_ossvc_populate_all_svc_of_unipd(curr_svcdb, monitor_svc_dist_map[i]);
     }
 }
 
@@ -112,9 +112,9 @@ void monitor_patch_payload_with_ossvc_info(int cid, protocon_svc_req_t *req, uin
 
 int monitor_match_ossvc_request__worker_func(protocon_svc_req_t *req, protocon_lifecycle_state_t *protocon_states)
 {
-    int cid = MAX_PERM_CL_NUM;
+    int cid = PC_CHILD_PER_MONITOR_MAX_NUM;
     // try to get available cid with subset match
-    for (int i = 0; i < MAX_PERM_CL_NUM; ++i) {
+    for (int i = 0; i < PC_CHILD_PER_MONITOR_MAX_NUM; ++i) {
         // if true, the client is occupied, need to find next empty template PD
         if (protocon_states[i] == PROTOCON_ACTIVE) {
             // iterate the PD list to find next available cid...
@@ -127,9 +127,9 @@ int monitor_match_ossvc_request__worker_func(protocon_svc_req_t *req, protocon_l
         // if requested number is smaller, b will be false
         // if be at the end of the loop is still false,
         // we are now sure that we have found one available empty template PD.
-        for (int j = 0; j < MAX_PERC_AK_NUM; ++j) {
-            b |= (req->num_svc_per_type[j] > acg_stat_map[i][j]);
-            TSLDR_DBG_PRINT(LIB_NAME_MACRO "i: %d, requested type: %d, req num: %d, avail num: %d\n", i, j, req->num_svc_per_type[j], acg_stat_map[i][j]);
+        for (int j = 0; j < SVC_TYPE_MAX_NUM; ++j) {
+            b |= (req->num_svc_per_type[j] > monitor_svc_dist_map[i][j]);
+            TSLDR_DBG_PRINT(LIB_NAME_MACRO "i: %d, requested type: %d, req num: %d, avail num: %d\n", i, j, req->num_svc_per_type[j], monitor_svc_dist_map[i][j]);
         }
         // if b is false, return the id of the child PD, which represents an available alternative
         if (!b) {
