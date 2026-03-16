@@ -10,6 +10,10 @@
 // maximum number of one connection in a container...
 #define MAX_PERK_NUM    8
 
+#define SVC_TYPE_MAX_NUM (8)
+
+#define SVC_PER_TYPE_MAX_NUM (8)
+
 typedef struct {
     seL4_Word vaddr;
     seL4_Word number_of_pages;
@@ -59,11 +63,15 @@ typedef enum {
 
 
 typedef struct {
-    // records how many connection a PD can have under a type
-    int acg_per_type_num[MAX_PERC_AK_NUM];
-    //
-    uintptr_t acg_attr[MAX_PERC_AK_NUM][MAX_PERK_NUM];
-} acg_req_t;
+
+    int num_svc_per_type[SVC_TYPE_MAX_NUM];
+
+    // for each type of ossvc, there are at most SVC_PER_TYPE_MAX_NUM instances
+    // for each instance, uintptr_t is the data word for them...
+
+    seL4_Word data_per_svc_instance[SVC_TYPE_MAX_NUM][SVC_PER_TYPE_MAX_NUM];
+
+} protocon_svc_req_t;
 
 
 void monitor_init_ossvc_map();
@@ -71,10 +79,10 @@ void monitor_init_ossvc_map();
 
 typedef void (*patch_elf_connection_fn)(void *elf_base, char data_file[], uintptr_t vaddr);
 
-void monitor_patch_payload_with_ossvc_info(int cid, acg_req_t *req, uintptr_t payload_base, uintptr_t monitor_svcdb_base, patch_elf_connection_fn fn);
+void monitor_patch_payload_with_ossvc_info(int cid, protocon_svc_req_t *req, uintptr_t payload_base, uintptr_t monitor_svcdb_base, patch_elf_connection_fn fn);
 
 
-int monitor_match_ossvc_request_with_available_pd(void *elf_base, void *sh, acg_req_t *req, protocon_lifecycle_state_t *protocon_states);
+int monitor_match_ossvc_request_with_available_pd(void *elf_base, void *sh, protocon_svc_req_t *req, protocon_lifecycle_state_t *protocon_states);
 
 
 // maximum 8 interface per OS service type
