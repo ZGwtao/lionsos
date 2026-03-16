@@ -1,6 +1,7 @@
 #include <ossvc.h>
 #include <acrtutils.h>
 #include <libtrustedlo.h>
+#include <protocon.h>
 #include <string.h>
 
 #define LIB_NAME_MACRO "    => [@trustedlo] "
@@ -144,12 +145,12 @@ void monitor_ossvc_parse_req_from_elf_section(void *elf_base, void *sh, protocon
 {
     // parse the interface section ...
     // i.e., get the user-defined section for declaring what acgroups are wanted
-    template_pd_iface_t *ib = (template_pd_iface_t *)(elf_base + (uint64_t)((Elf64_Shdr *)sh)->sh_offset);
+    protocon_svc_desc_t *ib = (protocon_svc_desc_t *)(elf_base + (uint64_t)((Elf64_Shdr *)sh)->sh_offset);
 
     // the list of numbers of requested acgroups
     const uint8_t *nums = &ib->t1_num;
     // the corresponding types which map to the above list of numbers
-    const pc_svc_iface_t *types = &ib->type1;
+    const protocon_svc_type_t *types = &ib->type1;
     const uintptr_t (*ifaces[8])[PC_MAX_IFACE_NUM] = {
         &ib->t1_iface, &ib->t2_iface, &ib->t3_iface, &ib->t4_iface,
         &ib->t5_iface, &ib->t6_iface, &ib->t7_iface, &ib->t8_iface

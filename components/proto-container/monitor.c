@@ -10,6 +10,7 @@
 #include <lions/fs/config.h>
 #include <pico_vfs.h>
 #include <pc_config.h>
+#include <protocon.h>
 
 #define PROGNAME "[@monitor] "
 
@@ -40,23 +41,9 @@ buffer_metadata_t buffer_metadata[FS_QUEUE_CAPACITY];
 
 bool fs_init;
 
-// the first level index is referenced by PD idx
-// the second level index is referenced by connection types
-//
-//      typedef enum {
-//         FS_IFACE = 0,
-//         SERIAL_IFACE,
-//         NETWORK_IFACE,
-//         TIMER_IFACE,
-//         I2C_IFACE,
-//         RESERVED, /* could be more than this... */
-//         UNUSED,
-//      } pc_svc_iface_t;
-//
-// stores the number of one kind of conn
-//
-int acg_stat_map[MAX_PERM_CL_NUM][MAX_PERC_AK_NUM];
 
+
+int acg_stat_map[MAX_PERM_CL_NUM][MAX_PERC_AK_NUM];
 
 tsldr_context_t protocon_ctx_db[MAX_PERM_CL_NUM];
 
@@ -190,7 +177,7 @@ void monitor_call_debute_lower()
 
     // FIXME: should not use shared memory to determine state...
     Elf64_Shdr *iface_sh;
-    iface_sh = elf_find_section((void *)ext_payload_elf, IFACE_SECTION_NAME);
+    iface_sh = elf_find_section((void *)ext_payload_elf, PC_SVC_DESC_SECTION_NAME);
     if (!iface_sh) {
         TSLDR_DBG_PRINT(PROGNAME "Failed to restart container as no iface section specified\n");
         ////

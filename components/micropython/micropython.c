@@ -37,7 +37,7 @@ __attribute__((__section__(".fs_client_config"))) fs_client_config_t fs_config;
 __attribute__((__section__(".i2c_client_config"))) i2c_client_config_t i2c_config;
 
 // interface per client payload
-__attribute__((__section__(".template_pd_iface"))) const template_pd_iface_t ciface = {
+__attribute__((__section__(".pc_svc_desc"))) const protocon_svc_desc_t ciface = {
     /* numbers of each interface type */
     .t1_num = 1,
     .t2_num = 1,

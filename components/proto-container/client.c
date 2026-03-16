@@ -7,8 +7,7 @@
 
 #include <sddf/util/printf.h>
 #include <pc_config.h>
-
-#include <acg.h>
+#include <protocon.h>
 #include <libtrustedlo.h>
 
 __attribute__((__section__(".serial_client_config"))) serial_client_config_t serial_config;
@@ -20,7 +19,7 @@ serial_queue_handle_t serial_rx_queue_handle;
 serial_queue_handle_t serial_tx_queue_handle;
 
 // interface per client payload
-__attribute__((__section__(".template_pd_iface"))) const template_pd_iface_t ciface = {
+__attribute__((__section__(".pc_svc_desc"))) const protocon_svc_desc_t ciface = {
     /* numbers of each interface type */
     .t3_num = 1,
     /* type identifiers */
