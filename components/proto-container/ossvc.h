@@ -19,11 +19,11 @@ typedef struct {
 
 typedef struct {
     // whether or not a valid acg
-    bool grp_init;
+    bool svc_init;
     // corresponding to the XML gid
-    uint8_t grp_idx;
+    uint8_t svc_idx;
     // the type of this acg
-    uint8_t grp_type;
+    uint8_t svc_type;
     // channels
     uint8_t channels[4];
     // irqs
@@ -38,7 +38,7 @@ typedef struct {
     // specify which PD this array belongs to
     uint8_t pd_idx;
     // number of available acgrp in the array
-    uint8_t grp_num;
+    uint8_t svc_num;
     // array of acgroups
     protocon_svc_t array[16];
 } protocon_svcdb_t;

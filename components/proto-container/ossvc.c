@@ -28,27 +28,27 @@ void monitor_init_ossvc_map(void)
         TSLDR_DBG_PRINT(LIB_NAME_MACRO "[acg_arr] - PD idx: %d\n", svcdb->pd_idx);
         //assert(svcdb->pd_idx <= MAX_PERM_CL_NUM);
 
-        for (int j = 0; j < svcdb->grp_num; ++j) {
+        for (int j = 0; j < svcdb->svc_num; ++j) {
             // check each acgroup
             protocon_svc_t *grp_ptr = &svcdb->array[j];
             // if this is a valid group (which means initiliased)
-            if (grp_ptr->grp_init != false) {
+            if (grp_ptr->svc_init != false) {
                 // ensure this is a valid type...
-                //assert(grp_ptr->grp_type <= MAX_PERC_AK_NUM);
+                //assert(grp_ptr->svc_type <= MAX_PERC_AK_NUM);
 
                 // FIXME here..
-                int cur_num = acg_stat_map[i][grp_ptr->grp_type];
+                int cur_num = acg_stat_map[i][grp_ptr->svc_type];
                 // check if we have enough connections of a type
                 if (cur_num >= MAX_PERK_NUM) {
                     // halt...
-                    TSLDR_DBG_PRINT(LIB_NAME_MACRO "current number of %d type acg in PD%d is %d\n", grp_ptr->grp_type, i, cur_num);
+                    TSLDR_DBG_PRINT(LIB_NAME_MACRO "current number of %d type acg in PD%d is %d\n", grp_ptr->svc_type, i, cur_num);
                     microkit_internal_crash(-1);
                 }
                 // FIXME here...
-                acg_stat_map[i][grp_ptr->grp_type]++;
+                acg_stat_map[i][grp_ptr->svc_type]++;
 
-                TSLDR_DBG_PRINT(LIB_NAME_MACRO "[acg_arr][acg: %d]: grp id:   %d\n", j, grp_ptr->grp_idx);
-                TSLDR_DBG_PRINT(LIB_NAME_MACRO "[acg_arr][acg: %d]: grp type: %d\n", j, grp_ptr->grp_type);
+                TSLDR_DBG_PRINT(LIB_NAME_MACRO "[acg_arr][acg: %d]: grp id:   %d\n", j, grp_ptr->svc_idx);
+                TSLDR_DBG_PRINT(LIB_NAME_MACRO "[acg_arr][acg: %d]: grp type: %d\n", j, grp_ptr->svc_type);
 
                 // iterate all available mapings of this acg...
                 StrippedMapping *map_ptr = grp_ptr->mappings;
@@ -73,10 +73,10 @@ void monitor_init_ossvc_map(void)
 
 void monitor_patch_payload_with_ossvc__worker_func(protocon_svc_t *svc, acg_req_t *req, tsldr_acrtreq_t *req_acrt, patch_elf_connection_fn fn, uintptr_t payload_base)
 {
-    if (!svc->grp_init) {
+    if (!svc->svc_init) {
         return;
     }
-    uint8_t type = svc->grp_type;
+    uint8_t type = svc->svc_type;
     if (!req->acg_per_type_num[type]) {
         return;
     }
@@ -115,14 +115,14 @@ void monitor_patch_payload_with_ossvc_info(int cid, acg_req_t *req, uintptr_t pa
     // this is the current alternative to choose a subset from...
     protocon_svcdb_t *svcdb = &((monitor_svcdb_t *)microkit_template_spec_ar)->list[cid];
     TSLDR_DBG_PRINT(LIB_NAME_MACRO "pd index of the given acg arr: %d\n", svcdb->pd_idx);
-    TSLDR_DBG_PRINT(LIB_NAME_MACRO "number of acgs in the acg arr: %d\n", svcdb->grp_num);
+    TSLDR_DBG_PRINT(LIB_NAME_MACRO "number of acgs in the acg arr: %d\n", svcdb->svc_num);
 
     tsldr_acrtreq_t req_acrt;
 
     // get the subset from the above according to the instructions given in req...
     protocon_svc_t *curr_svc = svcdb->array;
     // check all available acgroups...
-    for (int i = 0; i < svcdb->grp_num; ++i) {
+    for (int i = 0; i < svcdb->svc_num; ++i) {
         monitor_patch_payload_with_ossvc__worker_func(&curr_svc[i], req, &req_acrt, fn, payload_base);
     }
 
