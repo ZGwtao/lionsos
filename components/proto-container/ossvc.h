@@ -50,15 +50,6 @@ typedef struct {
     protocon_svcdb_t list[16];
 } monitor_svcdb_t;
 
-
-// we use this to parse non-revokable capabilities
-typedef struct {
-    // number of available entries...
-    size_t len;
-    // ...
-} access_rights_table_t;
-
-
 typedef enum {
     
     PROTOCON_ACTIVE = 1,
@@ -80,7 +71,7 @@ void monitor_init_ossvc_map(void);
 
 typedef void (*patch_elf_connection_fn)(void *elf_base, char data_file[], uintptr_t vaddr);
 
-void monitor_patch_payload_with_ossvc_info(int cid, acg_req_t *req, uintptr_t payload_base, patch_elf_connection_fn fn);
+void monitor_patch_payload_with_ossvc_info(int cid, acg_req_t *req, uintptr_t payload_base, uintptr_t monitor_svcdb_base, patch_elf_connection_fn fn);
 
 
 int monitor_match_ossvc_request_with_available_pd(void *elf_base, void *sh, acg_req_t *req);

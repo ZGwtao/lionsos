@@ -77,7 +77,7 @@ protocon_lifecycle_state_t protocon_states[MAX_PERM_CL_NUM];
 
 
 // base of all shared acgroup metadata regions
-monitor_svcdb_t *acgroup_metadata_base = (monitor_svcdb_t *)0x0ff80000;
+uintptr_t msvcdb_base = 0x0ff80000;
 
 fs_queue_t *fs_command_queue;
 fs_queue_t *fs_completion_queue;
@@ -245,7 +245,7 @@ void monitor_call_debute_lower()
     tsldr_miscutil_memcpy((void*)trampoline_base, (char *)ext_trampoline_elf, ELF_FILE_SIZE);
     TSLDR_DBG_PRINT(PROGNAME "Copied trampoline program to child PD's memory region\n");
 
-    monitor_patch_payload_with_ossvc_info(cid, &req, payload_base, patch_elf_connection);
+    monitor_patch_payload_with_ossvc_info(cid, &req, payload_base, msvcdb_base, patch_elf_connection);
 
     tsldr_main_monitor_init_mdinfo((tsldr_mdinfodb_t *)microkit_template_spec, cid, (void *)((char *)TSLDR_METADATA_BASE + cid * TSLDR_METADATA_SIZE));
 

@@ -8,8 +8,6 @@
 extern int acg_stat_map[MAX_PERM_CL_NUM][MAX_PERC_AK_NUM];
 extern protocon_lifecycle_state_t protocon_states[MAX_PERM_CL_NUM];
 
-extern monitor_svcdb_t *acgroup_metadata_base;
-
 //
 // initialise the global acgroup state map
 //  => everything is read from the microkit patched metadata
@@ -75,12 +73,8 @@ void monitor_init_ossvc_map(void)
 
 typedef void (*patch_elf_connection_fn)(void *elf_base, char data_file[], uintptr_t vaddr);
 
-void monitor_patch_payload_with_ossvc_info(int cid, acg_req_t *req, uintptr_t payload_base, patch_elf_connection_fn fn)
+void monitor_patch_payload_with_ossvc_info(int cid, acg_req_t *req, uintptr_t payload_base, uintptr_t monitor_svcdb_base, patch_elf_connection_fn fn)
 {
-    // fill access rights group metadata now for the payload...
-    // then the trusted loader will revoke unnecessary capabilities beside the ones we can to establish...
-    access_rights_table_t *acg = (access_rights_table_t *)((unsigned char *)acgroup_metadata_base + 0x1000 * cid);
-
     // so the trusted loader will not care how these access rights entry sit
     // all we have to do is specifying a number of total rights while put them after the number
     // now the job is to collect all access rights from the acgroup from the given acg
@@ -133,8 +127,12 @@ void monitor_patch_payload_with_ossvc_info(int cid, acg_req_t *req, uintptr_t pa
         req->acg_per_type_num[type]--;
     }
 
-    acg->len = num_channels + num_mappings;
-    tsldr_main_monitor_encode_required_rights((unsigned char *)acg + sizeof(size_t), channels, num_channels, NULL, 0, mappings, num_mappings);
+    seL4_Word *svc_num_ptr = (seL4_Word *)((char *)monitor_svcdb_base + 0x1000 * cid);
+    unsigned char *svc_data_ptr = (unsigned char*)(svc_num_ptr + 1);
+
+    *svc_num_ptr = num_channels + num_mappings;
+
+    tsldr_main_monitor_encode_required_rights(svc_data_ptr, channels, num_channels, NULL, 0, mappings, num_mappings);
 }
 
 
