@@ -168,7 +168,7 @@ static void patch_elf_connection(void *elf_base, char data_file[], uintptr_t vad
 }
 
 
-inline void monitor_main_notify_frontend()
+static inline void monitor_main_notify_frontend()
 {
     microkit_notify(PC_MONITOR_FRONTEND_CHANNEL);
 }
@@ -312,12 +312,7 @@ seL4_Bool fault(microkit_child child, microkit_msginfo msginfo, microkit_msginfo
 
 seL4_MessageInfo_t monitor_call_debute(void)
 {
-    Elf64_Ehdr *ehdr = (Elf64_Ehdr *)ext_protocon_elf;
-    if (tsldr_miscutil_memcmp(ehdr->e_ident, (const unsigned char*)ELFMAG, SELFMAG) != 0) {
-        TSLDR_DBG_PRINT(PROGNAME "Data in shared memory region must be an ELF file\n");
-        return microkit_msginfo_new(seL4_InvalidArgument, 0);
-    }
-    TSLDR_DBG_PRINT(PROGNAME "Verified ELF header\n");
+    tsldr_main_check_elf_integrity(ext_protocon_elf);
 
     if (microkit_cothread_spawn(monitor_call_debute_lower, NULL) == LIBMICROKITCO_NULL_HANDLE) {
         TSLDR_DBG_PRINT(PROGNAME "Cannot initialise monitor cothread\n");
