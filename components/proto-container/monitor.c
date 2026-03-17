@@ -70,6 +70,12 @@ fs_queue_t *fs_command_queue;
 fs_queue_t *fs_completion_queue;
 char *fs_share;
 
+#define SET_PROTOCON_AS_INSTANTIATED(C) \
+    do { protocon_states[C] = PROTOCON_ACTIVE; } while (0);
+
+#define SET_PROTOCON_AS_AVAILABLE(C) \
+    do { protocon_states[C] = PROTOCON_PASSIVE; } while (0);
+
 
 void monitor_main_cothread_spawn(const client_entry_t client_entry, void *arg, char err_msg[])
 {
@@ -172,11 +178,8 @@ void monitor_call_debute_lower()
     tsldr_miscutil_memcpy((char *)TSLDR_CONTEXT_BASE + cid * TSLDR_CONTEXT_SIZE, &protocon_ctx_db[cid], sizeof(tsldr_context_t));
 
     tsldr_main_monitor_privilege_pd(cid);
-    //
-    // set the client PD to restart as exclusive... 
-    // mark current client[cid] PD in use
-    //
-    protocon_states[cid] = PROTOCON_ACTIVE;
+
+    SET_PROTOCON_AS_INSTANTIATED(cid)
 
     /* switch to trusted loader */
     microkit_pd_restart(cid, entry);
@@ -261,8 +264,7 @@ seL4_MessageInfo_t monitor_call_restore(microkit_channel ch)
     }
     assert(protocon_states[ch - 24] == PROTOCON_ACTIVE);
 
-    // restore client PD state...
-    protocon_states[ch - 24] = PROTOCON_PASSIVE;
+    SET_PROTOCON_AS_AVAILABLE(ch - 24)
 
     monitor_main_notify_frontend();
 
