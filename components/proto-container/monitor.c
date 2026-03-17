@@ -75,6 +75,16 @@ fs_queue_t *fs_completion_queue;
 char *fs_share;
 
 
+void monitor_main_cothread_spawn(const client_entry_t client_entry, void *arg, char err_msg[])
+{
+    if (microkit_cothread_spawn(client_entry, arg) == LIBMICROKITCO_NULL_HANDLE) {
+        TSLDR_DBG_PRINT(err_msg);
+        microkit_internal_crash(-1);
+    }
+    microkit_cothread_yield();
+}
+
+
 void monitor_main_init_storage(void)
 {
     memset(request_metadata, 0, sizeof(request_metadata_t) * FS_QUEUE_CAPACITY);
@@ -266,11 +276,7 @@ void init(void)
         microkit_cothread_semaphore_init(&sem[i]);
     }
 
-    if (microkit_cothread_spawn(monitor_main_init_storage, NULL) == LIBMICROKITCO_NULL_HANDLE) {
-        TSLDR_DBG_PRINT(PROGNAME "Cannot initialise frontend cothread1\n");
-        microkit_internal_crash(-1);
-    }
-    microkit_cothread_yield();
+    monitor_main_cothread_spawn(monitor_main_init_storage, NULL, " failed to spawn thread for storage initialisation.\n");
 
     TSLDR_DBG_PRINT(PROGNAME "Finished init\n");
 }
@@ -307,13 +313,7 @@ seL4_MessageInfo_t monitor_call_debute(void)
 {
     tsldr_main_check_elf_integrity(ext_protocon_elf);
 
-    if (microkit_cothread_spawn(monitor_call_debute_lower, NULL) == LIBMICROKITCO_NULL_HANDLE) {
-        TSLDR_DBG_PRINT(PROGNAME "Cannot initialise monitor cothread\n");
-        microkit_internal_crash(-1);
-    }
-    microkit_cothread_yield();
-
-    TSLDR_DBG_PRINT(PROGNAME "finished with loading data files\n");
+    monitor_main_cothread_spawn(monitor_call_debute_lower, NULL, "cannot initialise monitor cothread for monitor call.\n");
     return microkit_msginfo_new(seL4_NoError, 0);
 }
 
