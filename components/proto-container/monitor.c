@@ -63,6 +63,10 @@ protocon_lifecycle_state_t protocon_states[PC_CHILD_PER_MONITOR_MAX_NUM];
 
 
 
+#define PC_MONITOR_FRONTEND_CHANNEL (15)
+
+
+
 // base of all shared acgroup metadata regions
 uintptr_t msvcdb_base = 0x0ff80000;
 
@@ -164,6 +168,11 @@ static void patch_elf_connection(void *elf_base, char data_file[], uintptr_t vad
 }
 
 
+inline void monitor_main_notify_frontend()
+{
+    microkit_notify(PC_MONITOR_FRONTEND_CHANNEL);
+}
+
 void monitor_call_debute_lower()
 {
     Elf64_Ehdr *ehdr = (Elf64_Ehdr *)ext_protocon_elf;
@@ -180,27 +189,9 @@ void monitor_call_debute_lower()
     iface_sh = elf_find_section((void *)ext_payload_elf, PC_SVC_DESC_SECTION_NAME);
     if (!iface_sh) {
         TSLDR_DBG_PRINT(PROGNAME "Failed to restart container as no iface section specified\n");
-        ////
-        // FIXME:
-        //  try to signal frontend to print instruction for next step
-        //
-        microkit_notify(15);
+        monitor_main_notify_frontend();
         return;
     }
-    // choose an available container PD in here... 
-    // we assume that all service of the same kind can match (if the connection structure is change, hard code it as well)
-    // MUST ADHERE TO WHAT THIS CONTAINER MONITOR EXPOSES TO THE OUTER WORLD!!
-    // one PD has at most 32 allowed acgroups (if one acgroup points to one service...)
-    //
-    // what the iface gives can be something like:
-    // <type1, 2>, <type2, 3>, <type3, 4>...
-    // we don't have to worry about the referenced address of each required service, just to find a good match here
-    // so we can have a map for one PD which contains acgroup
-    // type1, num: [acg id]
-    // type2, num: [acg id]
-    // ...
-    // finished and picked one
-    //
 
     // a request stat for the client payload...
     protocon_svc_req_t req;
@@ -209,11 +200,7 @@ void monitor_call_debute_lower()
     if (cid >= PC_CHILD_PER_MONITOR_MAX_NUM || cid < 0) {
         TSLDR_DBG_PRINT(PROGNAME "Failed to find suitable container for payload\n");
         TSLDR_DBG_PRINT(PROGNAME "Fetched cid number is: %d\n", cid);
-        //
-        // FIXME:
-        //  try to signal frontend to print instruction for next step
-        //
-        microkit_notify(15);
+        monitor_main_notify_frontend();
         return;
     }
     TSLDR_DBG_PRINT(PROGNAME "cid available: %d\n", cid);
@@ -354,9 +341,7 @@ seL4_MessageInfo_t monitor_call_restore(microkit_channel ch)
     // restore client PD state...
     protocon_states[ch - 24] = PROTOCON_PASSIVE;
 
-    // TODO
-    // => call frontend's shell to dump instructions for switching work env
-    microkit_notify(15);
+    monitor_main_notify_frontend();
 
     return microkit_msginfo_new(seL4_NoError, 0);
 }
@@ -396,10 +381,6 @@ seL4_MessageInfo_t protected(microkit_channel ch, microkit_msginfo msginfo)
         TSLDR_DBG_PRINT(PROGNAME "Loading trusted loader and the first client\n");
         ret = monitor_call_debute();
         break;
-    //case 2:
-    //    TSLDR_DBG_PRINT(PROGNAME "Restart trusted loader and a new client\n");
-    //    ret = monitor_call_restart(ch - 15);
-    //    break;
     case 20:
         TSLDR_DBG_PRINT(PROGNAME "Exit to uninstantiated container\n");
         ret = monitor_call_backup_tsldr_context(ch);
