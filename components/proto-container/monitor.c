@@ -240,18 +240,11 @@ void monitor_call_debute_lower()
 
 void init(void)
 {
-    microkit_dbg_puts("Hello from monitor\n");
-    sddf_printf("Test serial driver\n");
-
     assert(fs_config_check_magic(&fs_config));
     fs_command_queue = fs_config.server.command_queue.vaddr;
     fs_completion_queue = fs_config.server.completion_queue.vaddr;
     fs_share = fs_config.server.share.vaddr;
     fs_init = false;
-
-    tsldr_mdinfodb_t *mdinfodb = (tsldr_mdinfodb_t *)microkit_template_spec;
-    TSLDR_DBG_PRINT(PROGNAME "%d\n", mdinfodb->avails);
-    TSLDR_DBG_PRINT(PROGNAME "%s\n", microkit_name);
 
     tsldr_miscutil_memset(monitor_svc_dist_map, 0, sizeof(int) * PC_CHILD_PER_MONITOR_MAX_NUM * SVC_TYPE_MAX_NUM);
 
