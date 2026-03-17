@@ -60,7 +60,7 @@ protocon_lifecycle_state_t protocon_states[PC_CHILD_PER_MONITOR_MAX_NUM];
 
 
 #define PC_MONITOR_FRONTEND_CHANNEL (15)
-
+#define PC_MONITOR_PROTOCON_BASE_CHANNEL (24)
 
 
 // base of all shared acgroup metadata regions
@@ -260,16 +260,25 @@ seL4_MessageInfo_t monitor_call_debute(void)
     return microkit_msginfo_new(seL4_NoError, 0);
 }
 
+
+int monitor_main_get_cid_from_channl(microkit_channel ch)
+{
+    if (ch < PC_MONITOR_PROTOCON_BASE_CHANNEL ||
+        ch >= (PC_MONITOR_PROTOCON_BASE_CHANNEL + PC_CHILD_PER_MONITOR_MAX_NUM))
+    {
+        TSLDR_DBG_PRINT(PROGNAME "Received signal from non-client PD that tries to uninstantiate client PD!\n");
+        microkit_internal_crash(-1);
+    }
+    return ch - PC_MONITOR_PROTOCON_BASE_CHANNEL;
+}
+
+
 seL4_MessageInfo_t monitor_call_restore(microkit_channel ch)
 {
-    // sanity check for the channel ID
-    if (ch < 24 || ch >= 56) {
-        TSLDR_DBG_PRINT(PROGNAME "Received signal from non-client PD that tries to uninstantiate client PD!\n");
-        return microkit_msginfo_new(-1, 0);
-    }
-    assert(protocon_states[ch - 24] == PROTOCON_ACTIVE);
+    int cid = monitor_main_get_cid_from_channl(ch);
+    assert(protocon_states[cid] == PROTOCON_ACTIVE);
 
-    SET_PROTOCON_AS_AVAILABLE(ch - 24)
+    SET_PROTOCON_AS_AVAILABLE(cid)
 
     monitor_main_notify_frontend();
 
@@ -279,18 +288,11 @@ seL4_MessageInfo_t monitor_call_restore(microkit_channel ch)
 
 seL4_MessageInfo_t monitor_call_backup_tsldr_context(microkit_channel ch)
 {
-    // sanity check for the channel ID
-    if (ch < 24 || ch >= 56) {
-        TSLDR_DBG_PRINT(PROGNAME "Received signal from non-client PD that tries to uninstantiate client PD!\n");
-        return microkit_msginfo_new(-1, 0);
-    }
+    int cid = monitor_main_get_cid_from_channl(ch);
 
-    tsldr_context_t *context;
-    // fetch target trusted loading context...
-    context = (tsldr_context_t *)((unsigned char *)TSLDR_CONTEXT_BASE + (ch - 24) * TSLDR_CONTEXT_SIZE);
+    tsldr_context_t *context = (tsldr_context_t *)((unsigned char *)TSLDR_CONTEXT_BASE + cid * TSLDR_CONTEXT_SIZE);
 
-    // backup trusted loading context in target slot..
-    tsldr_miscutil_memcpy(&protocon_ctx_db[ch - 24], context, sizeof(tsldr_context_t));
+    tsldr_miscutil_memcpy(&protocon_ctx_db[cid], context, sizeof(tsldr_context_t));
 
     return microkit_msginfo_new(seL4_NoError, 0);
 }
