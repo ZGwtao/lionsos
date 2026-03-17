@@ -1,7 +1,6 @@
 
 #include <microkit.h>
 #include <stdarg.h>
-#include <string.h>
 #include <sddf/util/printf.h>
 #include <libtrustedlo.h>
 
@@ -87,8 +86,8 @@ void monitor_main_cothread_spawn(const client_entry_t client_entry, void *arg, c
 
 void monitor_main_init_storage(void)
 {
-    memset(request_metadata, 0, sizeof(request_metadata_t) * FS_QUEUE_CAPACITY);
-    memset(buffer_metadata, 0, sizeof(buffer_metadata_t) * FS_QUEUE_CAPACITY);
+    tsldr_miscutil_memset(request_metadata, 0, sizeof(request_metadata_t) * FS_QUEUE_CAPACITY);
+    tsldr_miscutil_memset(buffer_metadata, 0, sizeof(buffer_metadata_t) * FS_QUEUE_CAPACITY);
 
     TSLDR_DBG_PRINT(PROGNAME "(fs mount) start fs initialisation\n");
     fs_cmpl_t completion;
@@ -99,27 +98,6 @@ void monitor_main_init_storage(void)
     fs_init = true;
 
     TSLDR_DBG_PRINT(PROGNAME "(fs mount) finished fs initialisation\n");
-}
-
-static Elf64_Shdr *elf_find_section(void *elf_base, char section_name[])
-{
-    Elf64_Ehdr *eh = (Elf64_Ehdr *)elf_base;
-    Elf64_Shdr *sh_table = (Elf64_Shdr *)(elf_base + eh->e_shoff);
-    Elf64_Shdr *shstr_sh = &sh_table[eh->e_shstrndx];
-
-    const char *shstrtab = (const char *)(elf_base + shstr_sh->sh_offset);
-
-    Elf64_Shdr *target_sh = NULL;
-    for (int i = 0; i < eh->e_shnum; ++i) {
-        Elf64_Shdr *sh = &sh_table[i];
-        if (sh->sh_name >= shstr_sh->sh_size) continue;
-        const char *name = shstrtab + sh->sh_name;
-        if (strcmp(name, section_name) == 0) {
-            target_sh = sh;
-            break;
-        }
-    }
-    return target_sh;
 }
 
 static inline uint64_t vaddr_to_file_off_elf64(const void *elf_base, uint64_t vaddr) {
@@ -142,7 +120,7 @@ static int patch_elf_section(void *elf_base, char section_name[], char data_file
 {
     Elf64_Shdr *target_sh;
     // find target elf section for patching
-    target_sh= elf_find_section(elf_base, section_name);
+    target_sh= (Elf64_Shdr *)tsldr_miscutil_find_section_from_elf(elf_base, section_name);
     if (!target_sh) {
         TSLDR_DBG_PRINT(PROGNAME "section '%s' not found\n", section_name);
         return -1;
@@ -196,7 +174,7 @@ void monitor_call_debute_lower()
 
     // FIXME: should not use shared memory to determine state...
     Elf64_Shdr *iface_sh;
-    iface_sh = elf_find_section((void *)ext_payload_elf, PC_SVC_DESC_SECTION_NAME);
+    iface_sh = (Elf64_Shdr *)tsldr_miscutil_find_section_from_elf((void *)ext_payload_elf, PC_SVC_DESC_SECTION_NAME);
     if (!iface_sh) {
         TSLDR_DBG_PRINT(PROGNAME "Failed to restart container as no iface section specified\n");
         monitor_main_notify_frontend();
