@@ -296,7 +296,7 @@ seL4_MessageInfo_t monitor_call_backup_tsldr_context(microkit_channel ch)
 }
 
 
-seL4_MessageInfo_t protected(microkit_channel ch, microkit_msginfo msginfo)
+seL4_MessageInfo_t monitor_main_handle_pccall(microkit_channel ch)
 {
     TSLDR_DBG_PRINT(PROGNAME "Received protected message on channel: %d\n", ch);
 
@@ -327,3 +327,10 @@ seL4_MessageInfo_t protected(microkit_channel ch, microkit_msginfo msginfo)
 
     return ret;
 }
+
+
+seL4_MessageInfo_t protected(microkit_channel ch, microkit_msginfo msginfo)
+{
+    return monitor_main_handle_pccall(ch);
+}
+
