@@ -226,7 +226,7 @@ void notified(microkit_channel ch)
     microkit_cothread_recv_ntfn(ch);
 }
 
-seL4_Bool fault(microkit_child child, microkit_msginfo msginfo, microkit_msginfo *reply_msginfo)
+void monitor_main_handle_fault(microkit_child child, microkit_msginfo msginfo)
 {
     TSLDR_DBG_PRINT(PROGNAME "Received fault message for child PD: %d\n", child);
 
@@ -240,8 +240,13 @@ seL4_Bool fault(microkit_child child, microkit_msginfo msginfo, microkit_msginfo
         TSLDR_DBG_PRINT(PROGNAME "Fault address: 0x%x\n", (unsigned long long)address);
         TSLDR_DBG_PRINT(PROGNAME "Fault instruction pointer: 0x%x\n", (unsigned long long)ip);
     }
-
     microkit_pd_stop(child);
+}
+
+
+seL4_Bool fault(microkit_child child, microkit_msginfo msginfo, microkit_msginfo *reply_msginfo)
+{
+    monitor_main_handle_fault(child, msginfo);
 
     // Stop the thread explicitly; no need to reply to the fault
     return seL4_False;
