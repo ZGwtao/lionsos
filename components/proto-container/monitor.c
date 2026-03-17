@@ -38,9 +38,6 @@ uint64_t _worker_thread_stack_two = 0xB0000000;
 request_metadata_t request_metadata[FS_QUEUE_CAPACITY];
 buffer_metadata_t buffer_metadata[FS_QUEUE_CAPACITY];
 
-bool fs_init;
-
-
 
 int monitor_svc_dist_map[PC_CHILD_PER_MONITOR_MAX_NUM][SVC_TYPE_MAX_NUM];
 
@@ -95,53 +92,14 @@ void monitor_main_init_storage(void)
     if (err || completion.status != FS_STATUS_SUCCESS) {
         TSLDR_DBG_PRINT(PROGNAME "MP|ERROR: Failed to mount\n");
     }
-    fs_init = true;
-
     TSLDR_DBG_PRINT(PROGNAME "(fs mount) finished fs initialisation\n");
 }
 
-static inline uint64_t vaddr_to_file_off_elf64(const void *elf_base, uint64_t vaddr) {
-    const uint8_t    *base = (const uint8_t *)elf_base;
-    const Elf64_Ehdr *eh   = (const Elf64_Ehdr *)base;
-    const Elf64_Shdr *sh   = (const Elf64_Shdr *)(base + eh->e_shoff);
-
-    for (uint16_t i = 0; i < eh->e_shnum; ++i) {
-        uint64_t start = sh[i].sh_addr;
-        uint64_t size  = sh[i].sh_size;
-        if (vaddr >= start && vaddr < start + size) {
-            if (sh[i].sh_type == SHT_NOBITS) return (uint64_t)-1;
-            return (uint64_t)(elf_base + sh[i].sh_offset + (vaddr - start));
-        }
-    }
-    return (uint64_t)-1;
-}
-
-static int patch_elf_section(void *elf_base, char section_name[], char data_file[])
-{
-    Elf64_Shdr *target_sh;
-    // find target elf section for patching
-    target_sh= (Elf64_Shdr *)tsldr_miscutil_find_section_from_elf(elf_base, section_name);
-    if (!target_sh) {
-        TSLDR_DBG_PRINT(PROGNAME "section '%s' not found\n", section_name);
-        return -1;
-    }
-
-    int err = 0;
-    pico_vfs_readfile2buf((void *)(elf_base + (uint64_t)target_sh->sh_offset), data_file, &err);
-    if (err != seL4_NoError) {
-        // halt...
-        while (1);
-    }
-    TSLDR_DBG_PRINT(PROGNAME "  %d \n", (void *)(elf_base));
-    TSLDR_DBG_PRINT(PROGNAME "  %d \n", (void *)(elf_base + (uint64_t)target_sh->sh_offset));
-    TSLDR_DBG_PRINT(PROGNAME "  %d \n", (void *)(((Elf64_Ehdr *)elf_base)->e_entry + (uint64_t)target_sh->sh_offset));
-    return err;
-}
 
 static void patch_elf_connection(void *elf_base, char data_file[], uintptr_t vaddr)
 {
     int err = 0;
-    uintptr_t target_sh = vaddr_to_file_off_elf64(elf_base, vaddr);
+    seL4_Word target_sh = tsldr_miscutil_fetch_elf_section_with_vaddr(elf_base, vaddr);
     if (!target_sh) {
         // halt...
         while (1);
@@ -232,7 +190,6 @@ void init(void)
     fs_command_queue = fs_config.server.command_queue.vaddr;
     fs_completion_queue = fs_config.server.completion_queue.vaddr;
     fs_share = fs_config.server.share.vaddr;
-    fs_init = false;
 
     tsldr_miscutil_memset(monitor_svc_dist_map, 0, sizeof(int) * PC_CHILD_PER_MONITOR_MAX_NUM * SVC_TYPE_MAX_NUM);
 
