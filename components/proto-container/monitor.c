@@ -71,7 +71,7 @@ fs_queue_t *fs_completion_queue;
 char *fs_share;
 
 
-void test_entrypoint(void)
+void monitor_main_init_storage(void)
 {
     memset(request_metadata, 0, sizeof(request_metadata_t) * FS_QUEUE_CAPACITY);
     memset(buffer_metadata, 0, sizeof(buffer_metadata_t) * FS_QUEUE_CAPACITY);
@@ -286,7 +286,7 @@ void init(void)
         microkit_cothread_semaphore_init(&sem[i]);
     }
 
-    if (microkit_cothread_spawn(test_entrypoint, NULL) == LIBMICROKITCO_NULL_HANDLE) {
+    if (microkit_cothread_spawn(monitor_main_init_storage, NULL) == LIBMICROKITCO_NULL_HANDLE) {
         TSLDR_DBG_PRINT(PROGNAME "Cannot initialise frontend cothread1\n");
         microkit_internal_crash(-1);
     }
