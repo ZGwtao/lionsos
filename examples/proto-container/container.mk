@@ -5,8 +5,6 @@
 #
 IMAGES := \
 	timer_driver.elf \
-	eth_driver.elf \
-	micropython.elf \
 	monitor.elf \
 	frontend.elf \
 	protocon.elf \
@@ -19,83 +17,36 @@ IMAGES := \
 	blk_virt.elf \
 	blk_driver.elf
 
-ifeq ($(strip $(MICROKIT_BOARD)), maaxboard)
-	BLK_DRIV_DIR := mmc/imx
-	SERIAL_DRIV_DIR := imx
-	TIMER_DRIV_DIR := imx
-	CPU := cortex-a53
-else ifeq ($(strip $(MICROKIT_BOARD)), qemu_virt_aarch64)
-	BLK_DRIV_DIR := virtio/mmio
-	SERIAL_DRIV_DIR := arm
-	TIMER_DRIV_DIR := arm
-	IMAGES += blk_driver.elf
-	CPU := cortex-a53
-	QEMU := qemu-system-aarch64
-	ARCH := aarch64
-else
-$(error Unsupported MICROKIT_BOARD given)
-endif
+SUPPORTED_BOARDS:= \
+	qemu_virt_aarch64
 
-# Toolchain and compiler settings
-TOOLCHAIN := aarch64-none-elf
-CPU := cortex-a53
-
-CC := $(TOOLCHAIN)-gcc
-LD := $(TOOLCHAIN)-ld
-AS := $(TOOLCHAIN)-as
-AR := $(TOOLCHAIN)-ar
-RANLIB := $(TOOLCHAIN)-ranlib
-OBJCOPY := $(TOOLCHAIN)-objcopy
-TARGET := aarch64-none-elf
+TOOLCHAIN ?= clang
+CP ?= cp
 MICROKIT_TOOL ?= $(MICROKIT_SDK)/bin/microkit
-DTC := dtc
-PYTHON ?= python3
-CP := cp
-
-BOARD_DIR := $(MICROKIT_SDK)/board/$(MICROKIT_BOARD)/$(MICROKIT_CONFIG)
 SDDF := $(LIONSOS)/dep/sddf
-
-METAPROGRAM := $(CONTAINER_DIR)/meta.py
-DTS := $(SDDF)/dts/$(MICROKIT_BOARD).dts
-DTB := $(MICROKIT_BOARD).dtb
-
-FAT := $(LIONSOS)/components/fs/fat
-MUSL_SRC := $(LIONSOS)/dep/musllibc
-MUSL := musllibc
-
-CFLAGS := \
-	-mtune=$(CPU) \
-	-mstrict-align \
-	-ffreestanding \
-	-g3 \
-	-O3 \
-	-Wall \
-	-Wno-unused-function \
-	-Wno-incompatible-pointer-types \
-	-I$(BOARD_DIR)/include \
-	-DBOARD_$(MICROKIT_BOARD) \
-	-I$(LIONSOS)/include \
-	-I$(SDDF)/include \
-	-I$(SDDF)/include/microkit
-
-
-LDFLAGS := -L$(BOARD_DIR)/lib
-LIBS := -lmicrokit -Tmicrokit.ld libsddf_util_debug.a
-
+LIBMICROKITCO_PATH := $(LIONSOS)/dep/libmicrokitco
 SYSTEM_FILE := container.system
 IMAGE_FILE := container.img
 REPORT_FILE := report.txt
 
-all: cache.o
-CHECK_FLAGS_BOARD_MD5:=.board_cflags-$(shell echo -- ${CFLAGS} ${BOARD} ${MICROKIT_CONFIG} | shasum | sed 's/ *-//')
 
-${CHECK_FLAGS_BOARD_MD5}:
-	-rm -f .board_cflags-*
-	touch $@
+all: ${IMAGE_FILE}
 
+include ${SDDF}/tools/make/board/common.mk
 
-%.elf: %.o
-	${LD} ${LDFLAGS} -o $@ $< ${LIBS}
+METAPROGRAM := $(CONTAINER_DIR)/meta.py
+FAT := $(LIONSOS)/components/fs/fat
+
+CFLAGS += \
+	-I$(LIONSOS)/include \
+	-I$(SDDF)/include \
+	-I$(SDDF)/include/microkit \
+	-I$(LIBMICROKITCO_PATH)
+
+include $(LIONSOS)/lib/libc/libc.mk
+
+LDFLAGS := -L$(BOARD_DIR)/lib -L$(LIONS_LIBC)/lib
+LIBS := -lmicrokit -Tmicrokit.ld libsddf_util_debug.a -lc
 
 BLK_DRIVER := $(SDDF)/drivers/blk/${BLK_DRIV_DIR}
 BLK_COMPONENTS := $(SDDF)/blk/components
@@ -105,97 +56,49 @@ include ${SDDF}/util/util.mk
 include ${SDDF}/drivers/timer/${TIMER_DRIV_DIR}/timer_driver.mk
 include ${SDDF}/drivers/serial/${UART_DRIV_DIR}/serial_driver.mk
 include ${SDDF}/serial/components/serial_components.mk
-include ${SDDF}/network/lib_sddf_lwip/lib_sddf_lwip.mk
 include ${SDDF}/libco/libco.mk
 include ${BLK_DRIVER}/blk_driver.mk
 include ${BLK_COMPONENTS}/blk_components.mk
 
-MICROPYTHON_LIBMATH := ${LIBMATH}
-MICROPYTHON_CONFIG_INCLUDE := ${CONFIG_INCLUDE}
-MICROPYTHON_FROZEN_MANIFEST := manifest.py
-#include $(LIONSOS)/components/micropython/micropython.mk
-
-manifest.py: 
 
 %.py: ${CONTAINER_DIR}/%.py
 	cp $< $@
 
-FAT_LIBC_LIB := $(MUSL)/lib/libc.a
-FAT_LIBC_INCLUDE := $(MUSL)/include
-CONTAINER_LIBC_LIB := $(FAT_LIBC_LIB)
-CONTAINER_LIBC_INCLUDE := $(FAT_LIBC_INCLUDE)
+FAT_LIBC_LIB := $(LIONS_LIBC)/lib/libc.a
+FAT_LIBC_INCLUDE := $(LIONS_LIBC)/include
 include $(LIONSOS)/components/fs/fat/fat.mk
+
+CONTAINER_LIBC_LIB := $(LIONS_LIBC)/lib/libc.a
+CONTAINER_LIBC_INCLUDE := $(LIONS_LIBC)/include
 include $(LIONSOS)/components/proto-container/pc.mk
 
-$(MUSL):
-	mkdir -p $@
+LIBMICROKITCO_LIBC_INCLUDE := $(LIONS_LIBC)/include
+include $(LIBMICROKITCO_PATH)/libmicrokitco.mk
 
-MUSL_CONFIGURED := ${MUSL}/.configured
-MUSL_BUILT := ${MUSL}/.built
 
-$(MUSL_CONFIGURED): $(MUSL)
-	cd ${MUSL} && \
-	CC=aarch64-none-elf-gcc \
-	CROSS_COMPILE=aarch64-none-elf- \
-	${MUSL_SRC}/configure \
-		--srcdir=${MUSL_SRC} \
-		--prefix=${abspath ${MUSL}} \
-		--with-malloc=oldmalloc \
-		--target=aarch64 \
-		--enable-warnings \
-		--disable-shared \
-		--enable-static
-	touch $@
+${IMAGES}: $(LIONS_LIBC)/lib/libc.a libsddf_util_debug.a
 
-$(MUSL_BUILT): $(MUSL_CONFIGURED)
-	${MAKE} -C ${MUSL} install
-	touch $@
-
-$(CONTAINER_LIBC_LIB) $(CONTAINER_LIBC_INCLUDE): $(MUSL_BUILT)
-
-${IMAGES}: libsddf_util_debug.a
-
-%.o: %.c
-	${CC} ${CFLAGS} -c -o $@ $<
 
 FORCE:
 
-%.elf: %.o
-	${LD} ${LDFLAGS} -o $@ $< ${LIBS}
-
-mpy-cross: FORCE
-	${MAKE} -C ${LIONSOS}/dep/micropython/mpy-cross BUILD=$(abspath ./mpy_cross)
-
-$(DTB): $(DTS)
-	$(DTC) -q -I dts -O dtb $(DTS) > $(DTB)
 
 $(SYSTEM_FILE): $(METAPROGRAM) $(IMAGES) $(DTB)
 	$(CP) $(BUILD_DIR)/fat.elf $(BUILD_DIR)/frontend_fs.elf
 	$(CP) $(BUILD_DIR)/fat.elf $(BUILD_DIR)/monitor_fs.elf
 	$(CP) $(BUILD_DIR)/fat.elf $(BUILD_DIR)/sp0_fs.elf
 	$(CP) $(BUILD_DIR)/fat.elf $(BUILD_DIR)/sp1_fs.elf
-#	$(CP) $(BUILD_DIR)/fat.elf $(BUILD_DIR)/sp2_fs.elf
-#	$(CP) $(BUILD_DIR)/fat.elf $(BUILD_DIR)/sp3_fs.elf
-#	$(CP) $(BUILD_DIR)/fat.elf $(BUILD_DIR)/sp4_fs.elf
-#	$(CP) $(BUILD_DIR)/fat.elf $(BUILD_DIR)/sp5_fs.elf
-#	$(CP) $(BUILD_DIR)/fat.elf $(BUILD_DIR)/sp6_fs.elf
-#	$(CP) $(BUILD_DIR)/fat.elf $(BUILD_DIR)/sp7_fs.elf
-	$(PYTHON) $(METAPROGRAM) --sddf $(SDDF) --board $(MICROKIT_BOARD) --dtb $(DTB) --output . --sdf $(SYSTEM_FILE)
+	PYTHONPATH=${SDDF}/tools/meta:$$PYTHONPATH $(PYTHON) $(METAPROGRAM) --sddf $(SDDF) --board $(MICROKIT_BOARD) --dtb $(DTB) --output . --sdf $(SYSTEM_FILE)
 	$(OBJCOPY) --update-section .device_resources=serial_driver_device_resources.data serial_driver.elf
-	$(OBJCOPY) --update-section .serial_driver_config=serial_driver_config.data serial_driver.elf
-	$(OBJCOPY) --update-section .serial_virt_tx_config=serial_virt_tx.data serial_virt_tx.elf
-	$(OBJCOPY) --update-section .serial_virt_rx_config=serial_virt_rx.data serial_virt_rx.elf
+	$(OBJCOPY) --update-section .serial_driver_config=serial_driver_config.data 	serial_driver.elf
+	$(OBJCOPY) --update-section .serial_virt_tx_config=serial_virt_tx.data 			serial_virt_tx.elf
+	$(OBJCOPY) --update-section .serial_virt_rx_config=serial_virt_rx.data 			serial_virt_rx.elf
 	$(OBJCOPY) --update-section .device_resources=timer_driver_device_resources.data timer_driver.elf
-#	$(OBJCOPY) --update-section .timer_client_config=timer_client_frontend.data 	frontend.elf
 	$(OBJCOPY) --update-section .serial_client_config=serial_client_frontend.data 	frontend.elf
 	$(OBJCOPY) --update-section .fs_client_config=fs_client_frontend.data 			frontend.elf
-	$(OBJCOPY) --update-section .fs_client_config=fs_client_container_monitor.data 			monitor.elf
-	$(OBJCOPY) --update-section .device_resources=blk_driver_device_resources.data blk_driver.elf
-#	$(OBJCOPY) --update-section .timer_client_config=timer_client_container.data 	micropython.elf
-#	$(OBJCOPY) --update-section .serial_client_config=serial_client_container.data	micropython.elf
-#	$(OBJCOPY) --update-section .fs_client_config=fs_client_container.data			micropython.elf
-	$(OBJCOPY) --update-section .blk_driver_config=blk_driver.data blk_driver.elf
-	$(OBJCOPY) --update-section .blk_virt_config=blk_virt.data blk_virt.elf
+	$(OBJCOPY) --update-section .fs_client_config=fs_client_container_monitor.data 	monitor.elf
+	$(OBJCOPY) --update-section .device_resources=blk_driver_device_resources.data 	blk_driver.elf
+	$(OBJCOPY) --update-section .blk_driver_config=blk_driver.data 					blk_driver.elf
+	$(OBJCOPY) --update-section .blk_virt_config=blk_virt.data 						blk_virt.elf
 	$(OBJCOPY) --update-section .blk_client_config=blk_client_frontend_fs.data		frontend_fs.elf
 	$(OBJCOPY) --update-section .blk_client_config=blk_client_monitor_fs.data 		monitor_fs.elf
 	$(OBJCOPY) --update-section .blk_client_config=blk_client_sp0_fs.data 			sp0_fs.elf
@@ -211,8 +114,7 @@ $(IMAGE_FILE) $(REPORT_FILE): $(IMAGES) $(SYSTEM_FILE)
 		--config $(MICROKIT_CONFIG) -o $(IMAGE_FILE) -r $(REPORT_FILE)
 
 qemu_disk:
-	$(LIONSOS)/dep/sddf/tools/mkvirtdisk $@ 4 512 16777216
-#	$(LIONSOS)/dep/sddf/tools/mkvirtdisk-gpt $@ 8 512 8388608
+	$(LIONSOS)/dep/sddf/tools/mkvirtdisk $@ 4 512 16777216 GPT
 
 qemu: ${IMAGE_FILE} qemu_disk
 	$(QEMU) -machine virt,virtualization=on \
@@ -225,3 +127,6 @@ qemu: ${IMAGE_FILE} qemu_disk
 		-d guest_errors \
 		-drive file=qemu_disk,if=none,format=raw,id=hd \
 		-device virtio-blk-device,drive=hd
+
+#${SDDF}/tools/make/board/common.mk ${SDDF_MAKEFILES} ${LIONSOS}/dep/sddf/include &:
+#	cd $(LIONSOS); git submodule update --init dep/sddf

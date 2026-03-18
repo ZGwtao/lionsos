@@ -37,7 +37,7 @@ void init(void)
     __sel4_ipc_buffer = (seL4_IPCBuffer *)0x100000;
     loader_context = (tsldr_context_t *)0xE00000;
 
-    tsldr_main_self_loading(tsldr_metadata, acgroup_metadata, loader_context, container_elf, container_exec, trampoline_elf, trampoline_stack_top);
+    tsldr_main_self_loading((void *)tsldr_metadata, (void *)acgroup_metadata, loader_context, container_elf, container_exec, trampoline_elf, trampoline_stack_top);
 }
 
 void notified(microkit_channel ch)

@@ -35,8 +35,8 @@ uint64_t _worker_thread_stack_one = 0xA0000000;
 uint64_t _worker_thread_stack_two = 0xB0000000;
 
 
-request_metadata_t request_metadata[FS_QUEUE_CAPACITY];
-buffer_metadata_t buffer_metadata[FS_QUEUE_CAPACITY];
+request_metadata_t monitor_request_metadata[FS_QUEUE_CAPACITY];
+buffer_metadata_t monitor_buffer_metadata[FS_QUEUE_CAPACITY];
 
 
 int monitor_svc_dist_map[PC_CHILD_PER_MONITOR_MAX_NUM][SVC_TYPE_MAX_NUM];
@@ -89,8 +89,8 @@ void monitor_main_cothread_spawn(const client_entry_t client_entry, void *arg, c
 
 void monitor_main_init_storage(void)
 {
-    tsldr_miscutil_memset(request_metadata, 0, sizeof(request_metadata_t) * FS_QUEUE_CAPACITY);
-    tsldr_miscutil_memset(buffer_metadata, 0, sizeof(buffer_metadata_t) * FS_QUEUE_CAPACITY);
+    tsldr_miscutil_memset(monitor_request_metadata, 0, sizeof(request_metadata_t) * FS_QUEUE_CAPACITY);
+    tsldr_miscutil_memset(monitor_buffer_metadata, 0, sizeof(buffer_metadata_t) * FS_QUEUE_CAPACITY);
 
     TSLDR_DBG_PRINT(PROGNAME "(fs mount) start fs initialisation\n");
     fs_cmpl_t completion;
@@ -221,7 +221,7 @@ void init(void)
 
 void notified(microkit_channel ch)
 {
-    fs_process_completions();
+    fs_process_completions(NULL);
 
     microkit_cothread_recv_ntfn(ch);
 }

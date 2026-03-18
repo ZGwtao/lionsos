@@ -8,12 +8,6 @@ ifeq ($(strip $(MICROKIT_SDK)),)
 $(error MICROKIT_SDK must be specified)
 endif
 override MICROKIT_SDK:=$(abspath ${MICROKIT_SDK})
-ifeq ($(strip $(LIBGCC)),)
-export LIBGCC:=$(dir $(realpath $(shell aarch64-none-elf-gcc --print-file-name libgcc.a)))
-endif
-ifeq ($(strip $(LIBMATH)),)
-export LIBMATH:=$(dir $(realpath $(shell aarch64-none-elf-gcc --print-file-name libm.a)))
-endif
 
 export LIONSOS ?= $(abspath ../..)
 export CONTAINER_DIR := $(abspath $(dir $(lastword $(MAKEFILE_LIST))))
@@ -34,9 +28,20 @@ ${BUILD_DIR}/Makefile: container.mk
 	mkdir -p ${BUILD_DIR}
 	cp container.mk $@
 
+${BUILD_DIR}/Makefile: container.mk Makefile
+	mkdir -p ${BUILD_DIR}
+	echo "export LIONSOS ?= ${LIONSOS}" > $@
+	echo "export CONTAINER_DIR ?= ${CONTAINER_DIR}" >> $@
+	echo "export BUILD_DIR := ${BUILD_DIR}" >> $@
+	echo "export MICROKIT_BOARD ?= ${MICROKIT_BOARD}" >> $@
+	echo "export MICROKIT_SDK ?= ${MICROKIT_SDK}" >> $@
+	echo "export MICROKIT_CONFIG ?= ${MICROKIT_CONFIG}" >> $@
+	cat container.mk >> $@
+
 submodules:
 	git submodule update --init $(LIONSOS)/dep/musllibc
 	git submodule update --init $(LIONSOS)/dep/sddf
 	git submodule update --init $(LIONSOS)/dep/libmicrokitco
+	git submodule update --init $(LIONSOS)/dep/libtrustedlo
 
 FORCE:
