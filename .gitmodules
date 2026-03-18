@@ -26,3 +26,4 @@
 [submodule "libtrustedlo"]
 	path = dep/libtrustedlo
 	url = https://github.com/ZGwtao/libtrustedlo.git
+	branch = main
