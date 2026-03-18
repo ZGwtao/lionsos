@@ -33,8 +33,8 @@ microkit_cothread_sem_t sem[PC_WORKER_THREAD_NUM + 1];
 uint64_t _worker_thread_stack_one = 0xA0000000;
 uint64_t _worker_thread_stack_two = 0xB0000000;
 
-request_metadata_t request_metadata[FS_QUEUE_CAPACITY];
-buffer_metadata_t buffer_metadata[FS_QUEUE_CAPACITY];
+request_metadata_t frontend_request_metadata[FS_QUEUE_CAPACITY];
+buffer_metadata_t frontend_buffer_metadata[FS_QUEUE_CAPACITY];
 
 
 serial_queue_handle_t serial_rx_queue_handle;
@@ -64,8 +64,8 @@ static void print_prompt(void)
 
 void test_entrypoint(void)
 {
-    memset(request_metadata, 0, sizeof(request_metadata_t) * FS_QUEUE_CAPACITY);
-    memset(buffer_metadata, 0, sizeof(buffer_metadata_t) * FS_QUEUE_CAPACITY);
+    memset(frontend_request_metadata, 0, sizeof(request_metadata_t) * FS_QUEUE_CAPACITY);
+    memset(frontend_buffer_metadata, 0, sizeof(buffer_metadata_t) * FS_QUEUE_CAPACITY);
 
     TSLDR_DBG_PRINT(PROGNAME "(fs mount) start fs initialisation\n");
     fs_cmpl_t completion;
@@ -240,7 +240,7 @@ static void handle_line(const char *line)
 
 void notified(microkit_channel ch)
 {
-    fs_process_completions();
+    fs_process_completions(NULL);
     microkit_cothread_recv_ntfn(ch);
 
     if (ch == serial_config.rx.id) {
