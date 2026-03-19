@@ -1,9 +1,9 @@
 
 #pragma once
 
-// maximum 8 interface per OS service type
+// maximum 8 os services instances per OS service type
 #define PC_SVC_PER_PD_MAX_NUM (8)
-// maximum 8 interface type
+// maximum 8 os service types
 #define PC_SVC_TYPE_MAX_NUM (8)
 
 typedef enum {
@@ -50,5 +50,5 @@ typedef struct {
     seL4_Word t7_iface[PC_SVC_PER_PD_MAX_NUM];
     seL4_Word t8_iface[PC_SVC_PER_PD_MAX_NUM];
 
-} protocon_svc_desc_t; /* template PD interface */
+} protocon_svc_desc_t; /* dynamic PD OS services */
 
