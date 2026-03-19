@@ -74,18 +74,17 @@ void test_entrypoint(void)
 #if 1
     pico_vfs_readfile2buf((void *)shared1, "protocon.elf", &err);
     if (err != seL4_NoError) {
-        // halt...
-        while (1);
+        goto _exit;
     }
     TSLDR_DBG_PRINT(PROGNAME "Wrote proto-container's ELF file into memory\n");
 
     pico_vfs_readfile2buf((void *)shared3, "trampoline.elf", &err);
     if (err != seL4_NoError) {
-        // halt...
-        while (1);
+        goto _exit;
     }
     TSLDR_DBG_PRINT(PROGNAME "Wrote trampoline's ELF file into memory\n");
 #endif
+_exit:
     sddf_putchar_unbuffered('\n');
     print_prompt();
 }
@@ -199,6 +198,7 @@ static int handle_line(const char *line)
 
     if (*line == '\0') {
         // empty input
+        sddf_printf("> ");
         return 0;
     }
 
