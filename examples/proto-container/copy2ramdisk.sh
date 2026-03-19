@@ -11,7 +11,7 @@ fi
 FILE=$1
 PART=$2
 DISK=build/qemu_disk
-MOUNTPOINT=/mbp
+MOUNTPOINT=$PWD/build/mbp
 
 SECTOR_SIZE=512
 POFFSET=2048  # first partition starts at 2048
