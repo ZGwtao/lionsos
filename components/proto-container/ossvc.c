@@ -4,8 +4,6 @@
 #include <protocon.h>
 #include <string.h>
 
-#define LIB_NAME_MACRO "    => [@trustedlo] "
-
 extern int monitor_svc_dist_map[PC_CHILD_PER_MONITOR_MAX_NUM][SVC_TYPE_MAX_NUM];
 
 
