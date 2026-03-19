@@ -162,14 +162,14 @@ void load_elf_payload(void)
 
 /* ----- Command handlers ----- */
 
-static void parse_start_cmd(const char *arg)
+static int parse_start_cmd(const char *arg)
 {
     // Skip leading spaces
     while (*arg == ' ') arg++;
 
     if (*arg == '\0') {
-        sddf_printf("\nInvalid usage: 'start' requires a filename\n> ");
-        return;
+        sddf_printf("Invalid usage: 'start' requires a filename\n> ");
+        return 1;
     }
 
     // Extract filename (stop at space or NUL)
@@ -183,35 +183,39 @@ static void parse_start_cmd(const char *arg)
     memcpy(fname_buf, arg, len);
     fname_buf[len] = '\0';
 
-    sddf_printf("\nValid command: start %s\n> ", fname_buf);
-
     if (microkit_cothread_spawn(load_elf_payload, NULL) == LIBMICROKITCO_NULL_HANDLE) {
-        TSLDR_DBG_PRINT(PROGNAME "Cannot frontend cothread to load payload\n");
-        microkit_internal_crash(-1);
+        TSLDR_DBG_PRINT(PROGNAME "Cannot spawn cothread to load payload\n");
+        return 1;
     }
     microkit_cothread_yield();
+
+    sddf_printf("> ");
+    return 0;
 }
 
-static void handle_line(const char *line)
+static int handle_line(const char *line)
 {
     while (*line == ' ') line++;  // skip spaces
 
     if (*line == '\0') {
         // empty input
-        return;
+        return 0;
     }
 
     if (strncmp(line, "start", 5) == 0) {
         const char *after = line + 5;
         if (*after == '\0') {
             sddf_printf("Invalid usage: 'start' requires a filename\n");
+            return 1;
         } else if (*after == ' ') {
-            parse_start_cmd(after);
+            return parse_start_cmd(after);
         } else {
             sddf_printf("Invalid command format\n");
+            return 1;
         }
     } else {
         sddf_printf("Unknown command: %s\n", line);
+        return 1;
     }
 }
 
@@ -264,11 +268,13 @@ void notified(microkit_channel ch)
                 sddf_putchar_unbuffered('\n');
 
                 input_buf[input_len] = '\0';
-                handle_line(input_buf);
+                int err = handle_line(input_buf);
 
                 // reset buffer and show prompt
                 input_len = 0;
-                print_prompt();
+                if (err) {
+                    print_prompt();
+                }
             } else if (c == '\b' || c == 127) {
                 // backspace
                 if (input_len > 0) {

@@ -13,10 +13,16 @@
 
 #define PROGNAME "[@monitor] "
 
-// shared memory with the proto-container PDs
-uintptr_t trusted_loader_exec   = 0x10000000;
-uintptr_t trampoline_elf        = 0x30000000;
-uintptr_t container_elf         = 0x50000000;
+// these memory regions are shared memory between
+//    -> the monitor (container monitor)
+//    -> the dynamic pds (protocon - proto containers)
+// the size of these memory regions are:
+//    -> PC_MONITOR_REGION_SIZE (for one dynamic pd)
+//
+#define PC_MONITOR_REGION_SIZE (0x800000)
+#define PC_MONITOR_REGION_PROTOCON_ELF_BASE (0x10000000)
+#define PC_MONITOR_REGION_TRAMPOLINE_ELF_BASE (0x30000000)
+#define PC_MONITOR_REGION_CLIENT_PAYLOAD_BASE (0x50000000)
 
 // each elf file is of the same upper size limit
 #define ELF_FILE_SIZE           0x800000
@@ -30,8 +36,8 @@ __attribute__((__section__(".fs_client_config"))) fs_client_config_t fs_config;
 
 co_control_t co_controller_mem;
 
-static char mp_stack1[0x10000];
-static char mp_stack2[0x10000];
+static char monitor_costack1[0x10000];
+static char monitor_costack2[0x10000];
 
 static void blocking_wait(microkit_channel ch) { microkit_cothread_wait_on_channel(ch); }
 
@@ -42,15 +48,15 @@ tsldr_context_t protocon_ctx_db[PC_CHILD_PER_MONITOR_MAX_NUM];
 
 protocon_lifecycle_state_t protocon_states[PC_CHILD_PER_MONITOR_MAX_NUM];
 
-#define SMALL_PAGE_SIZE     0x1000
+#define SMALL_PAGE_SIZE     (0x1000)
 
-#define TSLDR_CONTEXT_BASE  0xff40000
+#define TSLDR_CONTEXT_BASE  (0xff40000)
 #define TSLDR_CONTEXT_SIZE  SMALL_PAGE_SIZE
 
-#define TSLDR_METADATA_BASE 0xffc0000
+#define TSLDR_METADATA_BASE (0xffc0000)
 #define TSLDR_METADATA_SIZE SMALL_PAGE_SIZE
 
-#define TSLDR_MDINFO_HASH   0xffff
+#define TSLDR_MDINFO_HASH   (0xffff)
 
 #define PC_MONITOR_FRONTEND_CHANNEL (15)
 #define PC_MONITOR_PROTOCON_BASE_CHANNEL (24)
@@ -89,13 +95,14 @@ void monitor_main_init_storage(void)
     fs_cmpl_t completion;
     int err = fs_command_blocking(&completion, (fs_cmd_t){ .type = FS_CMD_INITIALISE });
     if (err || completion.status != FS_STATUS_SUCCESS) {
-        TSLDR_DBG_PRINT(PROGNAME "MP|ERROR: Failed to mount\n");
+        TSLDR_DBG_PRINT(PROGNAME "Failed to mount\n");
+        microkit_internal_crash(-1);
     }
     TSLDR_DBG_PRINT(PROGNAME "(fs mount) finished fs initialisation\n");
 }
 
 
-static void patch_elf_connection(void *elf_base, char data_file[], uintptr_t vaddr)
+static void monitor_worker_func__patch_payload_by_ptr(void *elf_base, char data_file[], uintptr_t vaddr)
 {
     int err = 0;
     seL4_Word target_sh = tsldr_miscutil_fetch_elf_section_with_vaddr(elf_base, vaddr);
@@ -122,28 +129,34 @@ void monitor_call_deploy_protocon_second_half()
 {
     TSLDR_DBG_PRINT(PROGNAME "entry of monitor_call_deploy_protocon_second_half\n");
 
-    Elf64_Ehdr *ehdr = (Elf64_Ehdr *)ext_protocon_elf;
-
     // FIXME: should not use shared memory to determine state...
-    Elf64_Ehdr *eh = (Elf64_Ehdr *)ext_payload_elf;
-    if (eh->e_shoff == 0 || eh->e_shnum == 0 || eh->e_shentsize != sizeof(Elf64_Shdr))
-        TSLDR_DBG_PRINT(PROGNAME "no section headers present or unexpected shentsize\n");
-    if (eh->e_shstrndx == SHN_UNDEF || eh->e_shstrndx >= eh->e_shnum)
-        TSLDR_DBG_PRINT(PROGNAME "invalid e_shstrndx");
+    Elf64_Ehdr *payload_eh = (Elf64_Ehdr *)ext_payload_elf;
+    if (payload_eh->e_shoff == 0 || payload_eh->e_shnum == 0 || payload_eh->e_shentsize != sizeof(Elf64_Shdr)
+        || payload_eh->e_shstrndx == SHN_UNDEF || payload_eh->e_shstrndx >= payload_eh->e_shnum)
+    {
+        TSLDR_DBG_PRINT(PROGNAME "no section headers present or unexpected shentsize or invalid e_shstrndx\n");
+        monitor_main_notify_frontend();
+        return;
+    }
 
-    // FIXME: should not use shared memory to determine state...
-    Elf64_Shdr *iface_sh;
-    iface_sh = (Elf64_Shdr *)tsldr_miscutil_find_section_from_elf((void *)ext_payload_elf, PC_SVC_DESC_SECTION_NAME);
-    if (!iface_sh) {
+    // a request stat for OS services to be filled out by the client payload info...
+    protocon_svc_req_t req;
+
+    // the section defined by the user application in elf for specifying requested OS services
+    Elf64_Shdr *user_defined_svc_section;
+    user_defined_svc_section = (Elf64_Shdr *)tsldr_miscutil_find_section_from_elf((void *)ext_payload_elf, PC_SVC_DESC_SECTION_NAME);
+    if (!user_defined_svc_section) {
         TSLDR_DBG_PRINT(PROGNAME "Failed to restart container as no iface section specified\n");
         monitor_main_notify_frontend();
         return;
     }
 
-    // a request stat for the client payload...
-    protocon_svc_req_t req;
-
-    int cid = monitor_match_ossvc_request_with_available_pd((void *)ext_payload_elf, iface_sh, &req, protocon_states);
+    // we will put the info of user-specified, requested OS services (user_defined_svc_section)
+    // into the request variable with a given format (req) and use it to query the OS service distribution map
+    // if we have any available dynamic PD that offers the superset of requested OS services,
+    // return the cid of that dynamic PD, update the state of the dynamic PD (protocon), and do the trusted loading work underneath
+    // otherwise, return early (when the cid returned is invalid)
+    int cid = monitor_match_ossvc_request_with_available_pd((void *)ext_payload_elf, user_defined_svc_section, &req, protocon_states);
     if (cid >= PC_CHILD_PER_MONITOR_MAX_NUM || cid < 0) {
         TSLDR_DBG_PRINT(PROGNAME "Failed to find suitable container for payload\n");
         TSLDR_DBG_PRINT(PROGNAME "Fetched cid number is: %d\n", cid);
@@ -152,13 +165,16 @@ void monitor_call_deploy_protocon_second_half()
     }
     TSLDR_DBG_PRINT(PROGNAME "cid available: %d\n", cid);
 
-    uintptr_t payload_base = container_elf + ELF_FILE_SIZE * cid;
-    uintptr_t protocon_base = trusted_loader_exec + ELF_FILE_SIZE * cid;
-    uintptr_t trampoline_base = trampoline_elf + ELF_FILE_SIZE * cid;
-    uintptr_t entry = ehdr->e_entry;
+    uintptr_t payload_base = PC_MONITOR_REGION_CLIENT_PAYLOAD_BASE + PC_MONITOR_REGION_SIZE * cid;
+    uintptr_t protocon_base = PC_MONITOR_REGION_PROTOCON_ELF_BASE + PC_MONITOR_REGION_SIZE * cid;
+    uintptr_t trampoline_base = PC_MONITOR_REGION_TRAMPOLINE_ELF_BASE + PC_MONITOR_REGION_SIZE * cid;
 
-    tsldr_miscutil_load_elf((void*)protocon_base, ehdr);
-    TSLDR_DBG_PRINT(PROGNAME "Copied trusted loader to child PD's memory region\n");
+
+    Elf64_Ehdr *protocon_eh = (Elf64_Ehdr *)ext_protocon_elf;
+    uintptr_t entry = protocon_eh->e_entry;
+
+    tsldr_miscutil_load_elf((void*)protocon_base, protocon_eh);
+    TSLDR_DBG_PRINT(PROGNAME "Copied proto container to child PD's memory region\n");
 
     tsldr_miscutil_memcpy((void*)payload_base, (char *)ext_payload_elf, ELF_FILE_SIZE);
     TSLDR_DBG_PRINT(PROGNAME "Copied client program to child PD's memory region\n");
@@ -166,7 +182,7 @@ void monitor_call_deploy_protocon_second_half()
     tsldr_miscutil_memcpy((void*)trampoline_base, (char *)ext_trampoline_elf, ELF_FILE_SIZE);
     TSLDR_DBG_PRINT(PROGNAME "Copied trampoline program to child PD's memory region\n");
 
-    monitor_patch_payload_with_ossvc_info(cid, &req, payload_base, msvcdb_base, patch_elf_connection);
+    monitor_patch_payload_with_ossvc_info(cid, &req, payload_base, msvcdb_base, monitor_worker_func__patch_payload_by_ptr);
 
     tsldr_main_monitor_init_mdinfo((tsldr_mdinfodb_t *)microkit_trusted_loading_info, cid, (void *)((char *)TSLDR_METADATA_BASE + cid * TSLDR_METADATA_SIZE));
 
@@ -199,7 +215,7 @@ void init(void)
     // clean all loader context...
     tsldr_miscutil_memset(protocon_ctx_db, 0, sizeof(tsldr_context_t) * PC_CHILD_PER_MONITOR_MAX_NUM);
 
-    stack_ptrs_arg_array_t costacks = { (uintptr_t) mp_stack1, (uintptr_t) mp_stack2 };
+    stack_ptrs_arg_array_t costacks = { (uintptr_t) monitor_costack1, (uintptr_t) monitor_costack2 };
     microkit_cothread_init(&co_controller_mem, 0x10000, costacks);
     monitor_main_cothread_spawn(monitor_main_init_storage, NULL, " failed to spawn thread for storage initialisation.\n");
 }
