@@ -29,15 +29,16 @@ uintptr_t ext_payload_elf       = 0x7000000;
 __attribute__((__section__(".fs_client_config"))) fs_client_config_t fs_config;
 
 co_control_t co_controller_mem;
-microkit_cothread_sem_t sem[PC_WORKER_THREAD_NUM + 1];
+//microkit_cothread_sem_t sem[PC_WORKER_THREAD_NUM + 1];
 
-uint64_t _worker_thread_stack_one = 0xA0000000;
-uint64_t _worker_thread_stack_two = 0xB0000000;
+//uint64_t _worker_thread_stack_one = 0xA0000000;
+//uint64_t _worker_thread_stack_two = 0xB0000000;
 
+static char mp_stack1[0x10000];
+static char mp_stack2[0x10000];
 
-request_metadata_t monitor_request_metadata[FS_QUEUE_CAPACITY];
-buffer_metadata_t monitor_buffer_metadata[FS_QUEUE_CAPACITY];
-
+//request_metadata_t monitor_request_metadata[FS_QUEUE_CAPACITY];
+//buffer_metadata_t monitor_buffer_metadata[FS_QUEUE_CAPACITY];
 
 int monitor_svc_dist_map[PC_CHILD_PER_MONITOR_MAX_NUM][SVC_TYPE_MAX_NUM];
 
@@ -77,6 +78,68 @@ char *fs_share;
     do { protocon_states[C] = PROTOCON_PASSIVE; } while (0);
 
 
+microkit_channel mp_curr_wait_ch;
+
+/* Configures the different wait behaviour of Micropython when keyboard
+interrupts are received. */
+typedef enum mp_cothread_wait_type {
+    /**
+     * Micropython will not be awoken until a notification is received on the
+     * wait channel. Pending keyboard interrupts are not processed.
+     */
+    MP_WAIT_NO_INTERRUPT = 0,
+    /**
+     * Micropython will be awoken early if a keyboard interrupt is received. The
+     * subsequent scheduled notification that was emulated will still be
+     * received by the Micropython cothread.
+     */
+    MP_WAIT_RECV,
+    /**
+     * Micropython will be awoken early if a keyboard interrupt is received. The
+     * subsequent scheduled notification that was emulated will be dropped.
+     * NOTE: this will not stack to more than one notification drop is
+     * Micropython is interrupted more than once.
+     */
+    MP_WAIT_DROP,
+    /**
+     * Micropython will be awoken early if a keyboard interrupt is received. The
+     * subsequent scheduled notification that was emulated will be dropped,
+     * unless the Micropython cothread waits on the channel again.
+     */
+    MP_WAIT_DROP_UNTIL_WAIT
+} mp_cothread_wait_type_t;
+
+typedef struct mp_cothread_ch_state {
+    bool drop;
+    mp_cothread_wait_type_t type;
+} mp_cothread_ch_state_t;
+
+mp_cothread_ch_state_t mp_channels[MICROKIT_MAX_CHANNELS];
+
+void mp_cothread_wait(microkit_channel ch,
+                      mp_cothread_wait_type_t handle_interrupt)
+{
+    if (mp_channels[ch].type == MP_WAIT_DROP_UNTIL_WAIT) {
+        mp_channels[ch].drop = false;
+    }
+
+    mp_channels[ch].type = handle_interrupt;
+    mp_curr_wait_ch = ch;
+    microkit_cothread_wait_on_channel(ch);
+    
+    if (handle_interrupt != MP_WAIT_NO_INTERRUPT) {
+        /* Ensure interrupts received while waiting are processed and raised. */
+        //mp_handle_pending(true);
+        TSLDR_DBG_PRINT(PROGNAME "mp_cothread_wait: woke up from wait on channel %d with interrupt handling type %d\n", ch, handle_interrupt);
+    }
+}
+
+
+static void blocking_wait(microkit_channel ch) {
+    mp_cothread_wait(ch, MP_WAIT_NO_INTERRUPT);
+}
+
+
 void monitor_main_cothread_spawn(const client_entry_t client_entry, void *arg, char err_msg[])
 {
     if (microkit_cothread_spawn(client_entry, arg) == LIBMICROKITCO_NULL_HANDLE) {
@@ -89,8 +152,8 @@ void monitor_main_cothread_spawn(const client_entry_t client_entry, void *arg, c
 
 void monitor_main_init_storage(void)
 {
-    tsldr_miscutil_memset(monitor_request_metadata, 0, sizeof(request_metadata_t) * FS_QUEUE_CAPACITY);
-    tsldr_miscutil_memset(monitor_buffer_metadata, 0, sizeof(buffer_metadata_t) * FS_QUEUE_CAPACITY);
+    //tsldr_miscutil_memset(monitor_request_metadata, 0, sizeof(request_metadata_t) * FS_QUEUE_CAPACITY);
+    //tsldr_miscutil_memset(monitor_buffer_metadata, 0, sizeof(buffer_metadata_t) * FS_QUEUE_CAPACITY);
 
     TSLDR_DBG_PRINT(PROGNAME "(fs mount) start fs initialisation\n");
     fs_cmpl_t completion;
@@ -190,6 +253,9 @@ void monitor_call_debute_lower()
 void init(void)
 {
     assert(fs_config_check_magic(&fs_config));
+    
+    fs_set_blocking_wait(blocking_wait);
+
     fs_command_queue = fs_config.server.command_queue.vaddr;
     fs_completion_queue = fs_config.server.completion_queue.vaddr;
     fs_share = fs_config.server.share.vaddr;
@@ -204,16 +270,15 @@ void init(void)
     // clean all loader context...
     tsldr_miscutil_memset(protocon_ctx_db, 0, sizeof(tsldr_context_t) * PC_CHILD_PER_MONITOR_MAX_NUM);
 
-    stack_ptrs_arg_array_t costacks = {
-        _worker_thread_stack_one,
-        _worker_thread_stack_two
-    };
+    stack_ptrs_arg_array_t costacks = { (uintptr_t) mp_stack1, (uintptr_t) mp_stack2 };
+    microkit_cothread_init(&co_controller_mem, 0x10000, costacks);
 
-    microkit_cothread_init(&co_controller_mem, PC_WORKER_THREAD_STACKSIZE, costacks);
+    //microkit_cothread_init(&co_controller_mem, PC_WORKER_THREAD_STACKSIZE, costacks);
+#if 0
     for (uint32_t i = 0; i < (PC_WORKER_THREAD_NUM + 1); i++) {
         microkit_cothread_semaphore_init(&sem[i]);
     }
-
+#endif
     monitor_main_cothread_spawn(monitor_main_init_storage, NULL, " failed to spawn thread for storage initialisation.\n");
 
     TSLDR_DBG_PRINT(PROGNAME "Finished init\n");

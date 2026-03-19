@@ -7,9 +7,6 @@ IMAGES := \
 	timer_driver.elf \
 	monitor.elf \
 	frontend.elf \
-	protocon.elf \
-	trampoline.elf \
-	client.elf \
 	fat.elf \
 	serial_driver.elf \
 	serial_virt_rx.elf \
@@ -83,30 +80,23 @@ FORCE:
 
 
 $(SYSTEM_FILE): $(METAPROGRAM) $(IMAGES) $(DTB)
-	$(CP) $(BUILD_DIR)/fat.elf $(BUILD_DIR)/frontend_fs.elf
-	$(CP) $(BUILD_DIR)/fat.elf $(BUILD_DIR)/monitor_fs.elf
-	$(CP) $(BUILD_DIR)/fat.elf $(BUILD_DIR)/sp0_fs.elf
-	$(CP) $(BUILD_DIR)/fat.elf $(BUILD_DIR)/sp1_fs.elf
+	cp fat.elf monitor_fs.elf 
 	PYTHONPATH=${SDDF}/tools/meta:$$PYTHONPATH $(PYTHON) $(METAPROGRAM) --sddf $(SDDF) --board $(MICROKIT_BOARD) --dtb $(DTB) --output . --sdf $(SYSTEM_FILE)
 	$(OBJCOPY) --update-section .device_resources=serial_driver_device_resources.data serial_driver.elf
-	$(OBJCOPY) --update-section .serial_driver_config=serial_driver_config.data 	serial_driver.elf
-	$(OBJCOPY) --update-section .serial_virt_tx_config=serial_virt_tx.data 			serial_virt_tx.elf
-	$(OBJCOPY) --update-section .serial_virt_rx_config=serial_virt_rx.data 			serial_virt_rx.elf
+	$(OBJCOPY) --update-section .serial_driver_config=serial_driver_config.data serial_driver.elf
+	$(OBJCOPY) --update-section .serial_virt_tx_config=serial_virt_tx.data serial_virt_tx.elf
+	$(OBJCOPY) --update-section .serial_virt_rx_config=serial_virt_rx.data serial_virt_rx.elf
 	$(OBJCOPY) --update-section .device_resources=timer_driver_device_resources.data timer_driver.elf
-	$(OBJCOPY) --update-section .serial_client_config=serial_client_frontend.data 	frontend.elf
-	$(OBJCOPY) --update-section .fs_client_config=fs_client_frontend.data 			frontend.elf
-	$(OBJCOPY) --update-section .fs_client_config=fs_client_container_monitor.data 	monitor.elf
-	$(OBJCOPY) --update-section .device_resources=blk_driver_device_resources.data 	blk_driver.elf
-	$(OBJCOPY) --update-section .blk_driver_config=blk_driver.data 					blk_driver.elf
-	$(OBJCOPY) --update-section .blk_virt_config=blk_virt.data 						blk_virt.elf
-	$(OBJCOPY) --update-section .blk_client_config=blk_client_frontend_fs.data		frontend_fs.elf
-	$(OBJCOPY) --update-section .blk_client_config=blk_client_monitor_fs.data 		monitor_fs.elf
-	$(OBJCOPY) --update-section .blk_client_config=blk_client_sp0_fs.data 			sp0_fs.elf
-	$(OBJCOPY) --update-section .blk_client_config=blk_client_sp1_fs.data	 		sp1_fs.elf
-	$(OBJCOPY) --update-section .fs_server_config=fs_server_frontend_fs.data		frontend_fs.elf
-	$(OBJCOPY) --update-section .fs_server_config=fs_server_monitor_fs.data 		monitor_fs.elf
-	$(OBJCOPY) --update-section .fs_server_config=fs_server_sp0_fs.data 			sp0_fs.elf
-	$(OBJCOPY) --update-section .fs_server_config=fs_server_sp1_fs.data 			sp1_fs.elf
+	$(OBJCOPY) --update-section .serial_client_config=serial_client_frontend.data frontend.elf
+	$(OBJCOPY) --update-section .fs_client_config=fs_client_frontend.data frontend.elf
+	$(OBJCOPY) --update-section .fs_client_config=fs_client_container_monitor.data monitor.elf
+	$(OBJCOPY) --update-section .device_resources=blk_driver_device_resources.data blk_driver.elf
+	$(OBJCOPY) --update-section .blk_driver_config=blk_driver.data blk_driver.elf
+	$(OBJCOPY) --update-section .blk_virt_config=blk_virt.data blk_virt.elf
+	$(OBJCOPY) --update-section .blk_client_config=blk_client_fatfs.data fat.elf
+	$(OBJCOPY) --update-section .fs_server_config=fs_server_fatfs.data fat.elf
+	$(OBJCOPY) --update-section .blk_client_config=blk_client_monitor_fs.data monitor_fs.elf
+	$(OBJCOPY) --update-section .fs_server_config=fs_server_monitor_fs.data monitor_fs.elf
 
 $(IMAGE_FILE) $(REPORT_FILE): $(IMAGES) $(SYSTEM_FILE)
 	$(MICROKIT_TOOL) $(SYSTEM_FILE) \
@@ -128,5 +118,6 @@ qemu: ${IMAGE_FILE} qemu_disk
 		-drive file=qemu_disk,if=none,format=raw,id=hd \
 		-device virtio-blk-device,drive=hd
 
-#${SDDF}/tools/make/board/common.mk ${SDDF_MAKEFILES} ${LIONSOS}/dep/sddf/include &:
-#	cd $(LIONSOS); git submodule update --init dep/sddf
+${SDDF}/tools/make/board/common.mk ${SDDF_MAKEFILES} ${LIONSOS}/dep/sddf/include &:
+	cd $(LIONSOS); git submodule update --init dep/sddf
+

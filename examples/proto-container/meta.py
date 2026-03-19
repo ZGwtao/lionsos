@@ -8,7 +8,9 @@ from typing import List, Tuple
 from sdfgen import SystemDescription, Sddf, DeviceTree, LionsOs
 from importlib.metadata import version
 
-assert version('sdfgen').split(".")[1] == "23", "Unexpected sdfgen version"
+assert version('sdfgen').split(".")[1] == "23" or \
+    version('sdfgen').split(".")[1] == "25" or \
+    version('sdfgen').split(".")[1] == "29", "Unexpected sdfgen version"
 
 ProtectionDomain = SystemDescription.ProtectionDomain
 MemoryRegion = SystemDescription.MemoryRegion
@@ -47,65 +49,18 @@ BOARDS: List[Board] = [
     ),
 ]
 
-def container_connect(mpd: SystemDescription.ProtectionDomain, cpd: SystemDescription.ProtectionDomain, cid: int):
-
-    name_prefix = mpd.name + "/" + cpd.name + "/"
-
-    # one per container memory regions...
-    container_elf = MemoryRegion(name_prefix + "container/elf", 0x800000)
-    trampoline_elf = MemoryRegion(name_prefix + "trampoline/elf", 0x800000)
-    trampoline_exec = MemoryRegion(name_prefix + "trampoline/exec", 0x800000)
-    tsldr_exec = MemoryRegion(name_prefix + "tsldr/exec", 0x800000)
-    tsldr_data = MemoryRegion(name_prefix + "tsldr/data", 0x1000)
-    acgroup_data = MemoryRegion(name_prefix + "acgroup/data", 0x1000)
-    tsldr_context = MemoryRegion(name_prefix + "tsldr/context", 0x1000)
-
-    sdf.add_mr(container_elf)
-    sdf.add_mr(trampoline_elf)
-    sdf.add_mr(trampoline_exec)
-    sdf.add_mr(tsldr_exec)
-    sdf.add_mr(tsldr_data)
-    sdf.add_mr(acgroup_data)
-    sdf.add_mr(tsldr_context)
-
-    mpd.add_map(Map(tsldr_context,  0x0ff40000 + cid * 0x1000,   perms="rw", cached="true"))
-    mpd.add_map(Map(acgroup_data,   0x0ff80000 + cid * 0x1000,   perms="rw", cached="true"))
-    mpd.add_map(Map(tsldr_data,     0x0ffc0000 + cid * 0x1000,   perms="rw", cached="true"))
-    mpd.add_map(Map(tsldr_exec,     0x10000000 + cid * 0x800000, perms="rw", cached="true"))
-    mpd.add_map(Map(trampoline_elf, 0x30000000 + cid * 0x800000, perms="rw", cached="true"))
-    mpd.add_map(Map(container_elf,  0x50000000 + cid * 0x800000, perms="rw", cached="true"))
-
-    cpd.add_map(Map(tsldr_exec,         0x0200000, perms="rwx", cached="true"))
-    cpd.add_map(Map(tsldr_data,         0x0A00000, perms="rw", cached="true"))
-    cpd.add_map(Map(acgroup_data,       0x0A01000, perms="rw", cached="true"))
-    cpd.add_map(Map(tsldr_context,      0x0E00000, perms="rw", cached="true"))
-    cpd.add_map(Map(trampoline_elf,     0x1000000, perms="rwx", cached="true"))
-    cpd.add_map(Map(trampoline_exec,    0x1800000, perms="rwx", cached="true"))
-    cpd.add_map(Map(container_elf,      0x2000000, perms="rw", cached="true"))
-
-    trampoline_stack = MemoryRegion(name_prefix + "trampoline/stack", 0x1000)
-    container_stack = MemoryRegion(name_prefix + "container/stack", 0x1000)
-    container_exec = MemoryRegion(name_prefix + "container/exec", 0x2000000)
-
-    sdf.add_mr(trampoline_stack)
-    sdf.add_mr(container_stack)
-    sdf.add_mr(container_exec)
-
-    cpd.add_map(Map(trampoline_stack, 0x00FFFDFF000, perms="rw", cached="true"))
-    cpd.add_map(Map(container_stack,  0x00FFFBFF000, perms="rw", cached="true"))
-    cpd.add_map(Map(container_exec, 0x2800000, perms="rwx", cached="true"))
-
-    sdf.add_channel(Channel(a=mpd, b=cpd, a_id=(24+cid), b_id=15, pp_b=True))
-
-
-
 def frontend_connect(mpd: SystemDescription.ProtectionDomain, fpd: SystemDescription.ProtectionDomain):
 
     name_prefix = mpd.name + "/" + fpd.name + "/"
 
-    ext_trampoline_elf = MemoryRegion(name_prefix + "trampoline", 0x800000)
-    ext_protocon_elf = MemoryRegion(name_prefix + "protocon", 0x800000)
-    ext_client_elf = MemoryRegion(name_prefix + "client", 0x800000)
+    if version('sdfgen').split(".")[1] != "23":
+        ext_trampoline_elf = MemoryRegion(sdf, name_prefix + "trampoline", 0x800000)
+        ext_protocon_elf = MemoryRegion(sdf, name_prefix + "protocon", 0x800000)
+        ext_client_elf = MemoryRegion(sdf, name_prefix + "client", 0x800000)
+    else:
+        ext_trampoline_elf = MemoryRegion(name_prefix + "trampoline", 0x800000)
+        ext_protocon_elf = MemoryRegion(name_prefix + "protocon", 0x800000)
+        ext_client_elf = MemoryRegion(name_prefix + "client", 0x800000)
 
     sdf.add_mr(ext_trampoline_elf)
     sdf.add_mr(ext_protocon_elf)
@@ -121,15 +76,6 @@ def frontend_connect(mpd: SystemDescription.ProtectionDomain, fpd: SystemDescrip
 
     sdf.add_channel(Channel(a=mpd, b=fpd, a_id=50, b_id=1, pp_b=True))
     sdf.add_channel(Channel(a=mpd, b=fpd, a_id=15, b_id=30))
-
-def corountine_setup(pd: SystemDescription.ProtectionDomain):
-    name_prefix = pd.name + "/"
-    worker_thread_stack1 = MemoryRegion(name_prefix + "worker_thread_stack1", 0x40000)
-    worker_thread_stack2 = MemoryRegion(name_prefix + "worker_thread_stack2", 0x40000)
-    sdf.add_mr(worker_thread_stack1)
-    sdf.add_mr(worker_thread_stack2)
-    pd.add_map(Map(worker_thread_stack1, 0xA0000000, perms="rw", cached="false"))
-    pd.add_map(Map(worker_thread_stack2, 0xB0000000, perms="rw", cached="false"))
 
 
 def generate(sdf_path: str, output_dir: str, dtb: DeviceTree):
@@ -152,88 +98,20 @@ def generate(sdf_path: str, output_dir: str, dtb: DeviceTree):
     blk_virt = ProtectionDomain("blk_virt", "blk_virt.elf", priority=199, stack_size=0x2000)
     blk_system = Sddf.Blk(sdf, blk_node, blk_driver, blk_virt)
 
-    pd_monitor = ProtectionDomain("container_monitor", "monitor.elf", priority=54, template=True)
-    pd_frontend = ProtectionDomain("frontend", "frontend.elf", priority=50)
+    pd_frontend = ProtectionDomain("frontend", "frontend.elf", priority=50, stack_size=0x10000)
+    pd_monitor = ProtectionDomain("container_monitor", "monitor.elf", priority=54, stack_size=0x10000)
+    # pd_frontend = ProtectionDomain("frontend", "frontend.elf", priority=50)
 
     frontend_connect(pd_monitor, pd_frontend)
 
-    corountine_setup(pd_frontend)
-    corountine_setup(pd_monitor)
 
-    sp0 = ProtectionDomain("sp0", priority=53)
-    sp1 = ProtectionDomain("sp1", priority=53)
-    sp2 = ProtectionDomain("sp2", priority=53)
-    sp3 = ProtectionDomain("sp3", priority=53)
-    sp4 = ProtectionDomain("sp4", priority=53)
-    sp5 = ProtectionDomain("sp5", priority=53)
-    # sp6 = ProtectionDomain("sp6", priority=53)
-    # sp7 = ProtectionDomain("sp7", priority=53)
-
-    _ = pd_monitor.add_child_pd(sp0, child_id=0)
-    _ = pd_monitor.add_child_pd(sp1, child_id=1)
-    _ = pd_monitor.add_child_pd(sp2, child_id=2)
-    _ = pd_monitor.add_child_pd(sp3, child_id=3)
-    _ = pd_monitor.add_child_pd(sp4, child_id=4)
-    _ = pd_monitor.add_child_pd(sp5, child_id=5)
-    # _ = pd_monitor.add_child_pd(sp6, child_id=6)
-    # _ = pd_monitor.add_child_pd(sp7, child_id=7)
-
-    container_connect(pd_monitor, sp0, 0)
-    container_connect(pd_monitor, sp1, 1)
-    container_connect(pd_monitor, sp2, 2)
-    container_connect(pd_monitor, sp3, 3)
-    container_connect(pd_monitor, sp4, 4)
-    container_connect(pd_monitor, sp5, 5)
-    # container_connect(pd_monitor, sp6, 6)
-    # container_connect(pd_monitor, sp7, 7)
-
-    pd_fs_sp0 = ProtectionDomain("sp0_fs", "sp0_fs.elf", priority=96)
-    pd_fs_sp1 = ProtectionDomain("sp1_fs", "sp1_fs.elf", priority=96)
-    # pd_fs_sp2 = ProtectionDomain("sp2_fs", "sp2_fs.elf", priority=96)
-    # pd_fs_sp3 = ProtectionDomain("sp3_fs", "sp3_fs.elf", priority=96)
-    # pd_fs_sp4 = ProtectionDomain("sp4_fs", "sp4_fs.elf", priority=96)
-    # pd_fs_sp5 = ProtectionDomain("sp5_fs", "sp5_fs.elf", priority=96)
-    # pd_fs_sp6 = ProtectionDomain("sp6_fs", "sp6_fs.elf", priority=96)
-    # pd_fs_sp7 = ProtectionDomain("sp7_fs", "sp7_fs.elf", priority=96)
-
-    sp0_fs = LionsOs.FileSystem.Fat(sdf, pd_fs_sp0, sp0, blk=blk_system, partition=0)
-    sp1_fs = LionsOs.FileSystem.Fat(sdf, pd_fs_sp1, sp1, blk=blk_system, partition=1)
-    # sp2_fs = LionsOs.FileSystem.Fat(sdf, pd_fs_sp2, sp2, blk=blk_system, partition=2)
-    # sp3_fs = LionsOs.FileSystem.Fat(sdf, pd_fs_sp3, sp3, blk=blk_system, partition=3)
-    # sp4_fs = LionsOs.FileSystem.Fat(sdf, pd_fs_sp4, sp4, blk=blk_system, partition=4)
-    # sp5_fs = LionsOs.FileSystem.Fat(sdf, pd_fs_sp5, sp5, blk=blk_system, partition=5)
-    # sp6_fs = LionsOs.FileSystem.Fat(sdf, pd_fs_sp6, sp6, blk=blk_system, partition=6)
-    # sp7_fs = LionsOs.FileSystem.Fat(sdf, pd_fs_sp7, sp7, blk=blk_system, partition=7)
-
-
-    pd_fs_frontend = ProtectionDomain("frontend_fs", "frontend_fs.elf", priority=96)
-    frontend_fs = LionsOs.FileSystem.Fat(sdf, pd_fs_frontend, pd_frontend, blk=blk_system, partition=2)
-
+    fatfs = ProtectionDomain("fatfs", "fat.elf", priority=96)
+    frontend_fs = LionsOs.FileSystem.Fat(sdf, fatfs, pd_frontend, blk=blk_system, partition=0)
     pd_fs_monitor = ProtectionDomain("monitor_fs", "monitor_fs.elf", priority=96)
-    monitor_fs = LionsOs.FileSystem.Fat(sdf, pd_fs_monitor, pd_monitor, blk=blk_system, partition=3)
+    monitor_fs = LionsOs.FileSystem.Fat(sdf, pd_fs_monitor, pd_monitor, blk=blk_system, partition=1)
 
 
     serial_system.add_client(pd_frontend)
-    serial_system.add_client(pd_monitor)
-
-    serial_system.add_client(sp0, optional=True)
-    serial_system.add_client(sp1, optional=True)
-    serial_system.add_client(sp2, optional=True)
-    serial_system.add_client(sp3, optional=True)
-    serial_system.add_client(sp4, optional=True)
-    serial_system.add_client(sp5, optional=True)
-    # serial_system.add_client(sp6, optional=True)
-    # serial_system.add_client(sp7, optional=True)
-
-    timer_system.add_client(sp0, optional=True)
-    timer_system.add_client(sp1, optional=True)
-    timer_system.add_client(sp2, optional=True)
-    timer_system.add_client(sp3, optional=True)
-    timer_system.add_client(sp4, optional=True)
-    timer_system.add_client(sp5, optional=True)
-    # timer_system.add_client(sp6, optional=True)
-    # timer_system.add_client(sp7, optional=True)
-
 
     if board.name =="maaxboard":
         timer_system.add_client(blk_driver)
@@ -242,21 +120,13 @@ def generate(sdf_path: str, output_dir: str, dtb: DeviceTree):
         serial_driver,
         serial_virt_tx,
         serial_virt_rx,
-        pd_monitor,
         pd_frontend,
-        pd_fs_frontend,
-        pd_fs_monitor,
-        pd_fs_sp0,
-        pd_fs_sp1,
-        # pd_fs_sp2,
-        # pd_fs_sp3,
-        # pd_fs_sp4,
-        # pd_fs_sp5,
-        # pd_fs_sp6,
-        # pd_fs_sp7,
+        fatfs,
         timer_driver,
         blk_driver,
         blk_virt,
+        pd_monitor,
+        pd_fs_monitor
     ]
     for pd in pds:
         sdf.add_pd(pd)
@@ -265,24 +135,6 @@ def generate(sdf_path: str, output_dir: str, dtb: DeviceTree):
     assert frontend_fs.serialise_config(output_dir)
     assert monitor_fs.connect()
     assert monitor_fs.serialise_config(output_dir)
-
-    assert sp0_fs.connect(optional=True)
-    assert sp0_fs.serialise_config(output_dir)
-    assert sp1_fs.connect(optional=True)
-    assert sp1_fs.serialise_config(output_dir)
-    # assert sp2_fs.connect(optional=True)
-    # assert sp2_fs.serialise_config(output_dir)
-    # assert sp3_fs.connect(optional=True)
-    # assert sp3_fs.serialise_config(output_dir)
-    # assert sp4_fs.connect(optional=True)
-    # assert sp4_fs.serialise_config(output_dir)
-    # assert sp5_fs.connect(optional=True)
-    # assert sp5_fs.serialise_config(output_dir)
-    # assert sp6_fs.connect(optional=True)
-    # assert sp6_fs.serialise_config(output_dir)
-    # assert sp7_fs.connect(optional=True)
-    # assert sp7_fs.serialise_config(output_dir)
- 
     assert serial_system.connect()
     assert serial_system.serialise_config(output_dir)
     assert timer_system.connect()

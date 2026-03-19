@@ -5,4 +5,4 @@
 
 #include <pc_config.h>
 
-#define LIBMICROKITCO_MAX_COTHREADS PC_THREAD_NUM
+#define LIBMICROKITCO_MAX_COTHREADS 3
