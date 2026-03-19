@@ -33,7 +33,7 @@ void monitor_ossvc_populate_all_svc_of_unipd(protocon_svcdb_t *svcdb, int map[])
 
 void monitor_init_ossvc_map()
 {
-    monitor_svcdb_t *svcdb_list = (monitor_svcdb_t *)microkit_template_spec_ar;
+    monitor_svcdb_t *svcdb_list = (monitor_svcdb_t *)microkit_monitor_ossvc_database;
 
     for (int i = 0; i < svcdb_list->len; ++i) {
 
@@ -86,7 +86,7 @@ void monitor_patch_payload_with_ossvc_info(int cid, protocon_svc_req_t *req, uin
     // now the job is to collect all access rights from the acgroup from the given acg
     // but still, we need to choose a subset from the acgroup ...
 
-    protocon_svcdb_t *svcdb = &((monitor_svcdb_t *)microkit_template_spec_ar)->list[cid];
+    protocon_svcdb_t *svcdb = &((monitor_svcdb_t *)microkit_monitor_ossvc_database)->list[cid];
 
     TSLDR_DBG_PRINT(LIB_NAME_MACRO "pd index of the given acg arr: %d\n", svcdb->pd_idx);
     TSLDR_DBG_PRINT(LIB_NAME_MACRO "number of acgs in the acg arr: %d\n", svcdb->svc_num);
