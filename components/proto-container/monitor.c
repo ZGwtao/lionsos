@@ -189,14 +189,22 @@ void monitor_call_deploy_protocon_second_half()
     // we don't patch it on the shared memory of frontend side, as it is not correct to change the content of source input
     monitor_patch_payload_with_ossvc_info(cid, &req, (uintptr_t)client_payload_eh, msvcdb_base);
 
+    // prepare the trusted loading metadata for this dynamic PD (protocon)
+    // the information source is patched by microkit (microkit_trusted_loading_info)
     tsldr_main_monitor_init_mdinfo((tsldr_mdinfodb_t *)microkit_trusted_loading_info, cid, (void *)((char *)TSLDR_METADATA_BASE + cid * TSLDR_METADATA_SIZE));
 
+    // if a dynamic pd has a trusted loading context, copy the context from the db into the dynamic pd's shared memory region for trusted loading
+    // otherwise just do nothing as the trusted loader will check the metadata and find it is not initialised, then skip the restoring process and jump to the next steps directly
     tsldr_miscutil_memcpy((char *)TSLDR_CONTEXT_BASE + cid * TSLDR_CONTEXT_SIZE, &protocon_ctx_db[cid], sizeof(tsldr_context_t));
 
+    // before trusted loading, grant high privileges to the dynamic PD (protocon)
     tsldr_main_monitor_privilege_pd(cid);
 
+    // mark the matched dynamic PD (protocon) as instantiated (active, in use)
     SET_PROTOCON_AS_INSTANTIATED(cid)
     
+    /* --- at this stage, start the protocon --- */
+
     Elf64_Ehdr *protocon_eh = (Elf64_Ehdr *)FE_MONITOR_REGION_PROTOCON_ELF_BASE;
     /* switch to trusted loader in protocon */
     microkit_pd_restart(cid, protocon_eh->e_entry);

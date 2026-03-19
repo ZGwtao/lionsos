@@ -36,14 +36,18 @@ void monitor_ossvc_populate_all_svc_of_unipd(protocon_svcdb_t *svcdb, int map[])
     }
 }
 
+// FIXME: we should pass the map as an argument to avoid the dependency on the global variable,
+//  but it is not a big deal for now as we are still in the early stage of prototyping
 void monitor_init_ossvc_map()
 {
+    // we will populate the global map that records the distribution of OS services for each dynamic PD (protocon)
+    // we just simply get the information from the microkit-patched region (microkit_monitor_ossvc_database) 
     monitor_svcdb_t *svcdb_list = (monitor_svcdb_t *)microkit_monitor_ossvc_database;
-
+    // for all dynamic PDs, try to populate the map with this loop
     for (int i = 0; i < svcdb_list->len; ++i) {
-
+        // get the pointer to the OS service database of this PD,
         protocon_svcdb_t *curr_svcdb = &svcdb_list->list[i];
-
+        // for each dynamic PD, we will populate the map with the information of all OS services of this PD
         monitor_ossvc_populate_all_svc_of_unipd(curr_svcdb, monitor_svc_dist_map[i]);
     }
 }
