@@ -168,7 +168,7 @@ void monitor_call_debute_lower()
 
     monitor_patch_payload_with_ossvc_info(cid, &req, payload_base, msvcdb_base, patch_elf_connection);
 
-    tsldr_main_monitor_init_mdinfo((tsldr_mdinfodb_t *)microkit_template_spec, cid, (void *)((char *)TSLDR_METADATA_BASE + cid * TSLDR_METADATA_SIZE));
+    tsldr_main_monitor_init_mdinfo((tsldr_mdinfodb_t *)microkit_trusted_loading_info, cid, (void *)((char *)TSLDR_METADATA_BASE + cid * TSLDR_METADATA_SIZE));
 
     tsldr_miscutil_memcpy((char *)TSLDR_CONTEXT_BASE + cid * TSLDR_CONTEXT_SIZE, &protocon_ctx_db[cid], sizeof(tsldr_context_t));
 
