@@ -190,6 +190,8 @@ static inline void monitor_main_notify_frontend()
 
 void monitor_call_debute_lower()
 {
+    TSLDR_DBG_PRINT(PROGNAME "entry of monitor_call_debute_lower\n");
+
     Elf64_Ehdr *ehdr = (Elf64_Ehdr *)ext_protocon_elf;
 
     // FIXME: should not use shared memory to determine state...
@@ -319,8 +321,15 @@ seL4_Bool fault(microkit_child child, microkit_msginfo msginfo, microkit_msginfo
 
 seL4_MessageInfo_t monitor_call_debute(void)
 {
-    tsldr_main_check_elf_integrity(ext_protocon_elf);
-
+    TSLDR_DBG_PRINT(PROGNAME "entry of monitor_call_debute\n");
+    seL4_Word err;
+    tsldr_main_check_elf_integrity(ext_protocon_elf, &err);
+    if (err) {
+        TSLDR_DBG_PRINT(PROGNAME "Integrity check failed for protocon elf\n");
+        monitor_main_notify_frontend();
+        return microkit_msginfo_new(seL4_NoError, 0);
+    }
+    TSLDR_DBG_PRINT(PROGNAME "Integrity check passed for protocon elf\n");
     monitor_main_cothread_spawn(monitor_call_debute_lower, NULL, "cannot initialise monitor cothread for monitor call.\n");
     return microkit_msginfo_new(seL4_NoError, 0);
 }
