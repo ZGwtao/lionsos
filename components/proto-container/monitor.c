@@ -265,7 +265,7 @@ seL4_MessageInfo_t monitor_call_debute(void)
 }
 
 
-int monitor_main_get_cid_from_channl(microkit_channel ch)
+int monitor_main_get_cid_from_channel(microkit_channel ch)
 {
     if (ch < PC_MONITOR_PROTOCON_BASE_CHANNEL ||
         ch >= (PC_MONITOR_PROTOCON_BASE_CHANNEL + PC_CHILD_PER_MONITOR_MAX_NUM))
@@ -279,7 +279,7 @@ int monitor_main_get_cid_from_channl(microkit_channel ch)
 
 seL4_MessageInfo_t monitor_call_restore(microkit_channel ch)
 {
-    int cid = monitor_main_get_cid_from_channl(ch);
+    int cid = monitor_main_get_cid_from_channel(ch);
     assert(protocon_states[cid] == PROTOCON_ACTIVE);
 
     SET_PROTOCON_AS_AVAILABLE(cid)
@@ -292,7 +292,7 @@ seL4_MessageInfo_t monitor_call_restore(microkit_channel ch)
 
 seL4_MessageInfo_t monitor_call_backup_tsldr_context(microkit_channel ch)
 {
-    int cid = monitor_main_get_cid_from_channl(ch);
+    int cid = monitor_main_get_cid_from_channel(ch);
 
     tsldr_context_t *context = (tsldr_context_t *)((unsigned char *)TSLDR_CONTEXT_BASE + cid * TSLDR_CONTEXT_SIZE);
 
@@ -318,7 +318,7 @@ seL4_MessageInfo_t monitor_main_handle_pccall(microkit_channel ch)
         ret = monitor_call_debute();
         break;
     case 20:
-        TSLDR_DBG_PRINT(PROGNAME "Exit to uninstantiated container\n");
+        TSLDR_DBG_PRINT(PROGNAME "Backing up trusted loading context for dynamic PD with ID: %d\n", monitor_main_get_cid_from_channel(ch));
         ret = monitor_call_backup_tsldr_context(ch);
         break;
     case 0x100:
