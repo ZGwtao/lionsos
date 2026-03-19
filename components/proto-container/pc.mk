@@ -31,18 +31,6 @@ PC_OBJS := \
 pc:
 	mkdir -p pc
 
-#pc/$(PC_LIBMICROKITCO_OBJ): pc
-#	make -f $(PC_LIBMICROKITCO_DIR)/Makefile \
-			LIBMICROKITCO_PATH=$(PC_LIBMICROKITCO_DIR) \
-			TARGET=$(TARGET) \
-			MICROKIT_SDK:=$(MICROKIT_SDK) \
-			BUILD_DIR:=pc \
-			MICROKIT_BOARD:=$(MICROKIT_BOARD) \
-			MICROKIT_CONFIG:=$(MICROKIT_CONFIG) \
-			CPU:=$(CPU) \
-			LLVM:=1 \
-			LIBMICROKITCO_OPT_PATH=$(PC_LIBMICROKITCO_OPT_PATH)
-
 pc/$(PC_LIBTRUSTEDLO_OBJ): pc
 	make -f $(PC_LIBTRUSTEDLO_DIR)/Makefile \
 			LIBTRUSTEDLO_PATH=$(PC_LIBTRUSTEDLO_DIR) \
@@ -75,10 +63,7 @@ monitor.elf: $(PC_MONITOR_OBJS) pc/$(PC_LIBTRUSTEDLO_OBJ) $(PC_LIBMICROKITCO_OBJ
 protocon.elf: LDFLAGS += -L$(BOARD_DIR)/lib
 protocon.elf: $(PC_PROTOCON_OBJS) \
 			  pc/$(PC_LIBTRUSTEDLO_OBJ)
-	$(LD) $(LDFLAGS) \
-		--defsym __sel4_ipc_buffer=0x100000 \
-		--defsym loader_context=0xE00000 \
-		$^ $(LIBS) -o $@
+	$(LD) $(LDFLAGS) $^ $(LIBS) -o $@
 
 trampoline.elf: LDFLAGS += -L$(BOARD_DIR)/lib
 trampoline.elf: $(PC_TRAMPOLINE_OBJS) pc/$(PC_LIBTRUSTEDLO_OBJ)
