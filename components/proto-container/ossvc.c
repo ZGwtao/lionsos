@@ -68,8 +68,11 @@ void monitor_patch_payload_with_ossvc__worker_func(protocon_svc_t *svc, protocon
         req_acrt->num_req_mappings++;
     }
 
+    seL4_Word ptr_of_target_section_in_payload = \
+        req->data_per_svc_instance[type][req->num_svc_per_type[type] - 1];
+
     // the third arg is vaddr for loading the datafile in the target elf??
-    fn((void *)payload_base, svc->data_path, req->data_per_svc_instance[type][req->num_svc_per_type[type] - 1]);
+    fn((void *)payload_base, svc->data_path, ptr_of_target_section_in_payload);
 
     req->num_svc_per_type[type]--;
 }
@@ -86,15 +89,15 @@ void monitor_patch_payload_with_ossvc_info(int cid, protocon_svc_req_t *req, uin
 
     protocon_svcdb_t *svcdb = &((monitor_svcdb_t *)microkit_monitor_ossvc_database)->list[cid];
 
-    TSLDR_DBG_PRINT(LIB_NAME_MACRO "pd index of the given acg arr: %d\n", svcdb->pd_idx);
-    TSLDR_DBG_PRINT(LIB_NAME_MACRO "number of acgs in the acg arr: %d\n", svcdb->svc_num);
+    TSLDR_DBG_PRINT(LIB_NAME_MACRO "pd index of the given os svcdb: %d\n", svcdb->pd_idx);
+    TSLDR_DBG_PRINT(LIB_NAME_MACRO "number of svcs in the os svcdb: %d\n", svcdb->svc_num);
 
     tsldr_acrtreq_t req_acrt;
 
     // get the subset from the above according to the instructions given in req...
     protocon_svc_t *curr_svc = svcdb->array;
 
-    // check all available acgroups...
+    // check all available os services...
     for (int i = 0; i < svcdb->svc_num; ++i) {
         monitor_patch_payload_with_ossvc__worker_func(&curr_svc[i], req, &req_acrt, fn, payload_base);
     }
