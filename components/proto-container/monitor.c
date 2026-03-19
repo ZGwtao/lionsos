@@ -25,47 +25,64 @@
 #define PC_MONITOR_REGION_CLIENT_PAYLOAD_BASE (0x50000000)
 
 // each elf file is of the same upper size limit
-#define ELF_FILE_SIZE           0x800000
+#define FE_MONITOR_REGION_SIZE (0x800000)
 // elf files from frontend as external files...
 // shared memory with the frontend PD
-uintptr_t ext_protocon_elf      = 0x6000000;
-uintptr_t ext_trampoline_elf    = 0x6800000;
-uintptr_t ext_payload_elf       = 0x7000000;
+#define FE_MONITOR_REGION_PROTOCON_ELF_BASE (0x6000000)
+#define FE_MONITOR_REGION_TRAMPOLINE_ELF_BASE (0x6800000)
+#define FE_MONITOR_REGION_CLIENT_PAYLOAD_BASE (0x7000000)
 
 __attribute__((__section__(".fs_client_config"))) fs_client_config_t fs_config;
 
+// these are the craziest thing for microkit cothreads
 co_control_t co_controller_mem;
-
 static char monitor_costack1[0x10000];
 static char monitor_costack2[0x10000];
-
 static void blocking_wait(microkit_channel ch) { microkit_cothread_wait_on_channel(ch); }
 
-
+// record the number of OS services of each type provided by each dynamic PD (protocon)
+// so, at first level the index is the dynamic PD index (16 dynamic PDs at most),
+// and at second level the index is the OS service type index (8 types at most)
 int monitor_svc_dist_map[PC_CHILD_PER_MONITOR_MAX_NUM][SVC_TYPE_MAX_NUM];
 
+// record the trusted loading context of each dynamic PD (protocon)
 tsldr_context_t protocon_ctx_db[PC_CHILD_PER_MONITOR_MAX_NUM];
 
+// record the current lifecycle state of each dynamic PD (protocon)
 protocon_lifecycle_state_t protocon_states[PC_CHILD_PER_MONITOR_MAX_NUM];
 
 #define SMALL_PAGE_SIZE     (0x1000)
 
+// this is the base address of the trusted loader context region for each dynamic PD (protocon)
+// this describes the information of all requested low-level access rights of a dynamic PD, which is the SUBSET of trusted loading metadata
 #define TSLDR_CONTEXT_BASE  (0xff40000)
 #define TSLDR_CONTEXT_SIZE  SMALL_PAGE_SIZE
-
+// this is the base address of the trusted loader metadata region for each dynamic PD (protocon)
+// the monitor PD will prepare the metadata for each dynamic PD in this region, and the dynamic PD will read the metadata from this region when it is loading
+// this describes the information of all low-level access rights of a dynamic PD, which will be used by the trusted loader to do the actual loading work
 #define TSLDR_METADATA_BASE (0xffc0000)
 #define TSLDR_METADATA_SIZE SMALL_PAGE_SIZE
 
+// if a trusted loader metadata region is initialised, check the hash with this number
+// if not match, it means the metadata is not initialised
 #define TSLDR_MDINFO_HASH   (0xffff)
 
+// channels id for monitor PD to communicate with the frontend PD and the dynamic PDs (protocons)
 #define PC_MONITOR_FRONTEND_CHANNEL (15)
 #define PC_MONITOR_PROTOCON_BASE_CHANNEL (24)
 
+// monitor call numbers
 #define PC_MONITOR_CALL_DEPLOY (1)
 #define PC_MONITOR_CALL_BACKUP_CONTEXT (20)
 #define PC_MONITOR_CALL_TERMINATE (0x100)
 
 // base of all shared os services metadata regions
+// the region is for all dynamic PDs, each dynamic PD has a piece between the monitor PD and the dynamic PD itself
+// we use it to store the information of OS services requested by the client program
+// we will encode the low-level access rights information of OS services requested
+// and put the serialised, encoded info into this region.
+// the dynamic PD can then read the OS svc information at high-level, while initialise the trusted loader
+// with the low-level information provided here...
 uintptr_t msvcdb_base = 0x0ff80000;
 
 fs_queue_t *fs_command_queue;
@@ -107,12 +124,29 @@ static inline void monitor_main_notify_frontend()
     microkit_notify(PC_MONITOR_FRONTEND_CHANNEL);
 }
 
+void monitor_main_load_elfs_into_protocon(int cid)
+{
+    uintptr_t payload_base = PC_MONITOR_REGION_CLIENT_PAYLOAD_BASE + PC_MONITOR_REGION_SIZE * cid;
+    uintptr_t protocon_base = PC_MONITOR_REGION_PROTOCON_ELF_BASE + PC_MONITOR_REGION_SIZE * cid;
+    uintptr_t trampoline_base = PC_MONITOR_REGION_TRAMPOLINE_ELF_BASE + PC_MONITOR_REGION_SIZE * cid;
+
+    tsldr_miscutil_load_elf((void*)protocon_base, (const Elf64_Ehdr *)FE_MONITOR_REGION_PROTOCON_ELF_BASE);
+    TSLDR_DBG_PRINT(PROGNAME "Copied proto container to child PD's memory region\n");
+
+    tsldr_miscutil_memcpy((void*)payload_base, (char *)FE_MONITOR_REGION_CLIENT_PAYLOAD_BASE, FE_MONITOR_REGION_SIZE);
+    TSLDR_DBG_PRINT(PROGNAME "Copied client program to child PD's memory region\n");
+
+    tsldr_miscutil_memcpy((void*)trampoline_base, (char *)FE_MONITOR_REGION_TRAMPOLINE_ELF_BASE, FE_MONITOR_REGION_SIZE);
+    TSLDR_DBG_PRINT(PROGNAME "Copied trampoline program to child PD's memory region\n");
+}
+
+
 void monitor_call_deploy_protocon_second_half()
 {
     TSLDR_DBG_PRINT(PROGNAME "entry of monitor_call_deploy_protocon_second_half\n");
 
     // FIXME: should not use shared memory to determine state...
-    Elf64_Ehdr *payload_eh = (Elf64_Ehdr *)ext_payload_elf;
+    Elf64_Ehdr *payload_eh = (Elf64_Ehdr *)FE_MONITOR_REGION_CLIENT_PAYLOAD_BASE;
     if (payload_eh->e_shoff == 0 || payload_eh->e_shnum == 0 || payload_eh->e_shentsize != sizeof(Elf64_Shdr)
         || payload_eh->e_shstrndx == SHN_UNDEF || payload_eh->e_shstrndx >= payload_eh->e_shnum)
     {
@@ -126,7 +160,7 @@ void monitor_call_deploy_protocon_second_half()
 
     // the section defined by the user application in elf for specifying requested OS services
     Elf64_Shdr *user_defined_svc_section;
-    user_defined_svc_section = (Elf64_Shdr *)tsldr_miscutil_find_section_from_elf((void *)ext_payload_elf, PC_SVC_DESC_SECTION_NAME);
+    user_defined_svc_section = (Elf64_Shdr *)tsldr_miscutil_find_section_from_elf((void *)FE_MONITOR_REGION_CLIENT_PAYLOAD_BASE, PC_SVC_DESC_SECTION_NAME);
     if (!user_defined_svc_section) {
         TSLDR_DBG_PRINT(PROGNAME "Failed to restart container as no iface section specified\n");
         monitor_main_notify_frontend();
@@ -138,7 +172,7 @@ void monitor_call_deploy_protocon_second_half()
     // if we have any available dynamic PD that offers the superset of requested OS services,
     // return the cid of that dynamic PD, update the state of the dynamic PD (protocon), and do the trusted loading work underneath
     // otherwise, return early (when the cid returned is invalid)
-    int cid = monitor_match_ossvc_request_with_available_pd((void *)ext_payload_elf, user_defined_svc_section, &req, protocon_states);
+    int cid = monitor_match_ossvc_request_with_available_pd((void *)FE_MONITOR_REGION_CLIENT_PAYLOAD_BASE, user_defined_svc_section, &req, protocon_states);
     if (cid >= PC_CHILD_PER_MONITOR_MAX_NUM || cid < 0) {
         TSLDR_DBG_PRINT(PROGNAME "Failed to find suitable container for payload\n");
         TSLDR_DBG_PRINT(PROGNAME "Fetched cid number is: %d\n", cid);
@@ -147,24 +181,13 @@ void monitor_call_deploy_protocon_second_half()
     }
     TSLDR_DBG_PRINT(PROGNAME "cid available: %d\n", cid);
 
-    uintptr_t payload_base = PC_MONITOR_REGION_CLIENT_PAYLOAD_BASE + PC_MONITOR_REGION_SIZE * cid;
-    uintptr_t protocon_base = PC_MONITOR_REGION_PROTOCON_ELF_BASE + PC_MONITOR_REGION_SIZE * cid;
-    uintptr_t trampoline_base = PC_MONITOR_REGION_TRAMPOLINE_ELF_BASE + PC_MONITOR_REGION_SIZE * cid;
+    monitor_main_load_elfs_into_protocon(cid);
 
-
-    Elf64_Ehdr *protocon_eh = (Elf64_Ehdr *)ext_protocon_elf;
-    uintptr_t entry = protocon_eh->e_entry;
-
-    tsldr_miscutil_load_elf((void*)protocon_base, protocon_eh);
-    TSLDR_DBG_PRINT(PROGNAME "Copied proto container to child PD's memory region\n");
-
-    tsldr_miscutil_memcpy((void*)payload_base, (char *)ext_payload_elf, ELF_FILE_SIZE);
-    TSLDR_DBG_PRINT(PROGNAME "Copied client program to child PD's memory region\n");
-
-    tsldr_miscutil_memcpy((void*)trampoline_base, (char *)ext_trampoline_elf, ELF_FILE_SIZE);
-    TSLDR_DBG_PRINT(PROGNAME "Copied trampoline program to child PD's memory region\n");
-
-    monitor_patch_payload_with_ossvc_info(cid, &req, payload_base, msvcdb_base);
+    Elf64_Ehdr *client_payload_eh = (Elf64_Ehdr *)PC_MONITOR_REGION_CLIENT_PAYLOAD_BASE + PC_MONITOR_REGION_SIZE * cid;
+    // when the client payload is loaded into the memory of the dynamic PD,
+    // we will patch the payload with the information of where to access the OS services (i.e., pointers to the OS services)
+    // we don't patch it on the shared memory of frontend side, as it is not correct to change the content of source input
+    monitor_patch_payload_with_ossvc_info(cid, &req, (uintptr_t)client_payload_eh, msvcdb_base);
 
     tsldr_main_monitor_init_mdinfo((tsldr_mdinfodb_t *)microkit_trusted_loading_info, cid, (void *)((char *)TSLDR_METADATA_BASE + cid * TSLDR_METADATA_SIZE));
 
@@ -173,10 +196,11 @@ void monitor_call_deploy_protocon_second_half()
     tsldr_main_monitor_privilege_pd(cid);
 
     SET_PROTOCON_AS_INSTANTIATED(cid)
-
-    /* switch to trusted loader */
-    microkit_pd_restart(cid, entry);
-    TSLDR_DBG_PRINT(PROGNAME "Started child PD at entrypoint address: %x\n", (unsigned long long)entry);
+    
+    Elf64_Ehdr *protocon_eh = (Elf64_Ehdr *)FE_MONITOR_REGION_PROTOCON_ELF_BASE;
+    /* switch to trusted loader in protocon */
+    microkit_pd_restart(cid, protocon_eh->e_entry);
+    TSLDR_DBG_PRINT(PROGNAME "Started child PD at entrypoint address: %x\n", protocon_eh->e_entry);
 }
 
 
@@ -252,7 +276,7 @@ seL4_MessageInfo_t monitor_call_deploy_protocon_first_half(void)
 {
     TSLDR_DBG_PRINT(PROGNAME "entry of monitor_call_deploy_protocon_first_half\n");
     seL4_Word err;
-    tsldr_main_check_elf_integrity(ext_protocon_elf, &err);
+    tsldr_main_check_elf_integrity(FE_MONITOR_REGION_PROTOCON_ELF_BASE, &err);
     if (err) {
         TSLDR_DBG_PRINT(PROGNAME "Integrity check failed for protocon elf\n");
         monitor_main_notify_frontend();
