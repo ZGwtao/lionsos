@@ -55,6 +55,9 @@ protocon_lifecycle_state_t protocon_states[PC_CHILD_PER_MONITOR_MAX_NUM];
 #define PC_MONITOR_FRONTEND_CHANNEL (15)
 #define PC_MONITOR_PROTOCON_BASE_CHANNEL (24)
 
+#define PC_MONITOR_CALL_DEPLOY (1)
+#define PC_MONITOR_CALL_BACKUP_CONTEXT (20)
+#define PC_MONITOR_CALL_TERMINATE (0x100)
 
 // base of all shared acgroup metadata regions
 uintptr_t msvcdb_base = 0x0ff80000;
@@ -304,30 +307,27 @@ seL4_MessageInfo_t monitor_call_backup_tsldr_context(microkit_channel ch)
 
 seL4_MessageInfo_t monitor_main_handle_pccall(microkit_channel ch)
 {
-    TSLDR_DBG_PRINT(PROGNAME "Received protected message on channel: %d\n", ch);
-
     /* get the first word of the message */
-    seL4_Word monitorcall_number = microkit_mr_get(0);
-
-    seL4_MessageInfo_t ret;
+    seL4_Word call_id = microkit_mr_get(0);
+    seL4_MessageInfo_t ret = microkit_msginfo_new(0, 0);
 
     /* call for the container monitor */
-    switch (monitorcall_number) {
-    case 1:
-        TSLDR_DBG_PRINT(PROGNAME "Loading trusted loader and the first client\n");
+    switch (call_id) {
+    case PC_MONITOR_CALL_DEPLOY:
+        TSLDR_DBG_PRINT(PROGNAME "Deploy an application to a dynamic PD\n");
         ret = monitor_call_debute();
         break;
-    case 20:
+    case PC_MONITOR_CALL_BACKUP_CONTEXT:
         TSLDR_DBG_PRINT(PROGNAME "Backing up trusted loading context for dynamic PD with ID: %d\n", monitor_main_get_cid_from_channel(ch));
         ret = monitor_call_backup_tsldr_context(ch);
         break;
-    case 0x100:
-        TSLDR_DBG_PRINT(PROGNAME "Exit to uninstantiated container\n");
+    case PC_MONITOR_CALL_TERMINATE:
+        TSLDR_DBG_PRINT(PROGNAME "Exit and uninstantiate a dynamic PD\n");
         ret = monitor_call_restore(ch);
         break;
     default:
         /* do nothing for now */
-        TSLDR_DBG_PRINT(PROGNAME "Undefined container monitor call: %lu\n", monitorcall_number);
+        TSLDR_DBG_PRINT(PROGNAME "Undefined container monitor call: %lu\n", call_id);
         break;
     }
 
