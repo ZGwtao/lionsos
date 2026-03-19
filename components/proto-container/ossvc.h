@@ -70,9 +70,7 @@ typedef struct {
 void monitor_init_ossvc_map();
 
 
-typedef void (*patch_elf_connection_fn)(void *elf_base, char data_file[], uintptr_t vaddr);
-
-void monitor_patch_payload_with_ossvc_info(int cid, protocon_svc_req_t *req, uintptr_t payload_base, uintptr_t monitor_svcdb_base, patch_elf_connection_fn fn);
+void monitor_patch_payload_with_ossvc_info(int cid, protocon_svc_req_t *req, uintptr_t payload_base, uintptr_t monitor_svcdb_base);
 
 
 int monitor_match_ossvc_request_with_available_pd(void *elf_base, void *sh, protocon_svc_req_t *req, protocon_lifecycle_state_t *protocon_states);

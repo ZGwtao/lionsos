@@ -4,6 +4,13 @@
 #include <protocon.h>
 #include <string.h>
 
+#include <lions/fs/config.h>
+#include <pico_vfs.h>
+
+#ifndef PROGNAME
+#define PROGNAME "[@monitor] "
+#endif
+
 extern int monitor_svc_dist_map[PC_CHILD_PER_MONITOR_MAX_NUM][SVC_TYPE_MAX_NUM];
 
 
@@ -42,7 +49,27 @@ void monitor_init_ossvc_map()
 }
 
 
-void monitor_patch_payload_with_ossvc__worker_func(protocon_svc_t *svc, protocon_svc_req_t *req, tsldr_acrtreq_t *req_acrt, patch_elf_connection_fn fn, uintptr_t payload_base)
+void monitor_worker_func__patch_payload_by_ptr(void *elf_base, char data_file[], uintptr_t vaddr)
+{
+    int err = 0;
+    seL4_Word target_sh = tsldr_miscutil_fetch_elf_section_with_vaddr(elf_base, vaddr);
+    if (!target_sh) {
+        // the reason we allow early return in here is:
+        //  a broken client program will only break a dynamic PD's execution
+        //  we can still load a broken elf into a dynamic PD but keep the rest of the system safe
+        // so, if unfortunately the client breaks something in its user-defined section
+        // it is none of the monitor or dynamic PD's business, as we just need to restore a faulting PD...
+        TSLDR_DBG_PRINT(PROGNAME "Failed to find the target section (vaddr '%x') to patch with\n", vaddr);
+        return;
+    }
+    pico_vfs_readfile2buf((void *)target_sh, data_file, &err);
+    if (err != seL4_NoError) {
+        TSLDR_DBG_PRINT(PROGNAME "Failed to patch payload with datafile '%s' at: %x", data_file, vaddr);
+        // FIXME: we do nothing here, but should it behave like this?
+    }
+}
+
+void monitor_patch_payload_with_ossvc__worker_func(protocon_svc_t *svc, protocon_svc_req_t *req, tsldr_acrtreq_t *req_acrt, uintptr_t payload_base)
 {
     if (!svc->svc_init) {
         return;
@@ -72,34 +99,35 @@ void monitor_patch_payload_with_ossvc__worker_func(protocon_svc_t *svc, protocon
         req->data_per_svc_instance[type][req->num_svc_per_type[type] - 1];
 
     // the third arg is vaddr for loading the datafile in the target elf??
-    fn((void *)payload_base, svc->data_path, ptr_of_target_section_in_payload);
+    monitor_worker_func__patch_payload_by_ptr((void *)payload_base, svc->data_path, ptr_of_target_section_in_payload);
 
     req->num_svc_per_type[type]--;
 }
 
-
-typedef void (*patch_elf_connection_fn)(void *elf_base, char data_file[], uintptr_t vaddr);
-
-void monitor_patch_payload_with_ossvc_info(int cid, protocon_svc_req_t *req, uintptr_t payload_base, uintptr_t monitor_svcdb_base, patch_elf_connection_fn fn)
+void monitor_patch_payload_with_ossvc_info(int cid, protocon_svc_req_t *req, uintptr_t payload_base, uintptr_t monitor_svcdb_base)
 {
-    // so the trusted loader will not care how these access rights entry sit
-    // all we have to do is specifying a number of total rights while put them after the number
-    // now the job is to collect all access rights from the acgroup from the given acg
-    // but still, we need to choose a subset from the acgroup ...
-
     protocon_svcdb_t *svcdb = &((monitor_svcdb_t *)microkit_monitor_ossvc_database)->list[cid];
 
     TSLDR_DBG_PRINT(LIB_NAME_MACRO "pd index of the given os svcdb: %d\n", svcdb->pd_idx);
     TSLDR_DBG_PRINT(LIB_NAME_MACRO "number of svcs in the os svcdb: %d\n", svcdb->svc_num);
 
+    // the request variable, which should be filled out with the low-level access rights information
+    // we use it to record the access rights of the required OS services (i.e., svcs from above)
+    // we will then send this thing to the trusted loading functions for actual trusted loading
+    // the reason we need it is that the trusted loader does not handle high-level information
+    // so we put an information flow transition that turns requested OS services into low-level details
     tsldr_acrtreq_t req_acrt;
 
-    // get the subset from the above according to the instructions given in req...
+    // the array that records all svcs of this pd
     protocon_svc_t *curr_svc = svcdb->array;
 
-    // check all available os services...
+    // check all available os services, and patch each of them accordingly
+    //  - patch the elf with information that describes the required os services
+    // this is a part of the process of elf preparation
     for (int i = 0; i < svcdb->svc_num; ++i) {
-        monitor_patch_payload_with_ossvc__worker_func(&curr_svc[i], req, &req_acrt, fn, payload_base);
+        // basically it is similar to tell the client program where to access the OS services
+        // (we will put the pointers to access the svcs in the given place specified by the client)
+        monitor_patch_payload_with_ossvc__worker_func(&curr_svc[i], req, &req_acrt, payload_base);
     }
 
     seL4_Word *svc_num_ptr = (seL4_Word *)((char *)monitor_svcdb_base + 0x1000 * cid);
@@ -156,10 +184,10 @@ static inline void monitor_ossvc_init_req_per_type(protocon_svc_req_t *req, prot
 void monitor_ossvc_parse_req_from_elf_section(void *elf_base, void *sh, protocon_svc_req_t *req)
 {
     // parse the interface section ...
-    // i.e., get the user-defined section for declaring what acgroups are wanted
+    // i.e., get the user-defined section for declaring what OS services are requested
     protocon_svc_desc_t *ib = (protocon_svc_desc_t *)(elf_base + (uint64_t)((Elf64_Shdr *)sh)->sh_offset);
 
-    // the list of numbers of requested acgroups
+    // the list of numbers of requested OS services
     const uint8_t *svc_req_num_per_type = &ib->t1_num;
     // the corresponding types which map to the above list of numbers
     const protocon_svc_type_t *svc_req_types = &ib->type1;
@@ -179,6 +207,8 @@ void monitor_ossvc_parse_req_from_elf_section(void *elf_base, void *sh, protocon
         uint8_t n = svc_req_num_per_type[i] > PC_SVC_PER_PD_MAX_NUM ? PC_SVC_PER_PD_MAX_NUM : svc_req_num_per_type[i];
         req->num_svc_per_type[curr_type] = n;
 
+        // for each of the OS service, turns it into an OS service request,
+        // which will then go into requests of low-level access rights
         seL4_Word *svc_data_list = *svc_per_type_data_map[i];
         monitor_ossvc_init_req_per_type(req, curr_type, n, svc_data_list);
     }
