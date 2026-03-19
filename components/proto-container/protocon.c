@@ -9,8 +9,6 @@
 #include <libtrustedlo.h>
 #include <string.h>
 
-#define PROGNAME "[@protocon] "
-
 
 /* 4KB in size, read-only */
 uintptr_t tsldr_metadata    = 0x0A00000;
@@ -22,7 +20,6 @@ uintptr_t container_exec    = 0x2800000;
 #define STACKS_SIZE 0x1000
 
 uintptr_t trampoline_stack_top  = (0x00FFFE00000);
-//uintptr_t tsldr_stack_bottom    = (0x00FFFFFF000);
 uintptr_t container_stack_top   = (0x00FFFC00000);
 
 /*
@@ -40,7 +37,4 @@ void init(void)
     tsldr_main_self_loading((void *)tsldr_metadata, (void *)acgroup_metadata, loader_context, container_elf, container_exec, trampoline_elf, trampoline_stack_top);
 }
 
-void notified(microkit_channel ch)
-{
-    TSLDR_DBG_PRINT(PROGNAME "Received notification on channel: %d\n", ch);
-}
+void notified(microkit_channel ch) {}
