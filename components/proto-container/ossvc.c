@@ -78,6 +78,12 @@ void monitor_patch_payload_with_ossvc__worker_func(protocon_svc_t *svc, protocon
     if (!req->num_svc_per_type[type]) {
         return;
     }
+    // maximumlly, we allow each OS svc to have at most:
+    //  - 4 channels
+    //  - 4 irqs (not implemented here)
+    //  - *4 x86ioports (not implemented in microkit)
+    //  - 4 mappings (4 pieaces of memory regions)
+    // these low-level access rights should be enough to describe an OS service
     for (int i = 0; i < 4; ++i) {
         if (svc->channels[i] >= MICROKIT_MAX_CHANNELS) {
             continue;
@@ -86,6 +92,7 @@ void monitor_patch_payload_with_ossvc__worker_func(protocon_svc_t *svc, protocon
         req_acrt->channels[channel] = (seL4_Word)svc->channels[i];
         req_acrt->num_req_channels++;
     }
+    /* TODO: irq, and x86ioports... */
     for (int i = 0; i < 4; ++i) {
         if (!svc->mappings[i].vaddr) {
             continue;
@@ -145,6 +152,8 @@ static inline seL4_Word monitor_match_ossvc_request_with_unipd(protocon_svc_req_
     for (int i = 0; i < SVC_TYPE_MAX_NUM; ++i) {
         mask |= (req->num_svc_per_type[i] > svc_dist_map[i]);
     }
+    // if mask is zero, it means all requested OS services are no less than what have been provided
+    // so that means we have a match between a dynamic PD and a set of OS services request
     return mask;
 }
 
@@ -154,6 +163,7 @@ static inline int monitor_match_ossvc_request__worker_func(protocon_svc_req_t *r
         if (protocon_states[i] == PROTOCON_ACTIVE) {
             continue;
         }
+        // check each dynamic pd and see if any of them matches with the OS service request
         seL4_Word mask = monitor_match_ossvc_request_with_unipd(req, monitor_svc_dist_map[i]);
         if (mask == 0) {
             return i;
@@ -165,6 +175,10 @@ static inline int monitor_match_ossvc_request__worker_func(protocon_svc_req_t *r
 static inline void monitor_ossvc_init_req_per_type(protocon_svc_req_t *req, protocon_svc_type_t svc_type, uint8_t svc_num_per_type, seL4_Word svc_data_list[])
 {
     switch(svc_type) {
+    // these OS services are what we support for now, but can extend later
+    // possibly more than eight types of OS services?
+    // but if an application requires more OS service types than 8,
+    // probably it is a sign that the application is too heavy to be put in a dynamic PD
     case FS_IFACE:
     case TIMER_IFACE:
     case SERIAL_IFACE: {
