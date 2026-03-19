@@ -150,12 +150,9 @@ def generate(sdf_path: str, output_dir: str, dtb: DeviceTree):
     blk_system = Sddf.Blk(sdf, blk_node, blk_driver, blk_virt)
 
     pd_frontend = ProtectionDomain("frontend", "frontend.elf", priority=50, stack_size=0x10000)
-    pd_monitor = ProtectionDomain("container_monitor", "monitor.elf", priority=54, stack_size=0x10000, template=True)
-    # pd_frontend = ProtectionDomain("frontend", "frontend.elf", priority=50)
+    pd_monitor = ProtectionDomain("container_monitor", "monitor.elf", priority=54, stack_size=0x10000, is_monitor=True)
 
     frontend_connect(pd_monitor, pd_frontend)
-
-
 
     serial_system.add_client(pd_frontend)
     serial_system.add_client(pd_monitor)
