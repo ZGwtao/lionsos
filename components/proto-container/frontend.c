@@ -93,16 +93,9 @@ void test_entrypoint(void)
 void init(void)
 {
     TSLDR_DBG_PRINT(PROGNAME "Entered init\n");
-
     assert(serial_config_check_magic(&serial_config));
-
-
     TSLDR_DBG_PRINT(PROGNAME "check serial config\n");
-
-    //assert(timer_config_check_magic(&timer_config));
     assert(fs_config_check_magic(&fs_config));
-
-
     TSLDR_DBG_PRINT(PROGNAME "check fs config\n");
 
     if (serial_config.rx.queue.vaddr != NULL) {
@@ -121,26 +114,15 @@ void init(void)
     TSLDR_DBG_PRINT(PROGNAME "finalised init\n");
 
     stack_ptrs_arg_array_t costacks = { (uintptr_t) mp_stack1, (uintptr_t) mp_stack2 };
-    TSLDR_DBG_PRINT(PROGNAME "%x, %x\n", mp_stack1, costacks[0]);
     microkit_cothread_init(&co_controller_mem, 0x10000, costacks);
-
-    TSLDR_DBG_PRINT(PROGNAME "XXXX\n");
 
     if (microkit_cothread_spawn(test_entrypoint, NULL) == LIBMICROKITCO_NULL_HANDLE) {
         TSLDR_DBG_PRINT(PROGNAME "Cannot initialise frontend cothread2\n");
         microkit_internal_crash(-1);
     }
-    
-    //microkit_cothread_yield();
-#if 0
-    if (microkit_cothread_spawn(load_entrypoint, NULL) == LIBMICROKITCO_NULL_HANDLE) {
-        TSLDR_DBG_PRINT(PROGNAME "Cannot initialise cothread1\n");
-        microkit_internal_crash(-1);
-    }
-#endif
     microkit_cothread_yield();
 
-    TSLDR_DBG_PRINT(PROGNAME "Finished init\n");
+    TSLDR_DBG_PRINT(PROGNAME "finished init\n");
 }
 
 #define INPUT_BUF_SIZE 128
