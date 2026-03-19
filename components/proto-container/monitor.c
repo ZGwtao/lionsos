@@ -59,7 +59,7 @@ protocon_lifecycle_state_t protocon_states[PC_CHILD_PER_MONITOR_MAX_NUM];
 #define PC_MONITOR_CALL_BACKUP_CONTEXT (20)
 #define PC_MONITOR_CALL_TERMINATE (0x100)
 
-// base of all shared acgroup metadata regions
+// base of all shared os services metadata regions
 uintptr_t msvcdb_base = 0x0ff80000;
 
 fs_queue_t *fs_command_queue;
@@ -85,9 +85,6 @@ void monitor_main_cothread_spawn(const client_entry_t client_entry, void *arg, c
 
 void monitor_main_init_storage(void)
 {
-    //tsldr_miscutil_memset(monitor_request_metadata, 0, sizeof(request_metadata_t) * FS_QUEUE_CAPACITY);
-    //tsldr_miscutil_memset(monitor_buffer_metadata, 0, sizeof(buffer_metadata_t) * FS_QUEUE_CAPACITY);
-
     TSLDR_DBG_PRINT(PROGNAME "(fs mount) start fs initialisation\n");
     fs_cmpl_t completion;
     int err = fs_command_blocking(&completion, (fs_cmd_t){ .type = FS_CMD_INITIALISE });
@@ -188,16 +185,13 @@ void monitor_call_debute_lower()
 void init(void)
 {
     assert(fs_config_check_magic(&fs_config));
-    
     fs_set_blocking_wait(blocking_wait);
-
     fs_command_queue = fs_config.server.command_queue.vaddr;
     fs_completion_queue = fs_config.server.completion_queue.vaddr;
     fs_share = fs_config.server.share.vaddr;
 
+    // global os services state initialisation...
     tsldr_miscutil_memset(monitor_svc_dist_map, 0, sizeof(int) * PC_CHILD_PER_MONITOR_MAX_NUM * SVC_TYPE_MAX_NUM);
-
-    // global acgroup state initialisation...
     monitor_init_ossvc_map();
 
     // global client state initialisation...
@@ -207,16 +201,7 @@ void init(void)
 
     stack_ptrs_arg_array_t costacks = { (uintptr_t) mp_stack1, (uintptr_t) mp_stack2 };
     microkit_cothread_init(&co_controller_mem, 0x10000, costacks);
-
-    //microkit_cothread_init(&co_controller_mem, PC_WORKER_THREAD_STACKSIZE, costacks);
-#if 0
-    for (uint32_t i = 0; i < (PC_WORKER_THREAD_NUM + 1); i++) {
-        microkit_cothread_semaphore_init(&sem[i]);
-    }
-#endif
     monitor_main_cothread_spawn(monitor_main_init_storage, NULL, " failed to spawn thread for storage initialisation.\n");
-
-    TSLDR_DBG_PRINT(PROGNAME "Finished init\n");
 }
 
 void notified(microkit_channel ch)
