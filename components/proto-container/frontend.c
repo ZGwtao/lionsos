@@ -73,15 +73,7 @@ void test_entrypoint(void)
     fs_init = true;
 
     TSLDR_DBG_PRINT(PROGNAME "(fs mount) finished fs initialisation\n");
-}
-
-void load_entrypoint(void)
-{
-    while(!fs_init) {
-        microkit_cothread_yield();
-    }
-#if 0
-    int err;
+#if 1
     pico_vfs_readfile2buf((void *)shared1, "protocon.elf", &err);
     if (err != seL4_NoError) {
         // halt...
@@ -214,9 +206,6 @@ void init(void)
     microkit_cothread_yield();
 
     TSLDR_DBG_PRINT(PROGNAME "Finished init\n");
-
-    sddf_putchar_unbuffered('\n');
-    print_prompt();
 }
 
 #define INPUT_BUF_SIZE 128
