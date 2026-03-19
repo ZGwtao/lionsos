@@ -8,6 +8,9 @@ IMAGES := \
 	monitor.elf \
 	frontend.elf \
 	fat.elf \
+	client.elf \
+	trampoline.elf \
+	protocon.elf \
 	serial_driver.elf \
 	serial_virt_rx.elf \
 	serial_virt_tx.elf \
@@ -80,7 +83,9 @@ FORCE:
 
 
 $(SYSTEM_FILE): $(METAPROGRAM) $(IMAGES) $(DTB)
-	cp fat.elf monitor_fs.elf 
+	cp fat.elf monitor_fs.elf
+	cp fat.elf sp0_fs.elf
+	cp fat.elf sp1_fs.elf
 	PYTHONPATH=${SDDF}/tools/meta:$$PYTHONPATH $(PYTHON) $(METAPROGRAM) --sddf $(SDDF) --board $(MICROKIT_BOARD) --dtb $(DTB) --output . --sdf $(SYSTEM_FILE)
 	$(OBJCOPY) --update-section .device_resources=serial_driver_device_resources.data serial_driver.elf
 	$(OBJCOPY) --update-section .serial_driver_config=serial_driver_config.data serial_driver.elf
@@ -97,6 +102,10 @@ $(SYSTEM_FILE): $(METAPROGRAM) $(IMAGES) $(DTB)
 	$(OBJCOPY) --update-section .fs_server_config=fs_server_fatfs.data fat.elf
 	$(OBJCOPY) --update-section .blk_client_config=blk_client_monitor_fs.data monitor_fs.elf
 	$(OBJCOPY) --update-section .fs_server_config=fs_server_monitor_fs.data monitor_fs.elf
+	$(OBJCOPY) --update-section .blk_client_config=blk_client_sp0_fs.data sp0_fs.elf
+	$(OBJCOPY) --update-section .fs_server_config=fs_server_sp0_fs.data sp0_fs.elf
+	$(OBJCOPY) --update-section .blk_client_config=blk_client_sp1_fs.data sp1_fs.elf
+	$(OBJCOPY) --update-section .fs_server_config=fs_server_sp1_fs.data sp1_fs.elf
 
 $(IMAGE_FILE) $(REPORT_FILE): $(IMAGES) $(SYSTEM_FILE)
 	$(MICROKIT_TOOL) $(SYSTEM_FILE) \
