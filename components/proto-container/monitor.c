@@ -4,10 +4,10 @@
 #include <sddf/util/printf.h>
 #include <libtrustedlo.h>
 
-#include <ossvc.h>
-#include <libmicrokitco.h>
 #include <lions/fs/config.h>
 #include <pico_vfs.h>
+#include <ossvc.h>
+#include <libmicrokitco.h>
 #include <pc_config.h>
 #include <protocon.h>
 
@@ -102,24 +102,6 @@ void monitor_main_init_storage(void)
 }
 
 
-static void monitor_worker_func__patch_payload_by_ptr(void *elf_base, char data_file[], uintptr_t vaddr)
-{
-    int err = 0;
-    seL4_Word target_sh = tsldr_miscutil_fetch_elf_section_with_vaddr(elf_base, vaddr);
-    if (!target_sh) {
-        // halt...
-        while (1);
-    }
-    // FIXME: allow multiple connections...
-    pico_vfs_readfile2buf((void *)target_sh, data_file, &err);
-    if (err != seL4_NoError) {
-        // halt...
-        TSLDR_DBG_PRINT(PROGNAME "Failed to establish connection for %s iface: %d", data_file, vaddr);
-        while (1);
-    }
-}
-
-
 static inline void monitor_main_notify_frontend()
 {
     microkit_notify(PC_MONITOR_FRONTEND_CHANNEL);
@@ -182,7 +164,7 @@ void monitor_call_deploy_protocon_second_half()
     tsldr_miscutil_memcpy((void*)trampoline_base, (char *)ext_trampoline_elf, ELF_FILE_SIZE);
     TSLDR_DBG_PRINT(PROGNAME "Copied trampoline program to child PD's memory region\n");
 
-    monitor_patch_payload_with_ossvc_info(cid, &req, payload_base, msvcdb_base, monitor_worker_func__patch_payload_by_ptr);
+    monitor_patch_payload_with_ossvc_info(cid, &req, payload_base, msvcdb_base);
 
     tsldr_main_monitor_init_mdinfo((tsldr_mdinfodb_t *)microkit_trusted_loading_info, cid, (void *)((char *)TSLDR_METADATA_BASE + cid * TSLDR_METADATA_SIZE));
 
@@ -194,7 +176,7 @@ void monitor_call_deploy_protocon_second_half()
 
     /* switch to trusted loader */
     microkit_pd_restart(cid, entry);
-    TSLDR_DBG_PRINT(PROGNAME "Started child PD at entrypoint address: 0x%x\n", (unsigned long long)entry);
+    TSLDR_DBG_PRINT(PROGNAME "Started child PD at entrypoint address: %x\n", (unsigned long long)entry);
 }
 
 
@@ -227,21 +209,34 @@ void notified(microkit_channel ch)
     microkit_cothread_recv_ntfn(ch);
 }
 
+
 void monitor_main_handle_fault(microkit_child child, microkit_msginfo msginfo)
 {
-    TSLDR_DBG_PRINT(PROGNAME "Received fault message for child PD: %d\n", child);
-
     seL4_Word label = microkit_msginfo_get_label(msginfo);
-    TSLDR_DBG_PRINT(PROGNAME "Fault label: %d\n", label);
-
+    seL4_Word notidy_flag = 0;
+    // we handle only VM fault particularly...
     if (label == seL4_Fault_VMFault) {
         seL4_Word ip = microkit_mr_get(seL4_VMFault_IP);
         seL4_Word address = microkit_mr_get(seL4_VMFault_Addr);
-        TSLDR_DBG_PRINT(PROGNAME "seL4_Fault_VMFault\n");
-        TSLDR_DBG_PRINT(PROGNAME "Fault address: 0x%x\n", (unsigned long long)address);
-        TSLDR_DBG_PRINT(PROGNAME "Fault instruction pointer: 0x%x\n", (unsigned long long)ip);
+        // we use it for running into a purely empty thread? (or init a dynamic pd)
+        notidy_flag = ip | address;
+        if (notidy_flag) {
+            TSLDR_DBG_PRINT(PROGNAME "seL4_Fault_VMFault\n");
+            TSLDR_DBG_PRINT(PROGNAME "Fault address: 0x%x\n", (unsigned long long)address);
+            TSLDR_DBG_PRINT(PROGNAME "Fault instruction pointer: 0x%x\n", (unsigned long long)ip);
+        } else {
+            TSLDR_DBG_PRINT(PROGNAME "receive the first fault from an empty pd with id; '%d'\n", child);
+        }
     }
     microkit_pd_stop(child);
+
+    if (!notidy_flag) {
+        // early return if we receive the first fault from dynamic pds (or empty threads if possible?)
+        return;
+    }
+    // do not print fault label for initialising dynamic pd...
+    TSLDR_DBG_PRINT(PROGNAME "Fault label: %d\n", label);
+    monitor_main_notify_frontend();
 }
 
 
