@@ -83,9 +83,10 @@ FORCE:
 
 
 $(SYSTEM_FILE): $(METAPROGRAM) $(IMAGES) $(DTB)
-	cp fat.elf monitor_fs.elf
-	cp fat.elf sp0_fs.elf
-	cp fat.elf sp1_fs.elf
+	$(CP) fat.elf frontend_fs.elf
+	$(CP) fat.elf monitor_fs.elf
+	$(CP) fat.elf protocon0_fs.elf
+	$(CP) fat.elf protocon1_fs.elf
 	PYTHONPATH=${SDDF}/tools/meta:$$PYTHONPATH $(PYTHON) $(METAPROGRAM) --sddf $(SDDF) --board $(MICROKIT_BOARD) --dtb $(DTB) --output . --sdf $(SYSTEM_FILE)
 	$(OBJCOPY) --update-section .device_resources=serial_driver_device_resources.data serial_driver.elf
 	$(OBJCOPY) --update-section .serial_driver_config=serial_driver_config.data serial_driver.elf
@@ -98,14 +99,14 @@ $(SYSTEM_FILE): $(METAPROGRAM) $(IMAGES) $(DTB)
 	$(OBJCOPY) --update-section .device_resources=blk_driver_device_resources.data blk_driver.elf
 	$(OBJCOPY) --update-section .blk_driver_config=blk_driver.data blk_driver.elf
 	$(OBJCOPY) --update-section .blk_virt_config=blk_virt.data blk_virt.elf
-	$(OBJCOPY) --update-section .blk_client_config=blk_client_fatfs.data fat.elf
-	$(OBJCOPY) --update-section .fs_server_config=fs_server_fatfs.data fat.elf
+	$(OBJCOPY) --update-section .blk_client_config=blk_client_frontend_fs.data frontend_fs.elf
+	$(OBJCOPY) --update-section .fs_server_config=fs_server_frontend_fs.data frontend_fs.elf
 	$(OBJCOPY) --update-section .blk_client_config=blk_client_monitor_fs.data monitor_fs.elf
 	$(OBJCOPY) --update-section .fs_server_config=fs_server_monitor_fs.data monitor_fs.elf
-	$(OBJCOPY) --update-section .blk_client_config=blk_client_sp0_fs.data sp0_fs.elf
-	$(OBJCOPY) --update-section .fs_server_config=fs_server_sp0_fs.data sp0_fs.elf
-	$(OBJCOPY) --update-section .blk_client_config=blk_client_sp1_fs.data sp1_fs.elf
-	$(OBJCOPY) --update-section .fs_server_config=fs_server_sp1_fs.data sp1_fs.elf
+	$(OBJCOPY) --update-section .blk_client_config=blk_client_protocon0_fs.data protocon0_fs.elf
+	$(OBJCOPY) --update-section .fs_server_config=fs_server_protocon0_fs.data protocon0_fs.elf
+	$(OBJCOPY) --update-section .blk_client_config=blk_client_protocon1_fs.data protocon1_fs.elf
+	$(OBJCOPY) --update-section .fs_server_config=fs_server_protocon1_fs.data protocon1_fs.elf
 
 $(IMAGE_FILE) $(REPORT_FILE): $(IMAGES) $(SYSTEM_FILE)
 	$(MICROKIT_TOOL) $(SYSTEM_FILE) \
