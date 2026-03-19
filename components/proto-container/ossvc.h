@@ -11,22 +11,21 @@ typedef struct {
     seL4_Word vaddr;
     seL4_Word number_of_pages;
     seL4_Word page_size;
-} StrippedMapping;
-
+} svc_mapping_t;
 
 typedef struct {
-    // whether or not a valid acg
+    // whether or not a valid os service
     bool svc_init;
     // corresponding to the XML gid
     uint8_t svc_idx;
-    // the type of this acg
+    // the type of this os service
     uint8_t svc_type;
     // channels
     uint8_t channels[4];
     // irqs
     uint8_t irqs[4];
     // mappings
-    StrippedMapping mappings[4];
+    svc_mapping_t mappings[4];
     // data_path
     char data_path[64];
 } protocon_svc_t;
@@ -34,16 +33,16 @@ typedef struct {
 typedef struct {
     // specify which PD this array belongs to
     uint8_t pd_idx;
-    // number of available acgrp in the array
+    // number of available os services in the array
     uint8_t svc_num;
-    // array of acgroups
+    // array of os services of this PD
     protocon_svc_t array[16];
 } protocon_svcdb_t;
 
 typedef struct {
     // overall length of this region
     size_t len;
-    // list of acgrp arrays
+    // list of os service arrays
     protocon_svcdb_t list[16];
 } monitor_svcdb_t;
 
