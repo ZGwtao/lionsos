@@ -24,15 +24,13 @@ uintptr_t shared2 = 0xb000000;
 uintptr_t shared3 = 0x6000000;
 
 __attribute__((__section__(".serial_client_config"))) serial_client_config_t serial_config;
-//__attribute__((__section__(".timer_client_config"))) timer_client_config_t timer_config;
 __attribute__((__section__(".fs_client_config"))) fs_client_config_t fs_config;
-
-//uint64_t _worker_thread_stack_one = 0xA0000000;
-//uint64_t _worker_thread_stack_two = 0xB0000000;
 
 static char mp_stack1[0x10000];
 static char mp_stack2[0x10000];
 static co_control_t co_controller_mem;
+
+static void blocking_wait(microkit_channel ch) { microkit_cothread_wait_on_channel(ch); }
 
 serial_queue_handle_t serial_rx_queue_handle;
 serial_queue_handle_t serial_tx_queue_handle;
@@ -91,69 +89,6 @@ void test_entrypoint(void)
     sddf_putchar_unbuffered('\n');
     print_prompt();
 }
-
-
-microkit_channel mp_curr_wait_ch;
-
-/* Configures the different wait behaviour of Micropython when keyboard
-interrupts are received. */
-typedef enum mp_cothread_wait_type {
-    /**
-     * Micropython will not be awoken until a notification is received on the
-     * wait channel. Pending keyboard interrupts are not processed.
-     */
-    MP_WAIT_NO_INTERRUPT = 0,
-    /**
-     * Micropython will be awoken early if a keyboard interrupt is received. The
-     * subsequent scheduled notification that was emulated will still be
-     * received by the Micropython cothread.
-     */
-    MP_WAIT_RECV,
-    /**
-     * Micropython will be awoken early if a keyboard interrupt is received. The
-     * subsequent scheduled notification that was emulated will be dropped.
-     * NOTE: this will not stack to more than one notification drop is
-     * Micropython is interrupted more than once.
-     */
-    MP_WAIT_DROP,
-    /**
-     * Micropython will be awoken early if a keyboard interrupt is received. The
-     * subsequent scheduled notification that was emulated will be dropped,
-     * unless the Micropython cothread waits on the channel again.
-     */
-    MP_WAIT_DROP_UNTIL_WAIT
-} mp_cothread_wait_type_t;
-
-typedef struct mp_cothread_ch_state {
-    bool drop;
-    mp_cothread_wait_type_t type;
-} mp_cothread_ch_state_t;
-
-mp_cothread_ch_state_t mp_channels[MICROKIT_MAX_CHANNELS];
-
-void mp_cothread_wait(microkit_channel ch,
-                      mp_cothread_wait_type_t handle_interrupt)
-{
-    if (mp_channels[ch].type == MP_WAIT_DROP_UNTIL_WAIT) {
-        mp_channels[ch].drop = false;
-    }
-
-    mp_channels[ch].type = handle_interrupt;
-    mp_curr_wait_ch = ch;
-    microkit_cothread_wait_on_channel(ch);
-    
-    if (handle_interrupt != MP_WAIT_NO_INTERRUPT) {
-        /* Ensure interrupts received while waiting are processed and raised. */
-        //mp_handle_pending(true);
-        TSLDR_DBG_PRINT(PROGNAME "mp_cothread_wait: woke up from wait on channel %d with interrupt handling type %d\n", ch, handle_interrupt);
-    }
-}
-
-
-static void blocking_wait(microkit_channel ch) {
-    mp_cothread_wait(ch, MP_WAIT_NO_INTERRUPT);
-}
-
 
 void init(void)
 {
