@@ -118,9 +118,9 @@ static inline void monitor_main_notify_frontend()
     microkit_notify(PC_MONITOR_FRONTEND_CHANNEL);
 }
 
-void monitor_call_debute_lower()
+void monitor_call_deploy_protocon_second_half()
 {
-    TSLDR_DBG_PRINT(PROGNAME "entry of monitor_call_debute_lower\n");
+    TSLDR_DBG_PRINT(PROGNAME "entry of monitor_call_deploy_protocon_second_half\n");
 
     Elf64_Ehdr *ehdr = (Elf64_Ehdr *)ext_protocon_elf;
 
@@ -237,9 +237,9 @@ seL4_Bool fault(microkit_child child, microkit_msginfo msginfo, microkit_msginfo
     return seL4_False;
 }
 
-seL4_MessageInfo_t monitor_call_debute(void)
+seL4_MessageInfo_t monitor_call_deploy_protocon_first_half(void)
 {
-    TSLDR_DBG_PRINT(PROGNAME "entry of monitor_call_debute\n");
+    TSLDR_DBG_PRINT(PROGNAME "entry of monitor_call_deploy_protocon_first_half\n");
     seL4_Word err;
     tsldr_main_check_elf_integrity(ext_protocon_elf, &err);
     if (err) {
@@ -248,7 +248,7 @@ seL4_MessageInfo_t monitor_call_debute(void)
         return microkit_msginfo_new(seL4_NoError, 0);
     }
     TSLDR_DBG_PRINT(PROGNAME "Integrity check passed for protocon elf\n");
-    monitor_main_cothread_spawn(monitor_call_debute_lower, NULL, "cannot initialise monitor cothread for monitor call.\n");
+    monitor_main_cothread_spawn(monitor_call_deploy_protocon_second_half, NULL, "cannot initialise monitor cothread for monitor call.\n");
     return microkit_msginfo_new(seL4_NoError, 0);
 }
 
@@ -265,7 +265,7 @@ int monitor_main_get_cid_from_channel(microkit_channel ch)
 }
 
 
-seL4_MessageInfo_t monitor_call_restore(microkit_channel ch)
+seL4_MessageInfo_t monitor_call_restore_protocon(microkit_channel ch)
 {
     int cid = monitor_main_get_cid_from_channel(ch);
     assert(protocon_states[cid] == PROTOCON_ACTIVE);
@@ -278,7 +278,7 @@ seL4_MessageInfo_t monitor_call_restore(microkit_channel ch)
 }
 
 
-seL4_MessageInfo_t monitor_call_backup_tsldr_context(microkit_channel ch)
+seL4_MessageInfo_t monitor_call_backup_protocon_loading_context(microkit_channel ch)
 {
     int cid = monitor_main_get_cid_from_channel(ch);
 
@@ -300,15 +300,15 @@ seL4_MessageInfo_t monitor_main_handle_pccall(microkit_channel ch)
     switch (call_id) {
     case PC_MONITOR_CALL_DEPLOY:
         TSLDR_DBG_PRINT(PROGNAME "Deploy an application to a dynamic PD\n");
-        ret = monitor_call_debute();
+        ret = monitor_call_deploy_protocon_first_half();
         break;
     case PC_MONITOR_CALL_BACKUP_CONTEXT:
         TSLDR_DBG_PRINT(PROGNAME "Backing up trusted loading context for dynamic PD with ID: %d\n", monitor_main_get_cid_from_channel(ch));
-        ret = monitor_call_backup_tsldr_context(ch);
+        ret = monitor_call_backup_protocon_loading_context(ch);
         break;
     case PC_MONITOR_CALL_TERMINATE:
         TSLDR_DBG_PRINT(PROGNAME "Exit and uninstantiate a dynamic PD\n");
-        ret = monitor_call_restore(ch);
+        ret = monitor_call_restore_protocon(ch);
         break;
     default:
         /* do nothing for now */
