@@ -135,9 +135,6 @@ def generate(sdf_path: str, output_dir: str, dtb: DeviceTree):
     timer_node = dtb.node(board.timer)
     assert timer_node is not None
 
-    timer_driver = ProtectionDomain("timer_driver", "timer_driver.elf", priority=254)
-    timer_system = Sddf.Timer(sdf, timer_node, timer_driver)
-
     serial_driver = ProtectionDomain("serial_driver", "serial_driver.elf", priority=100)
     serial_virt_tx = ProtectionDomain("serial_virt_tx", "serial_virt_tx.elf", priority=99)
     serial_virt_rx = ProtectionDomain("serial_virt_rx", "serial_virt_rx.elf", priority=99)
@@ -171,17 +168,11 @@ def generate(sdf_path: str, output_dir: str, dtb: DeviceTree):
     serial_system.add_client(protocon2, optional=True)
     serial_system.add_client(protocon3, optional=True)
 
-    timer_system.add_client(protocon0, optional=True)
-    timer_system.add_client(protocon1, optional=True)
-    timer_system.add_client(protocon2, optional=True)
-    timer_system.add_client(protocon3, optional=True)
-
     pds = [
         serial_driver,
         serial_virt_tx,
         serial_virt_rx,
         pc_bm_server,
-        timer_driver,
         pc_bm_monitor,
     ]
     for pd in pds:
@@ -189,9 +180,6 @@ def generate(sdf_path: str, output_dir: str, dtb: DeviceTree):
 
     assert serial_system.connect()
     assert serial_system.serialise_config(output_dir)
-    assert timer_system.connect()
-    assert timer_system.serialise_config(output_dir)
-
 
     with open(f"{output_dir}/{sdf_path}", "w+") as f:
         f.write(sdf.render())
