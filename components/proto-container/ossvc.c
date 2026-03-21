@@ -56,7 +56,7 @@ void monitor_init_ossvc_map()
 void monitor_worker_func__patch_payload_by_ptr(void *elf_base, char data_file[], uintptr_t vaddr)
 {
     int err = 0;
-    seL4_Word target_sh = tsldr_miscutil_fetch_elf_section_with_vaddr(elf_base, vaddr);
+    seL4_Word target_sh = tsldr_miscutil_fetch_elf_section_with_vaddr(elf_base, vaddr, NULL);
     if (!target_sh) {
         // the reason we allow early return in here is:
         //  a broken client program will only break a dynamic PD's execution
