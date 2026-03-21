@@ -77,6 +77,19 @@ protocon_lifecycle_state_t protocon_states[PC_CHILD_PER_MONITOR_MAX_NUM];
 uintptr_t msvcdb_base = 0x0ff80000;
 
 
+#include <sddf/serial/config.h>
+
+__attribute__((__section__(".pl0_serial_config"))) serial_client_config_t pl0_serial_config;
+__attribute__((__section__(".pl1_serial_config"))) serial_client_config_t pl1_serial_config;
+__attribute__((__section__(".pl2_serial_config"))) serial_client_config_t pl2_serial_config;
+__attribute__((__section__(".pl3_serial_config"))) serial_client_config_t pl3_serial_config;
+
+uintptr_t serial_config_arr[4] = {
+    (uintptr_t)&pl0_serial_config,
+    (uintptr_t)&pl1_serial_config,
+    (uintptr_t)&pl2_serial_config,
+    (uintptr_t)&pl3_serial_config,
+};
 
 #define SET_PROTOCON_AS_INSTANTIATED(C) \
     do { protocon_states[C] = PROTOCON_ACTIVE; } while (0);

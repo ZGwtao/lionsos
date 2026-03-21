@@ -82,6 +82,10 @@ $(SYSTEM_FILE): $(METAPROGRAM) $(IMAGES) $(DTB)
 	$(OBJCOPY) --update-section .serial_virt_rx_config=serial_virt_rx.data serial_virt_rx.elf
 	$(OBJCOPY) --update-section .device_resources=timer_driver_device_resources.data timer_driver.elf
 	$(OBJCOPY) --update-section .serial_client_config=serial_client_bm_server.data bm_server.elf
+	$(OBJCOPY) --update-section .pl0_serial_config=serial_client_protocon0.data bm_monitor.elf
+	$(OBJCOPY) --update-section .pl1_serial_config=serial_client_protocon1.data bm_monitor.elf
+	$(OBJCOPY) --update-section .pl2_serial_config=serial_client_protocon2.data bm_monitor.elf
+	$(OBJCOPY) --update-section .pl3_serial_config=serial_client_protocon3.data bm_monitor.elf
 
 $(IMAGE_FILE) $(REPORT_FILE): $(IMAGES) $(SYSTEM_FILE)
 	$(MICROKIT_TOOL) $(SYSTEM_FILE) \
