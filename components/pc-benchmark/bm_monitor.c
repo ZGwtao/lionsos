@@ -91,6 +91,9 @@ uintptr_t serial_config_arr[4] = {
     (uintptr_t)&pl3_serial_config,
 };
 
+#define MONITOR_BENCHMARK_LOOP_NUM (5)
+
+
 #define SET_PROTOCON_AS_INSTANTIATED(C) \
     do { protocon_states[C] = PROTOCON_ACTIVE; } while (0);
 
@@ -298,6 +301,16 @@ seL4_MessageInfo_t monitor_call_backup_protocon_loading_context(microkit_channel
     return microkit_msginfo_new(seL4_NoError, 0);
 }
 
+void monitor_call_benchmark_deploy(void)
+{
+    seL4_MessageInfo_t ret;
+    for (int i = 0; i < 1; ++i) {
+        ret = monitor_call_deploy_protocon_first_half();
+        // FIXME: priority issue!
+        TSLDR_DBG_PRINT(PROGNAME "finished deployment for round: %d\n", i);
+    }
+    //monitor_main_notify_frontend();
+}
 
 seL4_MessageInfo_t monitor_main_handle_pccall(microkit_channel ch)
 {
@@ -313,7 +326,7 @@ seL4_MessageInfo_t monitor_main_handle_pccall(microkit_channel ch)
         break;
     case PC_MONITOR_CALL_BENCHMARK:
         TSLDR_DBG_PRINT(PROGNAME "Start benchmarking dynamic pd performance\n");
-        monitor_main_notify_frontend();
+        monitor_call_benchmark_deploy();
         break;
     case PC_MONITOR_CALL_BACKUP_CONTEXT:
         TSLDR_DBG_PRINT(PROGNAME "Backing up trusted loading context for dynamic PD with ID: %d\n", monitor_main_get_cid_from_channel(ch));

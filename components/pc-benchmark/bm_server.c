@@ -34,7 +34,7 @@ static char bm_server_stack2[0x10000];
 static co_control_t co_controller_mem;
 
 static void blocking_wait(microkit_channel ch) { microkit_cothread_wait_on_channel(ch); }
-
+static void load_elf_payload(void);
 
 extern char _bm_proto_container[];
 extern char _bm_proto_container_end[];
@@ -79,9 +79,13 @@ void init(void)
     
     stack_ptrs_arg_array_t costacks = { (uintptr_t) bm_server_stack1, (uintptr_t) bm_server_stack2 };
     microkit_cothread_init(&co_controller_mem, 0x10000, costacks);
-
+#if 0
     sddf_putchar_unbuffered('\n');
     print_prompt();
+#endif
+    load_elf_payload();
+    microkit_cothread_yield();
+    sddf_printf("> ");
 }
 
 #define INPUT_BUF_SIZE 128
@@ -104,7 +108,7 @@ static void bm_server_call_monitor(int moncall)
     }
 }
 
-void load_elf_payload(void)
+static void load_elf_payload(void)
 {
 
     tsldr_miscutil_memcpy((void *)SERVER_MONITOR_PROTOCON_REGION_BASE,
@@ -113,8 +117,13 @@ void load_elf_payload(void)
                           (void *)_bm_trampoline, _bm_trampoline_end - _bm_trampoline);
     tsldr_miscutil_memcpy((void *)SERVER_MONITOR_PAYLOAD_REGION_BASE,
                           (void *)_bm_payload, _bm_payload_end - _bm_payload);
-
-    bm_server_call_monitor(MONITOR_CALL_DEPLOY);
+#if 1
+    for (int i = 0; i < 10; ++i) {
+        bm_server_call_monitor(MONITOR_CALL_DEPLOY);
+    }
+#else
+    bm_server_call_monitor(MONITOR_CALL_BENCHMARK);
+#endif
 }
 
 /* ----- Command handlers ----- */
