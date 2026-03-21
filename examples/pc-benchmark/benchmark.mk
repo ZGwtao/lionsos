@@ -16,7 +16,7 @@ IMAGES := \
 
 SUPPORTED_BOARDS:= \
 	qemu_virt_aarch64 \
-	odroidc4
+	maaxboard
 
 TOOLCHAIN ?= clang
 CP ?= cp

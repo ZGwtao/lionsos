@@ -18,7 +18,8 @@ IMAGES := \
 	blk_driver.elf
 
 SUPPORTED_BOARDS:= \
-	qemu_virt_aarch64
+	qemu_virt_aarch64 \
+	maaxboard
 
 TOOLCHAIN ?= clang
 CP ?= cp
