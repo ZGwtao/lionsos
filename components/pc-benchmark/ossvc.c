@@ -118,6 +118,7 @@ void monitor_patch_payload_with_ossvc__worker_func(int cid, protocon_svc_t *svc,
     char *data_src = svc->data_path;
     if (type == SERIAL_IFACE) {
         data_src = (char *)serial_config_arr[cid];
+        TSLDR_DBG_PRINT(LIB_NAME_MACRO "current chosen svc is serial with cid num: %d\n", cid);
     }
     // the third arg is vaddr for loading the datafile in the target elf??
     monitor_worker_func__patch_payload_by_ptr((void *)payload_base, data_src, ptr_of_target_section_in_payload);
@@ -137,7 +138,7 @@ void monitor_patch_payload_with_ossvc_info(int cid, protocon_svc_req_t *req, uin
     // we will then send this thing to the trusted loading functions for actual trusted loading
     // the reason we need it is that the trusted loader does not handle high-level information
     // so we put an information flow transition that turns requested OS services into low-level details
-    tsldr_acrtreq_t req_acrt;
+    tsldr_acrtreq_t req_acrt = {};
 
     // the array that records all svcs of this pd
     protocon_svc_t *curr_svc = svcdb->array;
