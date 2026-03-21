@@ -16,7 +16,7 @@ void init(void)
     uintptr_t container_stack_top       = 0x00FFFC00000;
     uintptr_t client_elf = 0x2000000;
 
-    microkit_dbg_puts("[@trampoline] entry of trampoline.\n");
+    //microkit_dbg_puts("[@trampoline] entry of trampoline.\n");
 
     /* say goodbye to the old stack */
     tsldr_miscutil_memset((void *)tsldr_stack_bottom, 0, 0x1000);
@@ -46,7 +46,7 @@ void init(void)
     tsldr_miscutil_memset((void *)tsldr_context, 0, 0x1000);
 
     /* at this point we dont have access to the data section of tsldr */
-    microkit_dbg_puts("[@trampoline] jumping to the client payload...\n");
+    //microkit_dbg_puts("[@trampoline] jumping to the client payload...\n");
 
     /*
      * At this point, the client information is embedded in the address space,

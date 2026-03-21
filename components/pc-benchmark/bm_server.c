@@ -95,6 +95,50 @@ static char input_buf[INPUT_BUF_SIZE];
 static char fname_buf[FNAME_BUF_SIZE];
 static size_t input_len = 0;
 
+
+typedef uint64_t cycles_t;
+
+static inline void isb_sy(void) { asm volatile("isb sy" ::: "memory"); }
+
+static inline cycles_t pmccntr_el0(void) {
+  cycles_t v;
+  /* D24.5.2 in DDI 0487L.b, PMCCNTR_EL0. All 64 bits is CCNT. */
+  asm volatile("mrs %0, pmccntr_el0" : "=r"(v) :: "memory");
+  /* TODO: From the ARM sample code, I think there's no need for an ISB here.
+           But I can't justify this w.r.t the specification...
+   */
+  return v;
+}
+
+/* 3.11 of Use-Cases app note: step 4 */
+static inline void pmu_enable(void) {
+  uint64_t v;
+  asm volatile("mrs %0, pmcr_el0" : "=r"(v));
+  v |= (1ull << 0);
+  v &= ~(1ull << 3);
+  asm volatile("msr pmcr_el0, %0" : : "r"(v));
+
+  asm volatile("mrs %0, pmcntenset_el0" : "=r"(v));
+  v |= (1ull << 31);
+  asm volatile("msr pmcntenset_el0, %0" : : "r"(v));
+
+#ifdef CONFIG_ARM_HYPERVISOR_SUPPORT
+  /* NSH - count cycles in EL2 */
+  v = (1ull << 27);
+#else
+  v = 0;
+#endif
+  asm volatile("msr pmccfiltr_el0, %0" : : "r"(v));
+
+  /* Zero the cycle counter */
+  asm volatile("msr pmccntr_el0, xzr" : :);
+
+  isb_sy();
+}
+
+static inline cycles_t pmu_read_cycles(void) { return pmccntr_el0(); }
+
+
 static void bm_server_call_monitor(int moncall)
 {
     microkit_msginfo info;
@@ -117,13 +161,35 @@ static void load_elf_payload(void)
                           (void *)_bm_trampoline, _bm_trampoline_end - _bm_trampoline);
     tsldr_miscutil_memcpy((void *)SERVER_MONITOR_PAYLOAD_REGION_BASE,
                           (void *)_bm_payload, _bm_payload_end - _bm_payload);
-#if 1
+
     for (int i = 0; i < 10; ++i) {
+        bm_server_call_monitor(MONITOR_CALL_DEPLOY);
+    }
+
+    pmu_enable();
+    cycles_t start = pmu_read_cycles();
+#if 1
+    for (int i = 0; i < 50; ++i) {
         bm_server_call_monitor(MONITOR_CALL_DEPLOY);
     }
 #else
     bm_server_call_monitor(MONITOR_CALL_BENCHMARK);
 #endif
+
+    //sddf_printf("?\n");
+
+    cycles_t end = pmu_read_cycles();
+
+    cycles_t total = (end - start);
+    cycles_t average = total / 10000;
+
+    microkit_dbg_puts("totoal cycles: '");
+    microkit_dbg_put32(total);
+    microkit_dbg_puts("\n");
+    microkit_dbg_puts("cycles average: '");
+    microkit_dbg_put32(average);
+    microkit_dbg_puts("\n");
+
 }
 
 /* ----- Command handlers ----- */
