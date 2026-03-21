@@ -29,14 +29,15 @@ __attribute__((__section__(".pc_svc_desc"))) const protocon_svc_desc_t ciface = 
 
 void init(void)
 {
+#if 0
     assert(serial_config_check_magic(&serial_config));
     if (serial_config.rx.queue.vaddr != NULL) {
         serial_queue_init(&serial_rx_queue_handle, serial_config.rx.queue.vaddr, serial_config.rx.data.size, serial_config.rx.data.vaddr);
     }
     serial_queue_init(&serial_tx_queue_handle, serial_config.tx.queue.vaddr, serial_config.tx.data.size, serial_config.tx.data.vaddr);
     serial_putchar_init(serial_config.tx.id, &serial_tx_queue_handle);
-
-    sddf_printf("Hello from client.elf!\n");
+#endif
+    // sddf_printf("Hello from client.elf!\n");
 
     // exit from client...
     microkit_mr_set(0, 0x100);
