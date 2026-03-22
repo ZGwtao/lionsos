@@ -156,22 +156,38 @@ static inline void monitor_main_notify_frontend()
     microkit_notify(PC_MONITOR_FRONTEND_CHANNEL);
 }
 
+
 void monitor_main_load_elfs_into_protocon(int cid)
 {
     uintptr_t payload_base = PC_MONITOR_REGION_CLIENT_PAYLOAD_BASE + PC_MONITOR_REGION_SIZE * cid;
-#if 1
+#if 0
     uintptr_t protocon_base = PC_MONITOR_REGION_PROTOCON_ELF_BASE + PC_MONITOR_REGION_SIZE * cid;
     uintptr_t trampoline_base = PC_MONITOR_REGION_TRAMPOLINE_ELF_BASE + PC_MONITOR_REGION_SIZE * cid;
 
     tsldr_miscutil_load_elf((void*)protocon_base, (const Elf64_Ehdr *)FE_MONITOR_REGION_PROTOCON_ELF_BASE);
     TSLDR_DBG_PRINT(PROGNAME "Copied proto container to child PD's memory region\n");
-
-    memcpy((void*)payload_base, (char *)FE_MONITOR_REGION_CLIENT_PAYLOAD_BASE, FE_MONITOR_REGION_SIZE/16);
+#endif
+    memcpy((void*)payload_base, (char *)FE_MONITOR_REGION_CLIENT_PAYLOAD_BASE, FE_MONITOR_REGION_SIZE/32);
     TSLDR_DBG_PRINT(PROGNAME "Copied client program to child PD's memory region\n");
-
+#if 0
     memcpy((void*)trampoline_base, (char *)FE_MONITOR_REGION_TRAMPOLINE_ELF_BASE, FE_MONITOR_REGION_SIZE/64);
     TSLDR_DBG_PRINT(PROGNAME "Copied trampoline program to child PD's memory region\n");
 #endif
+}
+
+void monitor_main_load_basic_elfs_into_protocon(int cid)
+{
+    uintptr_t protocon_base = PC_MONITOR_REGION_PROTOCON_ELF_BASE + PC_MONITOR_REGION_SIZE * cid;
+    uintptr_t trampoline_base = PC_MONITOR_REGION_TRAMPOLINE_ELF_BASE + PC_MONITOR_REGION_SIZE * cid;
+
+    tsldr_miscutil_load_elf((void*)protocon_base, (const Elf64_Ehdr *)FE_MONITOR_REGION_PROTOCON_ELF_BASE);
+    TSLDR_DBG_PRINT(PROGNAME "Copied proto container to child PD's memory region\n");
+#if 0
+    memcpy((void*)payload_base, (char *)FE_MONITOR_REGION_CLIENT_PAYLOAD_BASE, FE_MONITOR_REGION_SIZE/16);
+    TSLDR_DBG_PRINT(PROGNAME "Copied client program to child PD's memory region\n");
+#endif
+    memcpy((void*)trampoline_base, (char *)FE_MONITOR_REGION_TRAMPOLINE_ELF_BASE, FE_MONITOR_REGION_SIZE/64);
+    TSLDR_DBG_PRINT(PROGNAME "Copied trampoline program to child PD's memory region\n");
 }
 
 void monitor_call_deploy_protocon_second_half()
@@ -361,7 +377,7 @@ seL4_MessageInfo_t monitor_call_backup_protocon_loading_context(microkit_channel
 
     tsldr_context_t *context = (tsldr_context_t *)((unsigned char *)TSLDR_CONTEXT_BASE + cid * TSLDR_CONTEXT_SIZE);
 
-    tsldr_miscutil_memcpy(&protocon_ctx_db[cid], context, sizeof(tsldr_context_t));
+    memcpy(&protocon_ctx_db[cid], context, sizeof(tsldr_context_t));
 
     return microkit_msginfo_new(seL4_NoError, 0);
 }
@@ -377,6 +393,8 @@ void monitor_call_benchmark_deploy(void)
     //monitor_main_notify_frontend();
 }
 
+int set_elfs = 0;
+
 seL4_MessageInfo_t monitor_main_handle_pccall(microkit_channel ch)
 {
     /* get the first word of the message */
@@ -386,6 +404,10 @@ seL4_MessageInfo_t monitor_main_handle_pccall(microkit_channel ch)
     /* call for the container monitor */
     switch (call_id) {
     case PC_MONITOR_CALL_DEPLOY:
+        if (!set_elfs) {
+            monitor_main_load_basic_elfs_into_protocon(0);
+            set_elfs = 1;
+        }
         TSLDR_DBG_PRINT(PROGNAME "Deploy an application to a dynamic PD\n");
         ret = monitor_call_deploy_protocon_first_half();
         break;
