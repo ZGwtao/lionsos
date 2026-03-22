@@ -27,8 +27,52 @@ __attribute__((__section__(".pc_svc_desc"))) const protocon_svc_desc_t ciface = 
 };
 
 
+typedef uint64_t cycles_t;
+
+static inline void isb_sy(void) { asm volatile("isb sy" ::: "memory"); }
+
+static inline cycles_t pmccntr_el0(void) {
+  cycles_t v;
+  /* D24.5.2 in DDI 0487L.b, PMCCNTR_EL0. All 64 bits is CCNT. */
+  asm volatile("mrs %0, pmccntr_el0" : "=r"(v) :: "memory");
+  /* TODO: From the ARM sample code, I think there's no need for an ISB here.
+           But I can't justify this w.r.t the specification...
+   */
+  return v;
+}
+
+/* 3.11 of Use-Cases app note: step 4 */
+static inline void pmu_enable(void) {
+  uint64_t v;
+  asm volatile("mrs %0, pmcr_el0" : "=r"(v));
+  v |= (1ull << 0);
+  v &= ~(1ull << 3);
+  asm volatile("msr pmcr_el0, %0" : : "r"(v));
+
+  asm volatile("mrs %0, pmcntenset_el0" : "=r"(v));
+  v |= (1ull << 31);
+  asm volatile("msr pmcntenset_el0, %0" : : "r"(v));
+
+#ifdef CONFIG_ARM_HYPERVISOR_SUPPORT
+  /* NSH - count cycles in EL2 */
+  v = (1ull << 27);
+#else
+  v = 0;
+#endif
+  asm volatile("msr pmccfiltr_el0, %0" : : "r"(v));
+
+  /* Zero the cycle counter */
+  asm volatile("msr pmccntr_el0, xzr" : :);
+
+  isb_sy();
+}
+
+static inline cycles_t pmu_read_cycles(void) { return pmccntr_el0(); }
+
+
 void init(void)
 {
+    //cycles_t start = pmu_read_cycles();
 #if 0
     assert(serial_config_check_magic(&serial_config));
     if (serial_config.rx.queue.vaddr != NULL) {
@@ -37,7 +81,7 @@ void init(void)
     serial_queue_init(&serial_tx_queue_handle, serial_config.tx.queue.vaddr, serial_config.tx.data.size, serial_config.tx.data.vaddr);
     serial_putchar_init(serial_config.tx.id, &serial_tx_queue_handle);
 #endif
-    // sddf_printf("Hello from client.elf!\n");
+    //sddf_printf("Hello from client.elf! cycle count: %d\n", start);
 
     // exit from client...
     microkit_mr_set(0, 0x100);
