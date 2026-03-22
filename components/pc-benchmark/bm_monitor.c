@@ -1,8 +1,14 @@
 
 #include <microkit.h>
 #include <stdarg.h>
-#include <sddf/util/printf.h>
 #include <libtrustedlo.h>
+
+#include <string.h>
+
+#include <sddf/timer/config.h>
+#include <sddf/serial/queue.h>
+#include <sddf/serial/config.h>
+#include <sddf/util/printf.h>
 
 #include <ossvc.h>
 #include <pcbench.h>
@@ -101,6 +107,50 @@ uintptr_t serial_config_arr[4] = {
     do { protocon_states[C] = PROTOCON_PASSIVE; } while (0);
 
 
+typedef uint64_t cycles_t;
+
+static inline void isb_sy(void) { asm volatile("isb sy" ::: "memory"); }
+
+static inline cycles_t pmccntr_el0(void) {
+  cycles_t v;
+  /* D24.5.2 in DDI 0487L.b, PMCCNTR_EL0. All 64 bits is CCNT. */
+  asm volatile("mrs %0, pmccntr_el0" : "=r"(v) :: "memory");
+  /* TODO: From the ARM sample code, I think there's no need for an ISB here.
+           But I can't justify this w.r.t the specification...
+   */
+  return v;
+}
+
+/* 3.11 of Use-Cases app note: step 4 */
+static inline void pmu_enable(void) {
+  uint64_t v;
+  asm volatile("mrs %0, pmcr_el0" : "=r"(v));
+  v |= (1ull << 0);
+  v &= ~(1ull << 3);
+  asm volatile("msr pmcr_el0, %0" : : "r"(v));
+
+  asm volatile("mrs %0, pmcntenset_el0" : "=r"(v));
+  v |= (1ull << 31);
+  asm volatile("msr pmcntenset_el0, %0" : : "r"(v));
+
+#ifdef CONFIG_ARM_HYPERVISOR_SUPPORT
+  /* NSH - count cycles in EL2 */
+  v = (1ull << 27);
+#else
+  v = 0;
+#endif
+  asm volatile("msr pmccfiltr_el0, %0" : : "r"(v));
+
+  /* Zero the cycle counter */
+  asm volatile("msr pmccntr_el0, xzr" : :);
+
+  isb_sy();
+}
+
+static inline cycles_t pmu_read_cycles(void) { return pmccntr_el0(); }
+
+
+
 static inline void monitor_main_notify_frontend()
 {
     microkit_notify(PC_MONITOR_FRONTEND_CHANNEL);
@@ -109,19 +159,20 @@ static inline void monitor_main_notify_frontend()
 void monitor_main_load_elfs_into_protocon(int cid)
 {
     uintptr_t payload_base = PC_MONITOR_REGION_CLIENT_PAYLOAD_BASE + PC_MONITOR_REGION_SIZE * cid;
+#if 1
     uintptr_t protocon_base = PC_MONITOR_REGION_PROTOCON_ELF_BASE + PC_MONITOR_REGION_SIZE * cid;
     uintptr_t trampoline_base = PC_MONITOR_REGION_TRAMPOLINE_ELF_BASE + PC_MONITOR_REGION_SIZE * cid;
 
     tsldr_miscutil_load_elf((void*)protocon_base, (const Elf64_Ehdr *)FE_MONITOR_REGION_PROTOCON_ELF_BASE);
     TSLDR_DBG_PRINT(PROGNAME "Copied proto container to child PD's memory region\n");
 
-    tsldr_miscutil_memcpy((void*)payload_base, (char *)FE_MONITOR_REGION_CLIENT_PAYLOAD_BASE, FE_MONITOR_REGION_SIZE);
+    memcpy((void*)payload_base, (char *)FE_MONITOR_REGION_CLIENT_PAYLOAD_BASE, FE_MONITOR_REGION_SIZE/16);
     TSLDR_DBG_PRINT(PROGNAME "Copied client program to child PD's memory region\n");
 
-    tsldr_miscutil_memcpy((void*)trampoline_base, (char *)FE_MONITOR_REGION_TRAMPOLINE_ELF_BASE, FE_MONITOR_REGION_SIZE);
+    memcpy((void*)trampoline_base, (char *)FE_MONITOR_REGION_TRAMPOLINE_ELF_BASE, FE_MONITOR_REGION_SIZE/64);
     TSLDR_DBG_PRINT(PROGNAME "Copied trampoline program to child PD's memory region\n");
+#endif
 }
-
 
 void monitor_call_deploy_protocon_second_half()
 {
@@ -177,7 +228,7 @@ void monitor_call_deploy_protocon_second_half()
 
     // if a dynamic pd has a trusted loading context, copy the context from the db into the dynamic pd's shared memory region for trusted loading
     // otherwise just do nothing as the trusted loader will check the metadata and find it is not initialised, then skip the restoring process and jump to the next steps directly
-    tsldr_miscutil_memcpy((char *)TSLDR_CONTEXT_BASE + cid * TSLDR_CONTEXT_SIZE, &protocon_ctx_db[cid], sizeof(tsldr_context_t));
+    memcpy((char *)TSLDR_CONTEXT_BASE + cid * TSLDR_CONTEXT_SIZE, &protocon_ctx_db[cid], sizeof(tsldr_context_t));
 
     // before trusted loading, grant high privileges to the dynamic PD (protocon)
     tsldr_main_monitor_privilege_pd(cid);
@@ -194,8 +245,21 @@ void monitor_call_deploy_protocon_second_half()
 }
 
 
+__attribute__((__section__(".serial_client_config"))) serial_client_config_t serial_config;
+
+serial_queue_handle_t serial_rx_queue_handle;
+serial_queue_handle_t serial_tx_queue_handle;
+
+
 void init(void)
 {
+    assert(serial_config_check_magic(&serial_config));
+    if (serial_config.rx.queue.vaddr != NULL) {
+        serial_queue_init(&serial_rx_queue_handle, serial_config.rx.queue.vaddr, serial_config.rx.data.size, serial_config.rx.data.vaddr);
+    }
+    serial_queue_init(&serial_tx_queue_handle, serial_config.tx.queue.vaddr, serial_config.tx.data.size, serial_config.tx.data.vaddr);
+    serial_putchar_init(serial_config.tx.id, &serial_tx_queue_handle);
+
     // global os services state initialisation...
     tsldr_miscutil_memset(monitor_svc_dist_map, 0, sizeof(int) * PC_CHILD_PER_MONITOR_MAX_NUM * SVC_TYPE_MAX_NUM);
     monitor_init_ossvc_map();
@@ -204,6 +268,7 @@ void init(void)
     tsldr_miscutil_memset(protocon_states, PROTOCON_PASSIVE, sizeof(int) * PC_CHILD_PER_MONITOR_MAX_NUM);
     // clean all loader context...
     tsldr_miscutil_memset(protocon_ctx_db, 0, sizeof(tsldr_context_t) * PC_CHILD_PER_MONITOR_MAX_NUM);
+
 }
 
 void notified(microkit_channel ch) {}

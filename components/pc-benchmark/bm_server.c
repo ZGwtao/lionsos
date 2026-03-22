@@ -138,6 +138,7 @@ static inline void pmu_enable(void) {
 
 static inline cycles_t pmu_read_cycles(void) { return pmccntr_el0(); }
 
+#define BM_ROUND (50)
 
 static void bm_server_call_monitor(int moncall)
 {
@@ -162,34 +163,35 @@ static void load_elf_payload(void)
     tsldr_miscutil_memcpy((void *)SERVER_MONITOR_PAYLOAD_REGION_BASE,
                           (void *)_bm_payload, _bm_payload_end - _bm_payload);
 
-    for (int i = 0; i < 10; ++i) {
+    for (int i = 0; i < (BM_ROUND / 10); ++i) {
         bm_server_call_monitor(MONITOR_CALL_DEPLOY);
     }
 
     pmu_enable();
     cycles_t start = pmu_read_cycles();
 #if 1
-    for (int i = 0; i < 50; ++i) {
+    for (int i = 0; i < BM_ROUND; ++i) {
         bm_server_call_monitor(MONITOR_CALL_DEPLOY);
     }
 #else
     bm_server_call_monitor(MONITOR_CALL_BENCHMARK);
 #endif
-
-    //sddf_printf("?\n");
-
     cycles_t end = pmu_read_cycles();
 
     cycles_t total = (end - start);
-    cycles_t average = total / 10000;
+    cycles_t average = total / BM_ROUND;
 
-    microkit_dbg_puts("totoal cycles: '");
+    sddf_printf("start cycle: %u\n", start);
+    sddf_printf("end cycle: %u\n", end);
+    sddf_printf("totoal cycles: '%u'\n", total);
+    sddf_printf("average cycles: '%u'\n", average);
+#if 0
     microkit_dbg_put32(total);
     microkit_dbg_puts("\n");
     microkit_dbg_puts("cycles average: '");
     microkit_dbg_put32(average);
     microkit_dbg_puts("\n");
-
+#endif
 }
 
 /* ----- Command handlers ----- */

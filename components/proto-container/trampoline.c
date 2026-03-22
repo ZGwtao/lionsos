@@ -29,7 +29,7 @@ void init(void)
     tsldr_miscutil_memset((void *)ossvc_metadata, 0, 0x1000);
 
     /* clean up trusted loader... */
-    tsldr_miscutil_memset((void *)tsldr_program, 0, 0x800000);
+    //tsldr_miscutil_memset((void *)tsldr_program, 0, 0x800000);
 
     /* clean up container stack... */
     tsldr_miscutil_memset((void *)container_stack_bottom, 0, 0x1000);
