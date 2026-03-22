@@ -69,7 +69,7 @@ void monitor_worker_func__patch_payload_by_ptr(void *elf_base, char data_file[],
 #if 0
     TSLDR_DBG_PRINT("%d\n", size_sh);
 #endif
-    tsldr_miscutil_memcpy((void *)target_sh, data_file, size_sh);
+    memcpy((void *)target_sh, data_file, size_sh);
 #if 0
     pico_vfs_readfile2buf((void *)target_sh, data_file, &err);
     if (err != seL4_NoError) {
