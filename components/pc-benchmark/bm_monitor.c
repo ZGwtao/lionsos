@@ -167,7 +167,7 @@ void monitor_main_load_elfs_into_protocon(int cid)
     tsldr_miscutil_load_elf((void*)protocon_base, (const Elf64_Ehdr *)FE_MONITOR_REGION_PROTOCON_ELF_BASE);
     TSLDR_DBG_PRINT(PROGNAME "Copied proto container to child PD's memory region\n");
 #endif
-    memcpy((void*)payload_base, (char *)FE_MONITOR_REGION_CLIENT_PAYLOAD_BASE, FE_MONITOR_REGION_SIZE/32);
+    memcpy((void*)payload_base, (char *)((seL4_Word *)FE_MONITOR_REGION_CLIENT_PAYLOAD_BASE + 1), *((seL4_Word *)FE_MONITOR_REGION_CLIENT_PAYLOAD_BASE));
     TSLDR_DBG_PRINT(PROGNAME "Copied client program to child PD's memory region\n");
 #if 0
     memcpy((void*)trampoline_base, (char *)FE_MONITOR_REGION_TRAMPOLINE_ELF_BASE, FE_MONITOR_REGION_SIZE/64);
@@ -195,7 +195,7 @@ void monitor_call_deploy_protocon_second_half()
     TSLDR_DBG_PRINT(PROGNAME "entry of monitor_call_deploy_protocon_second_half\n");
 
     // FIXME: should not use shared memory to determine state...
-    Elf64_Ehdr *payload_eh = (Elf64_Ehdr *)FE_MONITOR_REGION_CLIENT_PAYLOAD_BASE;
+    Elf64_Ehdr *payload_eh = (Elf64_Ehdr *)((seL4_Word *)FE_MONITOR_REGION_CLIENT_PAYLOAD_BASE + 1);
     if (payload_eh->e_shoff == 0 || payload_eh->e_shnum == 0 || payload_eh->e_shentsize != sizeof(Elf64_Shdr)
         || payload_eh->e_shstrndx == SHN_UNDEF || payload_eh->e_shstrndx >= payload_eh->e_shnum)
     {
@@ -209,7 +209,7 @@ void monitor_call_deploy_protocon_second_half()
 
     // the section defined by the user application in elf for specifying requested OS services
     Elf64_Shdr *user_defined_svc_section;
-    user_defined_svc_section = (Elf64_Shdr *)tsldr_miscutil_find_section_from_elf((void *)FE_MONITOR_REGION_CLIENT_PAYLOAD_BASE, PC_SVC_DESC_SECTION_NAME);
+    user_defined_svc_section = (Elf64_Shdr *)tsldr_miscutil_find_section_from_elf((void *)((seL4_Word *)FE_MONITOR_REGION_CLIENT_PAYLOAD_BASE + 1), PC_SVC_DESC_SECTION_NAME);
     if (!user_defined_svc_section) {
         TSLDR_DBG_PRINT(PROGNAME "Failed to restart container as no iface section specified\n");
         monitor_main_notify_frontend();
@@ -221,7 +221,7 @@ void monitor_call_deploy_protocon_second_half()
     // if we have any available dynamic PD that offers the superset of requested OS services,
     // return the cid of that dynamic PD, update the state of the dynamic PD (protocon), and do the trusted loading work underneath
     // otherwise, return early (when the cid returned is invalid)
-    int cid = monitor_match_ossvc_request_with_available_pd((void *)FE_MONITOR_REGION_CLIENT_PAYLOAD_BASE, user_defined_svc_section, &req, protocon_states);
+    int cid = monitor_match_ossvc_request_with_available_pd((void *)((seL4_Word *)FE_MONITOR_REGION_CLIENT_PAYLOAD_BASE + 1), user_defined_svc_section, &req, protocon_states);
     if (cid >= PC_CHILD_PER_MONITOR_MAX_NUM || cid < 0) {
         TSLDR_DBG_PRINT(PROGNAME "Failed to find suitable container for payload\n");
         TSLDR_DBG_PRINT(PROGNAME "Fetched cid number is: %d\n", cid);

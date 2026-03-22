@@ -155,12 +155,12 @@ static void bm_server_call_monitor(int moncall)
 
 static void load_elf_payload(void)
 {
-
     tsldr_miscutil_memcpy((void *)SERVER_MONITOR_PROTOCON_REGION_BASE,
                           (void *)_bm_proto_container, _bm_proto_container_end - _bm_proto_container);
     tsldr_miscutil_memcpy((void *)SERVER_MONITOR_TRAMPOLINE_REGION_BASE,
                           (void *)_bm_trampoline, _bm_trampoline_end - _bm_trampoline);
-    tsldr_miscutil_memcpy((void *)SERVER_MONITOR_PAYLOAD_REGION_BASE,
+    *((seL4_Word *)SERVER_MONITOR_PAYLOAD_REGION_BASE) = _bm_payload_end - _bm_payload;
+    tsldr_miscutil_memcpy((void *)((seL4_Word *)SERVER_MONITOR_PAYLOAD_REGION_BASE + 1),
                           (void *)_bm_payload, _bm_payload_end - _bm_payload);
 
     for (int i = 0; i < (BM_ROUND / 10); ++i) {
