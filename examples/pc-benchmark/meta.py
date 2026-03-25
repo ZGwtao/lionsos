@@ -153,6 +153,7 @@ def generate(sdf_path: str, output_dir: str, dtb: DeviceTree):
     with open(f"{output_dir}/{sdf_path}", "w+") as f:
         f.write(sdf.render())
 
+    assert sdf.generate_svc(output_dir)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()

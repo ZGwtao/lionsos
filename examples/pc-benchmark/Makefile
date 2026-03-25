@@ -12,7 +12,7 @@ override MICROKIT_SDK:=$(abspath ${MICROKIT_SDK})
 export LIONSOS ?= $(abspath ../..)
 export PC_BENCHMARK_DIR := $(abspath $(dir $(lastword $(MAKEFILE_LIST))))
 export CONFIG_INCLUDE ?= $(abspath src/config)
-export MICROKIT_CONFIG ?= benchmark
+export MICROKIT_CONFIG ?= debug
 export BUILD_DIR ?= $(abspath build)
 #export MICROKIT_BOARD ?= maaxboard
 export MICROKIT_BOARD ?= qemu_virt_aarch64
@@ -22,7 +22,7 @@ REPORT_FILE := $(BUILD_DIR)/report.txt
 
 all: ${IMAGE_FILE}
 
-qemu ${IMAGE_FILE} ${REPORT_FILE} clean qemu_disk clobber: ${BUILD_DIR}/Makefile FORCE
+qemu ${IMAGE_FILE} ${REPORT_FILE} clean qemu_disk system clobber: ${BUILD_DIR}/Makefile FORCE
 	${MAKE} -C ${BUILD_DIR} MICROKIT_SDK=${MICROKIT_SDK} $(notdir $@)
 
 ${BUILD_DIR}/Makefile: benchmark.mk
