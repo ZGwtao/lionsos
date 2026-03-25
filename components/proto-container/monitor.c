@@ -89,6 +89,9 @@ fs_queue_t *fs_command_queue;
 fs_queue_t *fs_completion_queue;
 char *fs_share;
 
+__attribute__((__section__(".monitor_svc_db"))) monitor_svcdb_t monitor_svc_db;
+
+
 #define SET_PROTOCON_AS_INSTANTIATED(C) \
     do { protocon_states[C] = PROTOCON_ACTIVE; } while (0);
 
