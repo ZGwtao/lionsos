@@ -9,7 +9,7 @@
 
 typedef struct {
     seL4_Word vaddr;
-    seL4_Word number_of_pages;
+    seL4_Word page_num;
     seL4_Word page_size;
 } svc_mapping_t;
 
