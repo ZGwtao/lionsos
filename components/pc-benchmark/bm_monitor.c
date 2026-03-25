@@ -99,6 +99,8 @@ uintptr_t serial_config_arr[4] = {
 
 #define MONITOR_BENCHMARK_LOOP_NUM (5)
 
+__attribute__((__section__(".monitor_svc_db"))) monitor_svcdb_t monitor_svc_db;
+
 
 #define SET_PROTOCON_AS_INSTANTIATED(C) \
     do { protocon_states[C] = PROTOCON_ACTIVE; } while (0);

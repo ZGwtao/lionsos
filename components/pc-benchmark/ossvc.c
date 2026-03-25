@@ -8,6 +8,7 @@
 #define PROGNAME "[@pcbench_monitor] "
 #endif
 
+extern monitor_svcdb_t monitor_svc_db;
 extern int monitor_svc_dist_map[PC_CHILD_PER_MONITOR_MAX_NUM][SVC_TYPE_MAX_NUM];
 extern uintptr_t serial_config_arr[4];
 
@@ -38,8 +39,7 @@ void monitor_ossvc_populate_all_svc_of_unipd(protocon_svcdb_t *svcdb, int map[])
 void monitor_init_ossvc_map()
 {
     // we will populate the global map that records the distribution of OS services for each dynamic PD (protocon)
-    // we just simply get the information from the microkit-patched region (microkit_monitor_ossvc_database) 
-    monitor_svcdb_t *svcdb_list = (monitor_svcdb_t *)microkit_monitor_ossvc_database;
+    monitor_svcdb_t *svcdb_list = &monitor_svc_db;
     // for all dynamic PDs, try to populate the map with this loop
     for (int i = 0; i < svcdb_list->len; ++i) {
         // get the pointer to the OS service database of this PD,
@@ -128,7 +128,7 @@ void monitor_patch_payload_with_ossvc__worker_func(int cid, protocon_svc_t *svc,
 
 void monitor_patch_payload_with_ossvc_info(int cid, protocon_svc_req_t *req, uintptr_t payload_base, uintptr_t monitor_svcdb_base)
 {
-    protocon_svcdb_t *svcdb = &((monitor_svcdb_t *)microkit_monitor_ossvc_database)->list[cid];
+    protocon_svcdb_t *svcdb = &monitor_svc_db.list[cid];
 
     TSLDR_DBG_PRINT(LIB_NAME_MACRO "pd index of the given os svcdb: %d\n", svcdb->pd_idx);
     TSLDR_DBG_PRINT(LIB_NAME_MACRO "number of svcs in the os svcdb: %d\n", svcdb->svc_num);
