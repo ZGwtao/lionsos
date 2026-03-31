@@ -4,7 +4,7 @@ import argparse
 import struct
 from random import randint
 from dataclasses import dataclass
-from typing import List, Tuple
+from typing import List, Tuple, Optional
 from sdfgen import SystemDescription, Sddf, DeviceTree, LionsOs
 from importlib.metadata import version
 from board import BOARDS
@@ -113,16 +113,47 @@ def connect_frontend_with_monitor(mpd: SystemDescription.ProtectionDomain, fpd: 
     sdf.add_channel(Channel(a=mpd, b=fpd, a_id=15, b_id=30))
 
 
-def generate(sdf_path: str, output_dir: str, dtb: DeviceTree):
-    serial_node = dtb.node(board.serial)
-    assert serial_node is not None
-    timer_node = dtb.node(board.timer)
-    assert timer_node is not None
+def generate(
+    sdf_path: str,
+    output_dir: str,
+    dtb: Optional[DeviceTree],
+):
+    serial_node = None
+    timer_node = None
+    if dtb is not None:
+        serial_node = dtb.node(board.serial)
+        assert serial_node is not None
+        timer_node = dtb.node(board.timer)
+        assert timer_node is not None
+
+    timer_driver = ProtectionDomain(
+        "timer_driver", "timer_driver.elf", priority=101
+    )
+    timer_system = Sddf.Timer(sdf, timer_node, timer_driver)
+
+    if board.arch == SystemDescription.Arch.X86_64:
+        hpet_irq = SystemDescription.IrqMsi(
+            pci_bus=0, pci_device=0, pci_func=0, vector=0, handle=0, id=0
+        )
+        timer_driver.add_irq(hpet_irq)
+
+        hpet_regs = SystemDescription.MemoryRegion(
+            sdf, "hpet_regs", 0x1000, paddr=0xFED00000
+        )
+        hpet_regs_map = SystemDescription.Map(
+            hpet_regs, 0x5000_0000, "rw", cached=False
+        )
+        timer_driver.add_map(hpet_regs_map)
+        sdf.add_mr(hpet_regs)
 
     serial_driver = ProtectionDomain("serial_driver", "serial_driver.elf", priority=100)
     serial_virt_tx = ProtectionDomain("serial_virt_tx", "serial_virt_tx.elf", priority=99)
     serial_virt_rx = ProtectionDomain("serial_virt_rx", "serial_virt_rx.elf", priority=99)
     serial_system = Sddf.Serial(sdf, serial_node, serial_driver, serial_virt_tx, virt_rx=serial_virt_rx)
+
+    if board.arch == SystemDescription.Arch.X86_64:
+        serial_port = SystemDescription.IoPort(0x3f8, 8, 0)
+        serial_driver.add_ioport(serial_port)
 
     pc_bm_server = ProtectionDomain("bm_server", "bm_server.elf", priority=50, stack_size=0x10000)
     pc_bm_monitor = ProtectionDomain("bm_monitor", "bm_monitor.elf", priority=54, stack_size=0x10000, is_monitor=True)
@@ -132,15 +163,17 @@ def generate(sdf_path: str, output_dir: str, dtb: DeviceTree):
     serial_system.add_client(pc_bm_server)
     serial_system.add_client(pc_bm_monitor)
 
-    protocon0 = ProtectionDomain("protocon0", priority=53)
-    protocon1 = ProtectionDomain("protocon1", priority=53)
-    protocon2 = ProtectionDomain("protocon2", priority=53)
-    protocon3 = ProtectionDomain("protocon3", priority=53)
+    timer_system.add_client(pc_bm_server)
 
-    _ = pc_bm_monitor.add_child_pd(protocon0, child_id=0)
-    _ = pc_bm_monitor.add_child_pd(protocon1, child_id=1)
-    _ = pc_bm_monitor.add_child_pd(protocon2, child_id=2)
-    _ = pc_bm_monitor.add_child_pd(protocon3, child_id=3)
+    protocon0 = ProtectionDomain("protocon0", priority=53, stack_size=0x1000)
+    protocon1 = ProtectionDomain("protocon1", priority=53, stack_size=0x1000)
+    protocon2 = ProtectionDomain("protocon2", priority=53, stack_size=0x1000)
+    protocon3 = ProtectionDomain("protocon3", priority=53, stack_size=0x1000)
+
+    pc_bm_monitor.add_child_pd(protocon0, child_id=0)
+    pc_bm_monitor.add_child_pd(protocon1, child_id=1)
+    pc_bm_monitor.add_child_pd(protocon2, child_id=2)
+    pc_bm_monitor.add_child_pd(protocon3, child_id=3)
 
     connect_protocon_with_monitor(pc_bm_monitor, protocon0, 0)
     connect_protocon_with_monitor(pc_bm_monitor, protocon1, 1)
@@ -158,10 +191,13 @@ def generate(sdf_path: str, output_dir: str, dtb: DeviceTree):
         serial_virt_rx,
         pc_bm_server,
         pc_bm_monitor,
+        timer_driver,
     ]
     for pd in pds:
         sdf.add_pd(pd)
 
+    assert timer_system.connect()
+    assert timer_system.serialise_config(output_dir)
     assert serial_system.connect()
     assert serial_system.serialise_config(output_dir)
 
@@ -172,7 +208,7 @@ def generate(sdf_path: str, output_dir: str, dtb: DeviceTree):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument("--dtb", required=True)
+    parser.add_argument("--dtb", required=False)
     parser.add_argument("--sddf", required=True)
     parser.add_argument("--board", required=True, choices=[b.name for b in BOARDS])
     parser.add_argument("--output", required=True)
@@ -185,7 +221,9 @@ if __name__ == '__main__':
     sdf = SystemDescription(board.arch, board.paddr_top)
     sddf = Sddf(args.sddf)
 
-    with open(args.dtb, "rb") as f:
-        dtb = DeviceTree(f.read())
+    dtb = None
+    if board.arch != SystemDescription.Arch.X86_64:
+        with open(args.dtb, "rb") as f:
+            dtb = DeviceTree(f.read())
 
     generate(args.sdf, args.output, dtb)

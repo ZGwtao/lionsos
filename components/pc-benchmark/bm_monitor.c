@@ -258,7 +258,33 @@ void monitor_call_deploy_protocon_second_half()
 
     Elf64_Ehdr *protocon_eh = (Elf64_Ehdr *)FE_MONITOR_REGION_PROTOCON_ELF_BASE;
     /* switch to trusted loader in protocon */
-    microkit_pd_restart(cid, protocon_eh->e_entry);
+    // FIXME?
+    //microkit_pd_restart(cid, protocon_eh->e_entry);
+    {
+        seL4_Error err;
+        seL4_UserContext ctxt = {0};
+#if defined(CONFIG_ARCH_X86_64)
+        ctxt.rip = protocon_eh->e_entry;
+        ctxt.rsp = 0x7ffffffff000;
+#elif defined(CONFIG_ARCH_AARCH64) || defined(CONFIG_ARCH_RISCV)
+        ctxt.pc = protocon_eh->e_entry;
+        ctxt.sp = 0x10000000000;
+#else
+#error "Unsupported architecture for 'microkit_pd_restart'"
+#endif
+        err = seL4_TCB_WriteRegisters(
+                BASE_TCB_CAP + cid,
+                seL4_True,
+                0, /* No flags */
+                2, /* writing 2 registers */
+                &ctxt
+            );
+
+        if (err != seL4_NoError) {
+            microkit_dbg_puts("microkit_pd_restart: error writing TCB registers\n");
+            microkit_internal_crash(err);
+        }
+    }
     TSLDR_DBG_PRINT(PROGNAME "Started child PD at entrypoint address: %x\n", protocon_eh->e_entry);
 }
 

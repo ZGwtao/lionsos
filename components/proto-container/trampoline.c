@@ -11,12 +11,19 @@ void init(void)
     uintptr_t tsldr_metadata    = 0xA00000;
     uintptr_t tsldr_program     = 0x200000;
     uintptr_t tsldr_context     = 0xE00000;
-    uintptr_t tsldr_stack_bottom        = 0x0FFFFFFF000;
+    // FIXME: the stack addr is wrong for x86??
+#if defined(CONFIG_ARCH_X86_64)
+    uintptr_t tsldr_stack_bottom    = 0x7fffffffe000;
+#elif defined(CONFIG_ARCH_AARCH64)
+    uintptr_t tsldr_stack_bottom    = 0x0FFFFFFF000;
+#else
+#error "Unsupported architecture for stack address"
+#endif
     uintptr_t container_stack_bottom    = 0x00FFFBFF000;
     uintptr_t container_stack_top       = 0x00FFFC00000;
     uintptr_t client_elf = 0x2000000;
 
-    //microkit_dbg_puts("[@trampoline] entry of trampoline.\n");
+    TSLDR_DBG_PRINT("[@trampoline] entry of trampoline.\n");
 
     /* say goodbye to the old stack */
     tsldr_miscutil_memset((void *)tsldr_stack_bottom, 0, 0x1000);
@@ -46,7 +53,7 @@ void init(void)
     tsldr_miscutil_memset((void *)tsldr_context, 0, 0x1000);
 
     /* at this point we dont have access to the data section of tsldr */
-    //microkit_dbg_puts("[@trampoline] jumping to the client payload...\n");
+    TSLDR_DBG_PRINT("[@trampoline] jumping to the client payload...\n");
 
     /*
      * At this point, the client information is embedded in the address space,
@@ -56,15 +63,8 @@ void init(void)
     Elf64_Ehdr *ehdr = (Elf64_Ehdr *)client_elf;
     entry_fn_t entry_fn = (entry_fn_t) ehdr->e_entry;
 
-    asm volatile (
-        "mov sp, %[new_stack]\n\t" /* set new SP */
-        "br  %[func]\n\t"          /* branch directly, never return */
-        :
-        : [new_stack] "r" (container_stack_top),
-          [func] "r" (entry_fn)
-        : "x30", "memory"
-    );
-    __builtin_unreachable();
+    TSLDR_DBG_PRINT("[@trampoline] stack: %x, entry function: %x\n", (unsigned long)container_stack_top, (unsigned long)entry_fn);
+    tsldr_main_jump_with_stack((void *)container_stack_top, entry_fn);
 }
 
 void notified(microkit_channel ch)

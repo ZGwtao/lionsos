@@ -7,6 +7,7 @@
 #include <stdint.h>
 #include <string.h>
 #include <microkit.h>
+#include <sddf/timer/client.h>
 #include <sddf/timer/config.h>
 #include <sddf/serial/queue.h>
 #include <sddf/serial/config.h>
@@ -26,6 +27,8 @@
 
 __attribute__((__section__(".serial_client_config"))) serial_client_config_t serial_config;
 
+__attribute__((__section__(".timer_client_config"))) timer_client_config_t timer_config;
+
 serial_queue_handle_t serial_rx_queue_handle;
 serial_queue_handle_t serial_tx_queue_handle;
 
@@ -43,6 +46,79 @@ extern char _bm_trampoline_end[];
 extern char _bm_payload[];
 extern char _bm_payload_end[];
 
+
+
+typedef uint64_t cycles_t;
+
+cycles_t freq_measure_start;
+cycles_t freq_measure_end;
+
+#if defined(CONFIG_ARCH_AARCH64)
+
+static inline void isb_sy(void) { asm volatile("isb sy" ::: "memory"); }
+
+static inline cycles_t pmccntr_el0(void) {
+  cycles_t v;
+  /* D24.5.2 in DDI 0487L.b, PMCCNTR_EL0. All 64 bits is CCNT. */
+  asm volatile("mrs %0, pmccntr_el0" : "=r"(v) :: "memory");
+  /* TODO: From the ARM sample code, I think there's no need for an ISB here.
+           But I can't justify this w.r.t the specification...
+   */
+  return v;
+}
+
+static inline void pmu_enable(void) {
+  uint64_t v;
+  asm volatile("mrs %0, pmcr_el0" : "=r"(v));
+  v |= (1ull << 0);
+  v &= ~(1ull << 3);
+  asm volatile("msr pmcr_el0, %0" : : "r"(v));
+
+  asm volatile("mrs %0, pmcntenset_el0" : "=r"(v));
+  v |= (1ull << 31);
+  asm volatile("msr pmcntenset_el0, %0" : : "r"(v));
+
+#ifdef CONFIG_ARM_HYPERVISOR_SUPPORT
+  /* NSH - count cycles in EL2 */
+  v = (1ull << 27);
+#else
+  v = 0;
+#endif
+  asm volatile("msr pmccfiltr_el0, %0" : : "r"(v));
+
+  /* Zero the cycle counter */
+  asm volatile("msr pmccntr_el0, xzr" : :);
+
+  isb_sy();
+}
+static inline cycles_t pmu_read_cycles(void) { return pmccntr_el0(); }
+
+#else
+
+static inline cycles_t rdtsc_lfence(void)
+{
+    unsigned int lo, hi;
+    __asm__ volatile(
+        "lfence\n\t"
+        "rdtsc"
+        : "=a"(lo), "=d"(hi)
+        :
+        : "memory"
+    );
+    return ((cycles_t)hi << 32) | lo;
+}
+
+#endif
+
+#define BM_ROUND (50)
+
+/**
+ * Sets a timeout for the next lwip tick.
+ */
+void set_timeout(void)
+{
+    sddf_timer_set_timeout(timer_config.driver_id, 100 * NS_IN_MS);
+}
 
 static void print_prompt(void)
 {
@@ -79,9 +155,8 @@ void init(void)
     
     stack_ptrs_arg_array_t costacks = { (uintptr_t) bm_server_stack1, (uintptr_t) bm_server_stack2 };
     microkit_cothread_init(&co_controller_mem, 0x10000, costacks);
-#if 0
-    sddf_putchar_unbuffered('\n');
-    print_prompt();
+#if defined(CONFIG_ARCH_AARCH64)
+    pmu_enable();
 #endif
     load_elf_payload();
     microkit_cothread_yield();
@@ -94,51 +169,6 @@ void init(void)
 static char input_buf[INPUT_BUF_SIZE];
 static char fname_buf[FNAME_BUF_SIZE];
 static size_t input_len = 0;
-
-
-typedef uint64_t cycles_t;
-
-static inline void isb_sy(void) { asm volatile("isb sy" ::: "memory"); }
-
-static inline cycles_t pmccntr_el0(void) {
-  cycles_t v;
-  /* D24.5.2 in DDI 0487L.b, PMCCNTR_EL0. All 64 bits is CCNT. */
-  asm volatile("mrs %0, pmccntr_el0" : "=r"(v) :: "memory");
-  /* TODO: From the ARM sample code, I think there's no need for an ISB here.
-           But I can't justify this w.r.t the specification...
-   */
-  return v;
-}
-
-/* 3.11 of Use-Cases app note: step 4 */
-static inline void pmu_enable(void) {
-  uint64_t v;
-  asm volatile("mrs %0, pmcr_el0" : "=r"(v));
-  v |= (1ull << 0);
-  v &= ~(1ull << 3);
-  asm volatile("msr pmcr_el0, %0" : : "r"(v));
-
-  asm volatile("mrs %0, pmcntenset_el0" : "=r"(v));
-  v |= (1ull << 31);
-  asm volatile("msr pmcntenset_el0, %0" : : "r"(v));
-
-#ifdef CONFIG_ARM_HYPERVISOR_SUPPORT
-  /* NSH - count cycles in EL2 */
-  v = (1ull << 27);
-#else
-  v = 0;
-#endif
-  asm volatile("msr pmccfiltr_el0, %0" : : "r"(v));
-
-  /* Zero the cycle counter */
-  asm volatile("msr pmccntr_el0, xzr" : :);
-
-  isb_sy();
-}
-
-static inline cycles_t pmu_read_cycles(void) { return pmccntr_el0(); }
-
-#define BM_ROUND (50)
 
 static void bm_server_call_monitor(int moncall)
 {
@@ -166,9 +196,13 @@ static void load_elf_payload(void)
     for (int i = 0; i < (BM_ROUND / 10); ++i) {
         bm_server_call_monitor(MONITOR_CALL_DEPLOY);
     }
-
-    pmu_enable();
+#if defined(CONFIG_ARCH_AARCH64)
     cycles_t start = pmu_read_cycles();
+#elif defined(CONFIG_ARCH_X86_64)
+    cycles_t start = rdtsc_lfence();
+#else
+#error "Unsupported architecture for PMU functions"
+#endif
 #if 1
     for (int i = 0; i < BM_ROUND; ++i) {
         bm_server_call_monitor(MONITOR_CALL_DEPLOY);
@@ -176,7 +210,14 @@ static void load_elf_payload(void)
 #else
     bm_server_call_monitor(MONITOR_CALL_BENCHMARK);
 #endif
+
+#if defined(CONFIG_ARCH_AARCH64)
     cycles_t end = pmu_read_cycles();
+#elif defined(CONFIG_ARCH_X86_64)
+    cycles_t end = rdtsc_lfence();
+#else
+#error "Unsupported architecture for PMU functions"
+#endif
 
     cycles_t total = (end - start);
     cycles_t average = total / BM_ROUND;
@@ -192,6 +233,37 @@ static void load_elf_payload(void)
     microkit_dbg_put32(average);
     microkit_dbg_puts("\n");
 #endif
+#if defined(CONFIG_ARCH_AARCH64)
+    freq_measure_start = pmu_read_cycles();
+#elif defined(CONFIG_ARCH_X86_64)
+    freq_measure_start = rdtsc_lfence();
+#else
+#error "Unsupported architecture for PMU functions"
+#endif
+    seL4_Word cur_start_time = sddf_timer_time_now(timer_config.driver_id);
+
+    while (1) {
+#if defined(CONFIG_ARCH_AARCH64)
+        freq_measure_end = pmu_read_cycles();
+#elif defined(CONFIG_ARCH_X86_64)
+        freq_measure_end = rdtsc_lfence();
+#else
+#error "Unsupported architecture for PMU functions"
+#endif
+        if (freq_measure_end - freq_measure_start < 100000000) {
+            continue;
+        }
+        seL4_Word cur_end_time = sddf_timer_time_now(timer_config.driver_id);
+        sddf_printf("[freqCnt] start time: %lu\n", (unsigned long)cur_start_time);
+        sddf_printf("[freqCnt] end time: %lu\n", (unsigned long)cur_end_time);
+        sddf_printf("[freqCnt] total time (ns): '%lu'\n", (unsigned long)(cur_end_time - cur_start_time));
+        sddf_printf("[freqCnt] start cycle: %u\n", freq_measure_start);
+        sddf_printf("[freqCnt] end cycle: %u\n", freq_measure_end);
+        sddf_printf("[freqCnt] total cycles: '%u'\n", freq_measure_end - freq_measure_start);
+        sddf_printf("[freqCnt] CPU frequency (cycles/s) hz: '%lu'\n", (unsigned long)(((freq_measure_end - freq_measure_start) * NS_IN_S) / (cur_end_time - cur_start_time)));
+        break;
+    }
+
 }
 
 /* ----- Command handlers ----- */

@@ -29,6 +29,8 @@ __attribute__((__section__(".pc_svc_desc"))) const protocon_svc_desc_t ciface = 
 
 typedef uint64_t cycles_t;
 
+#if defined(CONFIG_ARCH_AARCH64)
+
 static inline void isb_sy(void) { asm volatile("isb sy" ::: "memory"); }
 
 static inline cycles_t pmccntr_el0(void) {
@@ -69,6 +71,12 @@ static inline void pmu_enable(void) {
 
 static inline cycles_t pmu_read_cycles(void) { return pmccntr_el0(); }
 
+#elif defined(CONFIG_ARCH_X86_64)
+static inline void pmu_enable(void) { /* No setup needed for x86_64 */ }
+static inline cycles_t pmu_read_cycles(void) { return 0; }
+#else 
+#error "Unsupported architecture for PMU functions"
+#endif
 
 void init(void)
 {
