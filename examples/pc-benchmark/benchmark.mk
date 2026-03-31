@@ -17,7 +17,8 @@ IMAGES := \
 SUPPORTED_BOARDS:= \
 	qemu_virt_aarch64 \
 	maaxboard \
-	odroidc4
+	odroidc4 \
+	x86_64_generic
 
 TOOLCHAIN ?= clang
 CP ?= cp
@@ -80,7 +81,15 @@ system: $(METAPROGRAM) $(DTB)
 
 
 $(SYSTEM_FILE): $(METAPROGRAM) $(IMAGES) $(DTB)
-	PYTHONPATH=${SDDF}/tools/meta:$$PYTHONPATH $(PYTHON) $(METAPROGRAM) --sddf $(SDDF) --board $(MICROKIT_BOARD) --dtb $(DTB) --output . --sdf $(SYSTEM_FILE)
+ifneq ($(strip $(DTS)),)
+	PYTHONPATH=${SDDF}/tools/meta:$$PYTHONPATH $(PYTHON) \
+		$(METAPROGRAM) --sddf $(SDDF) --board $(MICROKIT_BOARD) \
+		--dtb $(DTB) --output . --sdf $(SYSTEM_FILE)
+else
+	PYTHONPATH=${SDDF}/tools/meta:$$PYTHONPATH $(PYTHON) \
+		$(METAPROGRAM) --sddf $(SDDF) --board $(MICROKIT_BOARD) \
+		--output . --sdf $(SYSTEM_FILE)
+endif
 	$(OBJCOPY) --update-section .monitor_svc_db=bm_monitor.svc bm_monitor.elf
 	$(OBJCOPY) --update-section .device_resources=serial_driver_device_resources.data serial_driver.elf
 	$(OBJCOPY) --update-section .serial_driver_config=serial_driver_config.data serial_driver.elf
@@ -88,6 +97,8 @@ $(SYSTEM_FILE): $(METAPROGRAM) $(IMAGES) $(DTB)
 	$(OBJCOPY) --update-section .serial_virt_rx_config=serial_virt_rx.data serial_virt_rx.elf
 	$(OBJCOPY) --update-section .serial_client_config=serial_client_bm_server.data bm_server.elf
 	$(OBJCOPY) --update-section .serial_client_config=serial_client_bm_monitor.data bm_monitor.elf
+	$(OBJCOPY) --update-section .device_resources=timer_driver_device_resources.data timer_driver.elf
+	$(OBJCOPY) --update-section .timer_client_config=timer_client_bm_server.data bm_server.elf
 	$(OBJCOPY) --update-section .pl0_serial_config=serial_client_protocon0.data bm_monitor.elf
 	$(OBJCOPY) --update-section .pl1_serial_config=serial_client_protocon1.data bm_monitor.elf
 	$(OBJCOPY) --update-section .pl2_serial_config=serial_client_protocon2.data bm_monitor.elf
@@ -98,20 +109,11 @@ $(IMAGE_FILE) $(REPORT_FILE): $(IMAGES) $(SYSTEM_FILE)
 		--search-path $(BUILD_DIR) --board $(MICROKIT_BOARD) 	\
 		--config $(MICROKIT_CONFIG) -o $(IMAGE_FILE) -r $(REPORT_FILE)
 
-qemu_disk:
-	$(LIONSOS)/dep/sddf/tools/mkvirtdisk $@ 4 512 16777216 GPT
-
-qemu: ${IMAGE_FILE} qemu_disk
-	$(QEMU) -machine virt,virtualization=on \
-		-cpu cortex-a53 \
-		-serial mon:stdio \
-		-device loader,file=$(IMAGE_FILE),addr=0x70000000,cpu-num=0 \
-		-m size=2G \
+qemu: ${IMAGE_FILE}
+	$(QEMU) $(QEMU_ARCH_ARGS) \
 		-nographic \
 		-global virtio-mmio.force-legacy=false \
-		-d guest_errors \
-		-drive file=qemu_disk,if=none,format=raw,id=hd \
-		-device virtio-blk-device,drive=hd
+		-d guest_errors
 
 ${SDDF}/tools/make/board/common.mk ${SDDF_MAKEFILES} ${LIONSOS}/dep/sddf/include &:
 	cd $(LIONSOS); git submodule update --init dep/sddf
