@@ -22,14 +22,24 @@ def connect_protocon_with_monitor(mpd: SystemDescription.ProtectionDomain, cpd: 
 
     name_prefix = mpd.name + "/" + cpd.name + "/"
 
-    # one per container memory regions...
-    container_elf = MemoryRegion(name_prefix + "container/elf", 0x800000)
-    trampoline_elf = MemoryRegion(name_prefix + "trampoline/elf", 0x800000)
-    trampoline_exec = MemoryRegion(name_prefix + "trampoline/exec", 0x800000)
-    tsldr_exec = MemoryRegion(name_prefix + "tsldr/exec", 0x800000)
-    tsldr_data = MemoryRegion(name_prefix + "tsldr/data", 0x1000)
-    ossvc_data = MemoryRegion(name_prefix + "ossvc/data", 0x1000)
-    tsldr_context = MemoryRegion(name_prefix + "tsldr/context", 0x1000)
+    if version('sdfgen').split(".")[1] != "23":
+        # one per container memory regions...
+        container_elf = MemoryRegion(sdf, name_prefix + "container/elf", 0x800000)
+        trampoline_elf = MemoryRegion(sdf, name_prefix + "trampoline/elf", 0x800000)
+        trampoline_exec = MemoryRegion(sdf, name_prefix + "trampoline/exec", 0x800000)
+        tsldr_exec = MemoryRegion(sdf, name_prefix + "tsldr/exec", 0x800000)
+        tsldr_data = MemoryRegion(sdf, name_prefix + "tsldr/data", 0x1000)
+        ossvc_data = MemoryRegion(sdf, name_prefix + "ossvc/data", 0x1000)
+        tsldr_context = MemoryRegion(sdf, name_prefix + "tsldr/context", 0x1000)
+    else:
+        # one per container memory regions...
+        container_elf = MemoryRegion(name_prefix + "container/elf", 0x800000)
+        trampoline_elf = MemoryRegion(name_prefix + "trampoline/elf", 0x800000)
+        trampoline_exec = MemoryRegion(name_prefix + "trampoline/exec", 0x800000)
+        tsldr_exec = MemoryRegion(name_prefix + "tsldr/exec", 0x800000)
+        tsldr_data = MemoryRegion(name_prefix + "tsldr/data", 0x1000)
+        ossvc_data = MemoryRegion(name_prefix + "ossvc/data", 0x1000)
+        tsldr_context = MemoryRegion(name_prefix + "tsldr/context", 0x1000)
 
     sdf.add_mr(container_elf)
     sdf.add_mr(trampoline_elf)
@@ -54,9 +64,14 @@ def connect_protocon_with_monitor(mpd: SystemDescription.ProtectionDomain, cpd: 
     cpd.add_map(Map(trampoline_exec,    0x1800000, perms="rwx", cached="true"))
     cpd.add_map(Map(container_elf,      0x2000000, perms="rw", cached="true"))
 
-    trampoline_stack = MemoryRegion(name_prefix + "trampoline/stack", 0x1000)
-    container_stack = MemoryRegion(name_prefix + "container/stack", 0x1000)
-    container_exec = MemoryRegion(name_prefix + "container/exec", 0x2000000)
+    if version('sdfgen').split(".")[1] != "23":
+        trampoline_stack = MemoryRegion(sdf, name_prefix + "trampoline/stack", 0x1000)
+        container_stack = MemoryRegion(sdf, name_prefix + "container/stack", 0x1000)
+        container_exec = MemoryRegion(sdf, name_prefix + "container/exec", 0x2000000)
+    else:
+        trampoline_stack = MemoryRegion(name_prefix + "trampoline/stack", 0x1000)
+        container_stack = MemoryRegion(name_prefix + "container/stack", 0x1000)
+        container_exec = MemoryRegion(name_prefix + "container/exec", 0x2000000)
 
     sdf.add_mr(trampoline_stack)
     sdf.add_mr(container_stack)
