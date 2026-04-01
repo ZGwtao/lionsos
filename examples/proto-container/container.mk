@@ -84,6 +84,10 @@ ${IMAGES}: $(LIONS_LIBC)/lib/libc.a libsddf_util_debug.a
 FORCE:
 
 
+system: $(METAPROGRAM) $(DTB)
+	PYTHONPATH=${SDDF}/tools/meta:$$PYTHONPATH $(PYTHON) $(METAPROGRAM) --sddf $(SDDF) --board $(MICROKIT_BOARD) --dtb $(DTB) --output . --sdf $(SYSTEM_FILE)
+
+
 $(SYSTEM_FILE): $(METAPROGRAM) $(IMAGES) $(DTB)
 	$(CP) fat.elf frontend_fs.elf
 	$(CP) fat.elf monitor_fs.elf
