@@ -40,7 +40,8 @@ CFLAGS += \
 	-I$(LIONSOS)/include \
 	-I$(SDDF)/include \
 	-I$(SDDF)/include/microkit \
-	-I$(LIBMICROKITCO_PATH)
+	-I$(LIBMICROKITCO_PATH) \
+	-D__ELF__
 
 include $(LIONSOS)/lib/libc/libc.mk
 
