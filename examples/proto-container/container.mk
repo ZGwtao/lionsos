@@ -23,7 +23,6 @@ SUPPORTED_BOARDS:= \
 	odroidc4
 
 TOOLCHAIN ?= clang
-CP ?= cp
 MICROKIT_TOOL ?= $(MICROKIT_SDK)/bin/microkit
 SDDF := $(LIONSOS)/dep/sddf
 LIBMICROKITCO_PATH := $(LIONSOS)/dep/libmicrokitco
@@ -85,15 +84,11 @@ FORCE:
 
 
 system: $(METAPROGRAM) $(DTB)
-	PYTHONPATH=${SDDF}/tools/meta:$$PYTHONPATH $(PYTHON) $(METAPROGRAM) --sddf $(SDDF) --board $(MICROKIT_BOARD) --dtb $(DTB) --output . --sdf $(SYSTEM_FILE)
+	PYTHONPATH=${SDDF}/tools/meta:$$PYTHONPATH $(PYTHON) $(METAPROGRAM) --sddf $(SDDF) --board $(MICROKIT_BOARD) --dtb $(DTB) --objcopy $(OBJCOPY) --output . --sdf $(SYSTEM_FILE)
 
 
 $(SYSTEM_FILE): $(METAPROGRAM) $(IMAGES) $(DTB)
-	$(CP) fat.elf frontend_fs.elf
-	$(CP) fat.elf monitor_fs.elf
-	$(CP) fat.elf protocon0_fs.elf
-	$(CP) fat.elf protocon1_fs.elf
-	PYTHONPATH=${SDDF}/tools/meta:$$PYTHONPATH $(PYTHON) $(METAPROGRAM) --sddf $(SDDF) --board $(MICROKIT_BOARD) --dtb $(DTB) --output . --sdf $(SYSTEM_FILE)
+	PYTHONPATH=${SDDF}/tools/meta:$$PYTHONPATH $(PYTHON) $(METAPROGRAM) --sddf $(SDDF) --board $(MICROKIT_BOARD) --dtb $(DTB) --objcopy $(OBJCOPY) --output . --sdf $(SYSTEM_FILE)
 	$(OBJCOPY) --update-section .monitor_svc_db=container_monitor.svc monitor.elf
 	$(OBJCOPY) --update-section .device_resources=serial_driver_device_resources.data serial_driver.elf
 	$(OBJCOPY) --update-section .serial_driver_config=serial_driver_config.data serial_driver.elf
@@ -106,14 +101,6 @@ $(SYSTEM_FILE): $(METAPROGRAM) $(IMAGES) $(DTB)
 	$(OBJCOPY) --update-section .device_resources=blk_driver_device_resources.data blk_driver.elf
 	$(OBJCOPY) --update-section .blk_driver_config=blk_driver.data blk_driver.elf
 	$(OBJCOPY) --update-section .blk_virt_config=blk_virt.data blk_virt.elf
-	$(OBJCOPY) --update-section .blk_client_config=blk_client_frontend_fs.data frontend_fs.elf
-	$(OBJCOPY) --update-section .fs_server_config=fs_server_frontend_fs.data frontend_fs.elf
-	$(OBJCOPY) --update-section .blk_client_config=blk_client_monitor_fs.data monitor_fs.elf
-	$(OBJCOPY) --update-section .fs_server_config=fs_server_monitor_fs.data monitor_fs.elf
-	$(OBJCOPY) --update-section .blk_client_config=blk_client_protocon0_fs.data protocon0_fs.elf
-	$(OBJCOPY) --update-section .fs_server_config=fs_server_protocon0_fs.data protocon0_fs.elf
-	$(OBJCOPY) --update-section .blk_client_config=blk_client_protocon1_fs.data protocon1_fs.elf
-	$(OBJCOPY) --update-section .fs_server_config=fs_server_protocon1_fs.data protocon1_fs.elf
 
 $(IMAGE_FILE) $(REPORT_FILE): $(IMAGES) $(SYSTEM_FILE)
 	$(MICROKIT_TOOL) $(SYSTEM_FILE) \
