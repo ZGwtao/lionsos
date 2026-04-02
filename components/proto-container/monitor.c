@@ -186,7 +186,7 @@ void monitor_call_deploy_protocon_second_half()
 
     monitor_main_load_elfs_into_protocon(cid);
 
-    Elf64_Ehdr *client_payload_eh = (Elf64_Ehdr *)PC_MONITOR_REGION_CLIENT_PAYLOAD_BASE + PC_MONITOR_REGION_SIZE * cid;
+    Elf64_Ehdr *client_payload_eh = (Elf64_Ehdr *)((char *)PC_MONITOR_REGION_CLIENT_PAYLOAD_BASE + PC_MONITOR_REGION_SIZE * cid);
     // when the client payload is loaded into the memory of the dynamic PD,
     // we will patch the payload with the information of where to access the OS services (i.e., pointers to the OS services)
     // we don't patch it on the shared memory of frontend side, as it is not correct to change the content of source input
