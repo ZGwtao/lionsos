@@ -108,7 +108,7 @@ endif
 $(IMAGE_FILE) $(REPORT_FILE): $(IMAGES) $(SYSTEM_FILE)
 	$(MICROKIT_TOOL) $(SYSTEM_FILE) \
 		--search-path $(BUILD_DIR) --board $(MICROKIT_BOARD) 	\
-		--config $(MICROKIT_CONFIG) -o $(IMAGE_FILE) -r $(REPORT_FILE)
+		--config $(MICROKIT_CONFIG) -o $(IMAGE_FILE) -r $(REPORT_FILE) --capdl-json $(BUILD_DIR)/capdl_spec.json
 
 qemu: ${IMAGE_FILE}
 	$(QEMU) $(QEMU_ARCH_ARGS) \
