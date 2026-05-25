@@ -73,6 +73,7 @@ protocon_lifecycle_state_t protocon_states[PC_CHILD_PER_MONITOR_MAX_NUM];
 
 // monitor call numbers
 #define PC_MONITOR_CALL_DEPLOY (1)
+#define PC_MONITOR_CALL_LIST_PROTOCONS (5)
 #define PC_MONITOR_CALL_BACKUP_CONTEXT (20)
 #define PC_MONITOR_CALL_TERMINATE (0x100)
 
@@ -233,7 +234,10 @@ void init(void)
     monitor_init_ossvc_map();
 
     // global client state initialisation...
-    tsldr_miscutil_memset(protocon_states, PROTOCON_PASSIVE, sizeof(int) * PC_CHILD_PER_MONITOR_MAX_NUM);
+    // tsldr_miscutil_memset(protocon_states, PROTOCON_PASSIVE, sizeof(int) * PC_CHILD_PER_MONITOR_MAX_NUM);
+    for (int i = 0; i < PC_CHILD_PER_MONITOR_MAX_NUM; ++i) {
+        protocon_states[i] = PROTOCON_PASSIVE;
+    }
     // clean all loader context...
     tsldr_miscutil_memset(protocon_ctx_db, 0, sizeof(tsldr_context_t) * PC_CHILD_PER_MONITOR_MAX_NUM);
 
@@ -330,6 +334,29 @@ seL4_MessageInfo_t monitor_call_restore_protocon(microkit_channel ch)
     return microkit_msginfo_new(seL4_NoError, 0);
 }
 
+seL4_MessageInfo_t monitor_call_list_protocons()
+{
+    // FIXME
+    // change this ceiling with something parsed from sdf
+    // for (int i = 0; i < PC_CHILD_PER_MONITOR_MAX_NUM; ++i) {
+    for (int i = 0; i < 4; ++i) {
+        sddf_printf("[*] dynamic-PD [id=%d] has state: ", i);
+        switch (protocon_states[i]) {
+            case PROTOCON_ACTIVE:
+                sddf_printf("in-use");
+                break;
+            case PROTOCON_PASSIVE:
+                sddf_printf("avail");
+                break;
+            default:
+                sddf_printf("unknown: %d", protocon_states[i]);
+        };
+        sddf_printf("\n");
+    }
+
+    return microkit_msginfo_new(seL4_NoError, 0);
+}
+
 
 seL4_MessageInfo_t monitor_call_backup_protocon_loading_context(microkit_channel ch)
 {
@@ -363,9 +390,13 @@ seL4_MessageInfo_t monitor_main_handle_pccall(microkit_channel ch)
         TSLDR_DBG_PRINT(PROGNAME "Exit and uninstantiate a dynamic PD\n");
         ret = monitor_call_restore_protocon(ch);
         break;
+    case PC_MONITOR_CALL_LIST_PROTOCONS:
+        TSLDR_DBG_PRINT(PROGNAME "List states of dynamic PDs\n");
+        ret = monitor_call_list_protocons();
+        break;
     default:
         /* do nothing for now */
-        TSLDR_DBG_PRINT(PROGNAME "Undefined container monitor call: %lu\n", call_id);
+        TSLDR_DBG_PRINT(PROGNAME "Undefined container monitor call: %d\n", call_id);
         break;
     }
 

@@ -139,12 +139,11 @@ void load_elf_payload(void)
     }
     TSLDR_DBG_PRINT(PROGNAME "entry of load_elf_payload\n");
 
-    int err;
     microkit_msginfo info;
     seL4_Error error;
 
-    pico_vfs_readfile2buf((void *)shared2, fname_buf, &err);
-    if (err != seL4_NoError) {
+    pico_vfs_readfile2buf((void *)shared2, fname_buf, &error);
+    if (error != seL4_NoError) {
         TSLDR_DBG_PRINT(PROGNAME "Failed to read %s\n", fname_buf);
         shell_inst_epilogue();
         return;
@@ -192,6 +191,24 @@ static int parse_start_cmd(const char *arg)
     return 0;
 }
 
+static int parse_lspcs_cmd(void)
+{
+    microkit_msginfo info;
+    seL4_Error error;
+
+    /* syscall id: list proto containers */
+    microkit_mr_set(0, 5);
+
+    info = microkit_ppcall(1, microkit_msginfo_new(0, 1));
+    error = microkit_msginfo_get_label(info);
+    if (error != seL4_NoError) {
+        microkit_internal_crash(error);
+    }
+    sddf_printf("> \n");
+    return 0;
+}
+
+
 static int handle_line(const char *line)
 {
     while (*line == ' ') line++;  // skip spaces
@@ -213,6 +230,14 @@ static int handle_line(const char *line)
             sddf_printf("Invalid command format\n");
             return 1;
         }
+    } else if (strncmp(line, "lspcs", 5) == 0) {
+        const char *after = line + 5;
+        while (*after == ' ') after++;
+        if (*after != '\0') {
+            sddf_printf("Invalid command format\n");
+            return 1;
+        }
+        return parse_lspcs_cmd();
     } else {
         sddf_printf("Unknown command: %s\n", line);
         return 1;
