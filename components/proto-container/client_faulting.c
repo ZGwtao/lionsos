@@ -38,16 +38,11 @@ void init(void)
     serial_queue_init(&serial_tx_queue_handle, serial_config.tx.queue.vaddr, serial_config.tx.data.size, serial_config.tx.data.vaddr);
     serial_putchar_init(serial_config.tx.id, &serial_tx_queue_handle);
 
-    sddf_printf("Hello from client.elf!\n");
+    sddf_printf("Hello from client_faulting!\n");
+    sddf_printf("Generate a VM fault from client\n");
 
-    // exit from client...
-    microkit_mr_set(0, 0x100);
-
-    microkit_msginfo info = microkit_ppcall(15, microkit_msginfo_new(0, 1));
-    seL4_Error error = microkit_msginfo_get_label(info);
-    if (error != seL4_NoError) {
-        microkit_internal_crash(error);
-    }
+    // assert(0);
+    *(int *)(0x9) = 0;
 }
 
 void notified(microkit_channel ch)

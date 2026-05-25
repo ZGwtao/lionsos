@@ -16,7 +16,9 @@ PC_LIBMICROKITCO_OBJ := libmicrokitco_pc.a
 
 PC_LIBTRUSTEDLO_OBJ := libtrustedlo/libtrustedlo.a
 
-PC_CLIENT_OBJS := pc/client.o
+PC_ECHO_CLIENT_OBJS := pc/client_echo.o
+PC_FAULTING_CLIENT_OBJS := pc/client_faulting.o
+PC_LOOPING_CLIENT_OBJS := pc/client_looping.o
 PC_MONITOR_OBJS := pc/monitor.o pc/ossvc.o pc/pico_vfs.o
 PC_FRONTEND_OBJS :=	pc/frontend.o pc/pico_vfs.o
 PC_PROTOCON_OBJS := pc/protocon.o
@@ -26,7 +28,9 @@ PC_OBJS := \
 	PC_MONITOR_OBJS \
 	PC_PROTOCON_OBJS \
 	PC_TRAMPOLINE_OBJS \
-	PC_CLIENT_OBJS
+	PC_ECHO_CLIENT_OBJS \
+	PC_FAULTING_CLIENT_OBJS \
+	PC_LOOPING_CLIENT_OBJS
 
 pc:
 	mkdir -p pc
@@ -69,8 +73,18 @@ trampoline.elf: LDFLAGS += -L$(BOARD_DIR)/lib
 trampoline.elf: $(PC_TRAMPOLINE_OBJS) pc/$(PC_LIBTRUSTEDLO_OBJ)
 	$(LD) $(LDFLAGS) -Ttext=0x1800000 $^ $(LIBS) -o $@
 
-client.elf: LDFLAGS += -L$(BOARD_DIR)/lib
-client.elf: $(PC_CLIENT_OBJS) libsddf_util.a pc/$(PC_LIBTRUSTEDLO_OBJ)
+client_echo.elf: LDFLAGS += -L$(BOARD_DIR)/lib
+client_echo.elf: $(PC_ECHO_CLIENT_OBJS) libsddf_util.a pc/$(PC_LIBTRUSTEDLO_OBJ)
+	$(LD) $(LDFLAGS) -Ttext=0x2800000 $^ $(LIBS) -o $@
+
+
+client_looping.elf: LDFLAGS += -L$(BOARD_DIR)/lib
+client_looping.elf: $(PC_LOOPING_CLIENT_OBJS) libsddf_util.a pc/$(PC_LIBTRUSTEDLO_OBJ)
+	$(LD) $(LDFLAGS) -Ttext=0x2800000 $^ $(LIBS) -o $@
+
+
+client_faulting.elf: LDFLAGS += -L$(BOARD_DIR)/lib
+client_faulting.elf: $(PC_FAULTING_CLIENT_OBJS) libsddf_util.a pc/$(PC_LIBTRUSTEDLO_OBJ)
 	$(LD) $(LDFLAGS) -Ttext=0x2800000 $^ $(LIBS) -o $@
 
 
