@@ -75,6 +75,7 @@ protocon_lifecycle_state_t protocon_states[PC_CHILD_PER_MONITOR_MAX_NUM];
 #define PC_MONITOR_CALL_DEPLOY (1)
 #define PC_MONITOR_CALL_LIST_PROTOCONS (5)
 #define PC_MONITOR_CALL_BACKUP_CONTEXT (20)
+#define PC_MONITOR_CALL_TERMINATE_EXT (6)
 #define PC_MONITOR_CALL_TERMINATE (0x100)
 
 // base of all shared os services metadata regions
@@ -316,7 +317,8 @@ int monitor_main_get_cid_from_channel(microkit_channel ch)
         ch >= (PC_MONITOR_PROTOCON_BASE_CHANNEL + PC_CHILD_PER_MONITOR_MAX_NUM))
     {
         TSLDR_DBG_PRINT(PROGNAME "Received signal from non-client PD that tries to uninstantiate client PD!\n");
-        microkit_internal_crash(-1);
+        // microkit_internal_crash(-1);
+        return 0xffc;
     }
     return ch - PC_MONITOR_PROTOCON_BASE_CHANNEL;
 }
@@ -325,12 +327,13 @@ int monitor_main_get_cid_from_channel(microkit_channel ch)
 seL4_MessageInfo_t monitor_call_restore_protocon(microkit_channel ch)
 {
     int cid = monitor_main_get_cid_from_channel(ch);
-    assert(protocon_states[cid] == PROTOCON_ACTIVE);
-
-    SET_PROTOCON_AS_AVAILABLE(cid)
-
+    if (cid == 0xffc) {
+        TSLDR_DBG_PRINT(PROGNAME "Invalid PD id to restore given with ch: %d\n", ch);
+    } else {
+        // assert(protocon_states[cid] == PROTOCON_ACTIVE);
+        SET_PROTOCON_AS_AVAILABLE(cid)
+    }
     monitor_main_notify_frontend();
-
     return microkit_msginfo_new(seL4_NoError, 0);
 }
 
@@ -393,6 +396,11 @@ seL4_MessageInfo_t monitor_main_handle_pccall(microkit_channel ch)
     case PC_MONITOR_CALL_LIST_PROTOCONS:
         TSLDR_DBG_PRINT(PROGNAME "List states of dynamic PDs\n");
         ret = monitor_call_list_protocons();
+        break;
+    case PC_MONITOR_CALL_TERMINATE_EXT:
+        seL4_Word target_pd_id = seL4_GetMR(1);
+        TSLDR_DBG_PRINT(PROGNAME "Terminate dynamic PD with ID: %d\n", target_pd_id);
+        ret = monitor_call_restore_protocon(target_pd_id + PC_MONITOR_PROTOCON_BASE_CHANNEL);
         break;
     default:
         /* do nothing for now */
