@@ -8,7 +8,9 @@ IMAGES := \
 	monitor.elf \
 	frontend.elf \
 	fat.elf \
-	client.elf \
+	client_echo.elf \
+	client_looping.elf \
+	client_faulting.elf \
 	trampoline.elf \
 	protocon.elf \
 	serial_driver.elf \
