@@ -99,6 +99,11 @@ __attribute__((__section__(".monitor_svc_db"))) monitor_svcdb_t monitor_svc_db;
     do { protocon_states[C] = PROTOCON_PASSIVE; } while (0);
 
 
+
+seL4_MessageInfo_t monitor_call_restore_protocon(microkit_channel ch);
+
+
+
 void monitor_main_cothread_spawn(const client_entry_t client_entry, void *arg, char err_msg[])
 {
     if (microkit_cothread_spawn(client_entry, arg) == LIBMICROKITCO_NULL_HANDLE) {
@@ -272,6 +277,8 @@ void monitor_main_handle_fault(microkit_child child, microkit_msginfo msginfo)
     // do not print fault label for initialising dynamic pd...
     TSLDR_DBG_PRINT(PROGNAME "Fault label: %d\n", label);
     monitor_main_notify_frontend();
+
+    monitor_call_restore_protocon(child + PC_MONITOR_PROTOCON_BASE_CHANNEL);
 }
 
 
