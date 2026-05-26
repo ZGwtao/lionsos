@@ -337,6 +337,17 @@ seL4_MessageInfo_t monitor_call_restore_protocon(microkit_channel ch)
     return microkit_msginfo_new(seL4_NoError, 0);
 }
 
+seL4_MessageInfo_t monitor_call_stop_and_restore_protocon(microkit_channel ch)
+{
+    int target_pd_id = ch;
+    if (target_pd_id < 0 || target_pd_id >= PC_CHILD_PER_MONITOR_MAX_NUM) {
+        TSLDR_DBG_PRINT(PROGNAME "Invalid PD id given for stop and restore\n");
+        return microkit_msginfo_new(-1, 0);
+    }
+    microkit_pd_stop(target_pd_id);
+    return monitor_call_restore_protocon(target_pd_id + PC_MONITOR_PROTOCON_BASE_CHANNEL);
+}
+
 seL4_MessageInfo_t monitor_call_list_protocons()
 {
     // FIXME
@@ -391,7 +402,13 @@ seL4_MessageInfo_t monitor_main_handle_pccall(microkit_channel ch)
         break;
     case PC_MONITOR_CALL_TERMINATE:
         TSLDR_DBG_PRINT(PROGNAME "Exit and uninstantiate a dynamic PD\n");
+        /* this is usually invoked from client side, so ch id = pd id + 15 */
+        /* given the above condition, use monitor_call_restore_protocon? */
+#if 0
         ret = monitor_call_restore_protocon(ch);
+#else
+        ret = monitor_call_stop_and_restore_protocon(ch - PC_MONITOR_PROTOCON_BASE_CHANNEL);
+#endif
         break;
     case PC_MONITOR_CALL_LIST_PROTOCONS:
         TSLDR_DBG_PRINT(PROGNAME "List states of dynamic PDs\n");
@@ -400,7 +417,7 @@ seL4_MessageInfo_t monitor_main_handle_pccall(microkit_channel ch)
     case PC_MONITOR_CALL_TERMINATE_EXT:
         seL4_Word target_pd_id = seL4_GetMR(1);
         TSLDR_DBG_PRINT(PROGNAME "Terminate dynamic PD with ID: %d\n", target_pd_id);
-        ret = monitor_call_restore_protocon(target_pd_id + PC_MONITOR_PROTOCON_BASE_CHANNEL);
+        ret = monitor_call_stop_and_restore_protocon(target_pd_id);
         break;
     default:
         /* do nothing for now */

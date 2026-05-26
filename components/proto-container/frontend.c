@@ -209,12 +209,12 @@ static int parse_lspcs_cmd(void)
     return 0;
 }
 
-static int parse_hang_cmd(const char *arg)
+static int parse_stop_cmd(const char *arg)
 {
     while (*arg == ' ') arg++;
 
     if (*arg == '\0') {
-        sddf_printf("Invalid usage: 'hang' requires a PD id\n> ");
+        sddf_printf("Invalid usage: 'stop' requires a PD id\n> ");
         return 1;
     }
 
@@ -262,7 +262,7 @@ static int parse_hang_cmd(const char *arg)
     microkit_msginfo info;
     seL4_Error error;
 
-    /* syscall id: hang proto containers */
+    /* syscall id: stop proto containers */
     microkit_mr_set(0, 6);
     /* PD id as the second arg */
     microkit_mr_set(1, target_pd_id);
@@ -306,13 +306,13 @@ static int handle_line(const char *line)
             return 1;
         }
         return parse_lspcs_cmd();
-    } else if (strncmp(line, "hang", 4) == 0) {
+    } else if (strncmp(line, "stop", 4) == 0) {
         const char *after = line + 4;
         if (*after == '\0') {
-            sddf_printf("Invalid usage: 'hang' requires a PD id\n");
+            sddf_printf("Invalid usage: 'stop' requires a PD id\n");
             return 1;
         } else if (*after == ' ') {
-            return parse_hang_cmd(after);
+            return parse_stop_cmd(after);
         } else {
             sddf_printf("Invalid command format\n");
             return 1;

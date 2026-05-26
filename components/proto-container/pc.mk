@@ -19,6 +19,7 @@ PC_LIBTRUSTEDLO_OBJ := libtrustedlo/libtrustedlo.a
 PC_ECHO_CLIENT_OBJS := pc/client_echo.o
 PC_FAULTING_CLIENT_OBJS := pc/client_faulting.o
 PC_LOOPING_CLIENT_OBJS := pc/client_looping.o
+PC_TIMEOUT_CLIENT_OBJS := pc/client_timeout.o
 PC_MONITOR_OBJS := pc/monitor.o pc/ossvc.o pc/pico_vfs.o
 PC_FRONTEND_OBJS :=	pc/frontend.o pc/pico_vfs.o
 PC_PROTOCON_OBJS := pc/protocon.o
@@ -30,7 +31,8 @@ PC_OBJS := \
 	PC_TRAMPOLINE_OBJS \
 	PC_ECHO_CLIENT_OBJS \
 	PC_FAULTING_CLIENT_OBJS \
-	PC_LOOPING_CLIENT_OBJS
+	PC_LOOPING_CLIENT_OBJS \
+	PC_TIMEOUT_CLIENT_OBJS
 
 pc:
 	mkdir -p pc
@@ -87,5 +89,8 @@ client_faulting.elf: LDFLAGS += -L$(BOARD_DIR)/lib
 client_faulting.elf: $(PC_FAULTING_CLIENT_OBJS) libsddf_util.a pc/$(PC_LIBTRUSTEDLO_OBJ)
 	$(LD) $(LDFLAGS) -Ttext=0x2800000 $^ $(LIBS) -o $@
 
+client_timeout.elf: LDFLAGS += -L$(BOARD_DIR)/lib
+client_timeout.elf: $(PC_TIMEOUT_CLIENT_OBJS) libsddf_util.a pc/$(PC_LIBTRUSTEDLO_OBJ)
+	$(LD) $(LDFLAGS) -Ttext=0x2800000 $^ $(LIBS) -o $@
 
 -include $(PC_OBJS:.o=.d)
