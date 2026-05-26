@@ -11,6 +11,7 @@ IMAGES := \
 	client_echo.elf \
 	client_looping.elf \
 	client_faulting.elf \
+	client_timeout.elf \
 	trampoline.elf \
 	protocon.elf \
 	serial_driver.elf \
