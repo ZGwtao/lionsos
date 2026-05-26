@@ -209,6 +209,142 @@ static int parse_lspcs_cmd(void)
     return 0;
 }
 
+static int parse_resume_cmd(const char *arg)
+{
+    while (*arg == ' ') arg++;
+
+    if (*arg == '\0') {
+        sddf_printf("Invalid usage: 'resume' requires a PD id\n> ");
+        return 1;
+    }
+
+    /*
+     * Expected format:
+     *   -i num
+     */
+
+    if (arg[0] != '-' || arg[1] != 'i') {
+        sddf_printf("Invalid usage: expected '-i <pd_id>'\n> ");
+        return 1;
+    }
+
+    arg += 2;
+
+    if (*arg != ' ') {
+        sddf_printf("Invalid usage: expected space after '-i'\n> ");
+        return 1;
+    }
+
+    while (*arg == ' ') arg++;
+
+    if (*arg == '\0') {
+        sddf_printf("Invalid usage: missing PD id after '-i'\n> ");
+        return 1;
+    }
+
+    seL4_Word target_pd_id = 0;
+
+    while (*arg >= '0' && *arg <= '9') {
+        seL4_Word digit = *arg - '0';
+        target_pd_id = target_pd_id * 10 + digit;
+        arg++;
+    }
+
+    while (*arg == ' ') arg++;
+
+    if (*arg != '\0') {
+        sddf_printf("Invalid usage: unexpected trailing argument\n> ");
+        return 1;
+    }
+
+    /* init target_pd_id with _buf */
+
+    microkit_msginfo info;
+    seL4_Error error;
+
+    /* syscall id: resume proto containers */
+    microkit_mr_set(0, 4);
+    /* PD id as the second arg */
+    microkit_mr_set(1, target_pd_id);
+
+    info = microkit_ppcall(1, microkit_msginfo_new(0, 2));
+    error = microkit_msginfo_get_label(info);
+    if (error != seL4_NoError) {
+        microkit_internal_crash(error);
+    }
+    sddf_printf("> \n");
+    return 0;
+}
+
+
+static int parse_hang_cmd(const char *arg)
+{
+    while (*arg == ' ') arg++;
+
+    if (*arg == '\0') {
+        sddf_printf("Invalid usage: 'hang' requires a PD id\n> ");
+        return 1;
+    }
+
+    /*
+     * Expected format:
+     *   -i num
+     */
+
+    if (arg[0] != '-' || arg[1] != 'i') {
+        sddf_printf("Invalid usage: expected '-i <pd_id>'\n> ");
+        return 1;
+    }
+
+    arg += 2;
+
+    if (*arg != ' ') {
+        sddf_printf("Invalid usage: expected space after '-i'\n> ");
+        return 1;
+    }
+
+    while (*arg == ' ') arg++;
+
+    if (*arg == '\0') {
+        sddf_printf("Invalid usage: missing PD id after '-i'\n> ");
+        return 1;
+    }
+
+    seL4_Word target_pd_id = 0;
+
+    while (*arg >= '0' && *arg <= '9') {
+        seL4_Word digit = *arg - '0';
+        target_pd_id = target_pd_id * 10 + digit;
+        arg++;
+    }
+
+    while (*arg == ' ') arg++;
+
+    if (*arg != '\0') {
+        sddf_printf("Invalid usage: unexpected trailing argument\n> ");
+        return 1;
+    }
+
+    /* init target_pd_id with _buf */
+
+    microkit_msginfo info;
+    seL4_Error error;
+
+    /* syscall id: stop proto containers */
+    microkit_mr_set(0, 3);
+    /* PD id as the second arg */
+    microkit_mr_set(1, target_pd_id);
+
+    info = microkit_ppcall(1, microkit_msginfo_new(0, 2));
+    error = microkit_msginfo_get_label(info);
+    if (error != seL4_NoError) {
+        microkit_internal_crash(error);
+    }
+    sddf_printf("> \n");
+    return 0;
+}
+
+
 static int parse_stop_cmd(const char *arg)
 {
     while (*arg == ' ') arg++;
@@ -313,6 +449,28 @@ static int handle_line(const char *line)
             return 1;
         } else if (*after == ' ') {
             return parse_stop_cmd(after);
+        } else {
+            sddf_printf("Invalid command format\n");
+            return 1;
+        }
+    } else if (strncmp(line, "hang", 4) == 0) {
+        const char *after = line + 4;
+        if (*after == '\0') {
+            sddf_printf("Invalid usage: 'hang' requires a PD id\n");
+            return 1;
+        } else if (*after == ' ') {
+            return parse_hang_cmd(after);
+        } else {
+            sddf_printf("Invalid command format\n");
+            return 1;
+        }
+    } else if (strncmp(line, "resume", 6) == 0) {
+        const char *after = line + 6;
+        if (*after == '\0') {
+            sddf_printf("Invalid usage: 'resume' requires a PD id\n");
+            return 1;
+        } else if (*after == ' ') {
+            return parse_resume_cmd(after);
         } else {
             sddf_printf("Invalid command format\n");
             return 1;

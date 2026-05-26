@@ -164,7 +164,7 @@ static inline seL4_Word monitor_match_ossvc_request_with_unipd(protocon_svc_req_
 static inline int monitor_match_ossvc_request__worker_func(protocon_svc_req_t *req, protocon_lifecycle_state_t *protocon_states)
 {
     for (int i = 0; i < PC_CHILD_PER_MONITOR_MAX_NUM; ++i) {
-        if (protocon_states[i] == PROTOCON_ACTIVE) {
+        if (protocon_states[i] != PROTOCON_PASSIVE) {
             continue;
         }
         // check each dynamic pd and see if any of them matches with the OS service request
