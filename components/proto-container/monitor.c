@@ -73,6 +73,8 @@ protocon_lifecycle_state_t protocon_states[PC_CHILD_PER_MONITOR_MAX_NUM];
 
 // monitor call numbers
 #define PC_MONITOR_CALL_DEPLOY (1)
+#define PC_MONITOR_CALL_HANG (3)
+#define PC_MONITOR_CALL_RESUME (4)
 #define PC_MONITOR_CALL_LIST_PROTOCONS (5)
 #define PC_MONITOR_CALL_BACKUP_CONTEXT (20)
 #define PC_MONITOR_CALL_TERMINATE_EXT (6)
@@ -96,6 +98,9 @@ __attribute__((__section__(".monitor_svc_db"))) monitor_svcdb_t monitor_svc_db;
 
 #define SET_PROTOCON_AS_INSTANTIATED(C) \
     do { protocon_states[C] = PROTOCON_ACTIVE; } while (0);
+
+#define SET_PROTOCON_AS_HANG(C) \
+    do { protocon_states[C] = PROTOCON_HANG; } while (0);
 
 #define SET_PROTOCON_AS_AVAILABLE(C) \
     do { protocon_states[C] = PROTOCON_PASSIVE; } while (0);
@@ -348,6 +353,61 @@ seL4_MessageInfo_t monitor_call_stop_and_restore_protocon(microkit_channel ch)
     return monitor_call_restore_protocon(target_pd_id + PC_MONITOR_PROTOCON_BASE_CHANNEL);
 }
 
+seL4_MessageInfo_t monitor_call_hang_protocon(microkit_channel ch)
+{
+    int target_pd_id = ch;
+    if (target_pd_id < 0 || target_pd_id >= PC_CHILD_PER_MONITOR_MAX_NUM) {
+        TSLDR_DBG_PRINT(PROGNAME "Invalid PD id given for hang\n");
+        return microkit_msginfo_new(-1, 0);
+    }
+    int cid_to_check = target_pd_id + PC_MONITOR_PROTOCON_BASE_CHANNEL;
+    int cid = monitor_main_get_cid_from_channel(cid_to_check);
+    if (cid == 0xffc) {
+        TSLDR_DBG_PRINT(PROGNAME "Invalid PD id to restore given with ch: %d\n", cid_to_check);
+    } else {
+        if (protocon_states[cid] != PROTOCON_ACTIVE) {
+            TSLDR_DBG_PRINT(PROGNAME "PD to hang must be active first!\n");
+        } else {
+            SET_PROTOCON_AS_HANG(cid)
+            microkit_pd_stop(target_pd_id);
+        }
+    }
+    monitor_main_notify_frontend();
+    return microkit_msginfo_new(seL4_NoError, 0);
+}
+
+seL4_MessageInfo_t monitor_call_resume_protocon(microkit_channel ch)
+{
+    int target_pd_id = ch;
+    if (target_pd_id < 0 || target_pd_id >= PC_CHILD_PER_MONITOR_MAX_NUM) {
+        TSLDR_DBG_PRINT(PROGNAME "Invalid PD id given for resume\n");
+        return microkit_msginfo_new(-1, 0);
+    }
+    int cid_to_check = target_pd_id + PC_MONITOR_PROTOCON_BASE_CHANNEL;
+    int cid = monitor_main_get_cid_from_channel(cid_to_check);
+    if (cid == 0xffc) {
+        TSLDR_DBG_PRINT(PROGNAME "Invalid PD id to resume given with ch: %d\n", cid_to_check);
+    } else {
+        if (protocon_states[cid] != PROTOCON_HANG) {
+            TSLDR_DBG_PRINT(PROGNAME "Invalid PD state to resume!\n");
+        } else {
+            /* static inline void microkit_pd_resume(microkit_child pd) */
+            seL4_Error err;
+            err = seL4_TCB_Resume(BASE_TCB_CAP + target_pd_id);
+            if (err != seL4_NoError) {
+                microkit_dbg_puts("microkit_pd_resume: error resuming TCB '");
+                microkit_dbg_put32(target_pd_id);
+                microkit_dbg_puts("'\n");
+                microkit_internal_crash(err);
+            }
+            SET_PROTOCON_AS_INSTANTIATED(cid)
+        }
+    }
+    monitor_main_notify_frontend();
+    return microkit_msginfo_new(seL4_NoError, 0);
+}
+
+
 seL4_MessageInfo_t monitor_call_list_protocons()
 {
     // FIXME
@@ -361,6 +421,9 @@ seL4_MessageInfo_t monitor_call_list_protocons()
                 break;
             case PROTOCON_PASSIVE:
                 sddf_printf("avail");
+                break;
+            case PROTOCON_HANG:
+                sddf_printf("hang");
                 break;
             default:
                 sddf_printf("unknown: %d", protocon_states[i]);
@@ -410,15 +473,28 @@ seL4_MessageInfo_t monitor_main_handle_pccall(microkit_channel ch)
         ret = monitor_call_stop_and_restore_protocon(ch - PC_MONITOR_PROTOCON_BASE_CHANNEL);
 #endif
         break;
+    case PC_MONITOR_CALL_HANG: {
+        seL4_Word target_pd_id = seL4_GetMR(1);
+        TSLDR_DBG_PRINT(PROGNAME "Hang dynamic PD with ID: %d\n", target_pd_id);
+        ret = monitor_call_hang_protocon(target_pd_id);
+        break;
+    }
+    case PC_MONITOR_CALL_RESUME: {
+        seL4_Word target_pd_id = seL4_GetMR(1);
+        TSLDR_DBG_PRINT(PROGNAME "Resume dynamic PD with ID: %d\n", target_pd_id);
+        ret = monitor_call_resume_protocon(target_pd_id);
+        break;
+    }
     case PC_MONITOR_CALL_LIST_PROTOCONS:
         TSLDR_DBG_PRINT(PROGNAME "List states of dynamic PDs\n");
         ret = monitor_call_list_protocons();
         break;
-    case PC_MONITOR_CALL_TERMINATE_EXT:
+    case PC_MONITOR_CALL_TERMINATE_EXT: {
         seL4_Word target_pd_id = seL4_GetMR(1);
         TSLDR_DBG_PRINT(PROGNAME "Terminate dynamic PD with ID: %d\n", target_pd_id);
         ret = monitor_call_stop_and_restore_protocon(target_pd_id);
         break;
+    }
     default:
         /* do nothing for now */
         TSLDR_DBG_PRINT(PROGNAME "Undefined container monitor call: %d\n", call_id);

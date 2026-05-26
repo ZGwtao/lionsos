@@ -50,6 +50,7 @@ typedef enum {
     
     PROTOCON_ACTIVE = 1,
     PROTOCON_PASSIVE,
+    PROTOCON_HANG,
 
 } protocon_lifecycle_state_t;
 
