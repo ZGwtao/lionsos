@@ -14,6 +14,7 @@ BM_UK_CONFIG_SRC := $(BM_SRC_DIR)/$(BM_UK_CONFIG)
 BM_UK_APP_DIR := $(BM_CATALOG_CORE_DIR)/$(BM_UK_APPLICATION)
 BM_UK_BUILD_DIR := $(BUILD_DIR)/uk
 BM_UK_BUILT_ELF := $(BM_UK_BUILD_DIR)/$(BM_UK_PAYLOAD_ELF)
+BM_UK_CONFIGURED := $(BM_UK_BUILD_DIR)/.configured
 
 BM_CLAGS := \
 	-I$(PC_BENCHMARK_LIBC_INCLUDE) \
@@ -81,10 +82,18 @@ $(BM_PAYLOAD_ELF): LDFLAGS += -L$(BOARD_DIR)/lib
 $(BM_PAYLOAD_ELF): $(BM_PAYLOAD_OBJS) libsddf_util.a pcbench/$(BM_LIBTRUSTEDLO_OBJ)
 	$(LD) $(LDFLAGS) -Ttext=0x2800000 $^ $(LIBS) -o $@
 
-.PHONY: force-uk-build
-force-uk-build:
 
-pcbench/$(BM_UK_PAYLOAD_ELF): $(BM_UK_CONFIG_SRC) force-uk-build | pcbench
+.PHONY: uk-build
+uk-build: $(BM_UK_CONFIGURED) | pcbench
+	$(MAKE) -C $(BM_UK_APP_DIR) \
+		UK_ROOT=$(BM_UNIKRAFT_DIR) \
+		UK_APP=$(BM_UK_APP_DIR) \
+		UK_BUILD=$(BM_UK_BUILD_DIR) \
+		-j$$(nproc)
+	cp $(BM_UK_BUILT_ELF) pcbench/$(BM_UK_PAYLOAD_ELF)
+
+
+$(BM_UK_CONFIGURED): $(BM_UK_CONFIG_SRC)
 	$(MAKE) -C $(BM_UK_APP_DIR) \
 		UK_ROOT=$(BM_UNIKRAFT_DIR) \
 		UK_APP=$(BM_UK_APP_DIR) \
@@ -96,18 +105,14 @@ pcbench/$(BM_UK_PAYLOAD_ELF): $(BM_UK_CONFIG_SRC) force-uk-build | pcbench
 		UK_BUILD=$(BM_UK_BUILD_DIR) \
 		UK_DEFCONFIG=$(BM_UK_CONFIG_SRC) \
 		defconfig
-	$(MAKE) -C $(BM_UK_APP_DIR) \
-		UK_ROOT=$(BM_UNIKRAFT_DIR) \
-		UK_APP=$(BM_UK_APP_DIR) \
-		UK_BUILD=$(BM_UK_BUILD_DIR) \
-		-j$$(nproc)
-	cp $(BM_UK_BUILT_ELF) $@
+	mkdir -p $(BM_UK_BUILD_DIR)
+	touch $@
 
 
 # TARGET_PAYLOAD := $(BM_PAYLOAD_ELF)
 TARGET_PAYLOAD := pcbench/$(BM_UK_PAYLOAD_ELF)
 
-$(PROGRAM_PATCH): $(PROTOCON_ELF) $(TRAMPOLINE_ELF) $(TARGET_PAYLOAD)
+$(PROGRAM_PATCH): $(PROTOCON_ELF) $(TRAMPOLINE_ELF) uk-build
 	cp $(BM_SRC_DIR)/package_program.S .
 	$(CC) -c $(CFLAGS) \
 		-DBM_PROTOCON_PATH=\"$(PROTOCON_ELF)\" \
