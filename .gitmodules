@@ -33,3 +33,7 @@
 	path = dep/unikraft
 	url = https://github.com/ZGwtao/unikraft.git
 	branch = carrels-dev
+[submodule "catalog-core"]
+	path = dep/catalog-core
+	url = https://github.com/ZGwtao/catalog-core.git
+	branch = carrels-dev
