@@ -2,6 +2,18 @@
 BM_SRC_DIR := $(realpath $(dir $(lastword $(MAKEFILE_LIST))))
 BM_LIBMICROKITCO_DIR := $(LIBMICROKITCO_PATH)
 BM_LIBTRUSTEDLO_DIR := $(LIONSOS)/dep/libtrustedlo
+BM_UNIKRAFT_DIR := $(LIONSOS)/dep/unikraft
+BM_CATALOG_CORE_DIR := $(LIONSOS)/dep/catalog-core
+
+BM_UK_APPLICATION ?= c-hello
+BM_UK_PAYLOAD_ELF ?= $(BM_UK_APPLICATION)_default-arm64
+
+BM_UK_CONFIG ?= uk-carrels-arm.config
+BM_UK_CONFIG_SRC := $(BM_SRC_DIR)/$(BM_UK_CONFIG)
+
+BM_UK_APP_DIR := $(BM_CATALOG_CORE_DIR)/$(BM_UK_APPLICATION)
+BM_UK_BUILD_DIR := $(BUILD_DIR)/uk
+BM_UK_BUILT_ELF := $(BM_UK_BUILD_DIR)/$(BM_UK_PAYLOAD_ELF)
 
 BM_CLAGS := \
 	-I$(PC_BENCHMARK_LIBC_INCLUDE) \
@@ -22,9 +34,9 @@ BM_PAYLOAD_OBJS := pcbench/bm_payload.o
 BM_MONITOR_OBJS := pcbench/bm_monitor.o pcbench/ossvc.o
 BM_SERVER_OBJS := pcbench/bm_server.o
 BM_OBJS := \
-	BM_PAYLOAD_OBJS \
-	BM_MONITOR_OBJS \
-	BM_SERVER_OBJS
+	$(BM_PAYLOAD_OBJS) \
+	$(BM_MONITOR_OBJS) \
+	$(BM_SERVER_OBJS)
 
 pcbench:
 	mkdir -p pcbench
@@ -69,10 +81,33 @@ $(BM_PAYLOAD_ELF): LDFLAGS += -L$(BOARD_DIR)/lib
 $(BM_PAYLOAD_ELF): $(BM_PAYLOAD_OBJS) libsddf_util.a pcbench/$(BM_LIBTRUSTEDLO_OBJ)
 	$(LD) $(LDFLAGS) -Ttext=0x2800000 $^ $(LIBS) -o $@
 
-TARGET_PAYLOAD := $(BM_PAYLOAD_ELF)
-# TARGET_PAYLOAD := /home/hope/wsp/catalog-core/c-hello/workdir/build/c-hello_default-arm64
+.PHONY: force-uk-build
+force-uk-build:
 
-$(PROGRAM_PATCH): $(PROTOCON_ELF) $(TRAMPOLINE_ELF) $(BM_PAYLOAD_ELF)
+pcbench/$(BM_UK_PAYLOAD_ELF): $(BM_UK_CONFIG_SRC) force-uk-build | pcbench
+	$(MAKE) -C $(BM_UK_APP_DIR) \
+		UK_ROOT=$(BM_UNIKRAFT_DIR) \
+		UK_APP=$(BM_UK_APP_DIR) \
+		UK_BUILD=$(BM_UK_BUILD_DIR) \
+		distclean
+	$(MAKE) -C $(BM_UK_APP_DIR) \
+		UK_ROOT=$(BM_UNIKRAFT_DIR) \
+		UK_APP=$(BM_UK_APP_DIR) \
+		UK_BUILD=$(BM_UK_BUILD_DIR) \
+		UK_DEFCONFIG=$(BM_UK_CONFIG_SRC) \
+		defconfig
+	$(MAKE) -C $(BM_UK_APP_DIR) \
+		UK_ROOT=$(BM_UNIKRAFT_DIR) \
+		UK_APP=$(BM_UK_APP_DIR) \
+		UK_BUILD=$(BM_UK_BUILD_DIR) \
+		-j$$(nproc)
+	cp $(BM_UK_BUILT_ELF) $@
+
+
+# TARGET_PAYLOAD := $(BM_PAYLOAD_ELF)
+TARGET_PAYLOAD := pcbench/$(BM_UK_PAYLOAD_ELF)
+
+$(PROGRAM_PATCH): $(PROTOCON_ELF) $(TRAMPOLINE_ELF) $(TARGET_PAYLOAD)
 	cp $(BM_SRC_DIR)/package_program.S .
 	$(CC) -c $(CFLAGS) \
 		-DBM_PROTOCON_PATH=\"$(PROTOCON_ELF)\" \
