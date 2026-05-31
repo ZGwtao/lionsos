@@ -29,3 +29,7 @@
 	path = dep/libtrustedlo
 	url = https://github.com/ZGwtao/libtrustedlo.git
 	branch = main
+[submodule "unikraft"]
+	path = dep/unikraft
+	url = https://github.com/ZGwtao/unikraft.git
+	branch = carrels-dev
