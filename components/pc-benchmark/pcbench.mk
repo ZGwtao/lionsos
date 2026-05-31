@@ -69,12 +69,15 @@ $(BM_PAYLOAD_ELF): LDFLAGS += -L$(BOARD_DIR)/lib
 $(BM_PAYLOAD_ELF): $(BM_PAYLOAD_OBJS) libsddf_util.a pcbench/$(BM_LIBTRUSTEDLO_OBJ)
 	$(LD) $(LDFLAGS) -Ttext=0x2800000 $^ $(LIBS) -o $@
 
+TARGET_PAYLOAD := $(BM_PAYLOAD_ELF)
+# TARGET_PAYLOAD := /home/hope/wsp/catalog-core/c-hello/workdir/build/c-hello_default-arm64
+
 $(PROGRAM_PATCH): $(PROTOCON_ELF) $(TRAMPOLINE_ELF) $(BM_PAYLOAD_ELF)
 	cp $(BM_SRC_DIR)/package_program.S .
 	$(CC) -c $(CFLAGS) \
 		-DBM_PROTOCON_PATH=\"$(PROTOCON_ELF)\" \
 		-DBM_TRAMPOLINE_PATH=\"$(TRAMPOLINE_ELF)\" \
-		-DBM_PAYLOAD_PATH=\"$(BM_PAYLOAD_ELF)\" \
+		-DBM_PAYLOAD_PATH=\"$(TARGET_PAYLOAD)\" \
 		package_program.S -o $@
 
 

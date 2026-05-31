@@ -80,8 +80,8 @@ static inline cycles_t pmu_read_cycles(void) { return 0; }
 
 void init(void)
 {
-    //cycles_t start = pmu_read_cycles();
-#if 0
+    cycles_t start = pmu_read_cycles();
+#if 1
     assert(serial_config_check_magic(&serial_config));
     if (serial_config.rx.queue.vaddr != NULL) {
         serial_queue_init(&serial_rx_queue_handle, serial_config.rx.queue.vaddr, serial_config.rx.data.size, serial_config.rx.data.vaddr);
@@ -89,7 +89,7 @@ void init(void)
     serial_queue_init(&serial_tx_queue_handle, serial_config.tx.queue.vaddr, serial_config.tx.data.size, serial_config.tx.data.vaddr);
     serial_putchar_init(serial_config.tx.id, &serial_tx_queue_handle);
 #endif
-    //sddf_printf("Hello from client.elf! cycle count: %d\n", start);
+    sddf_printf("Hello from client.elf! cycle count: %d\n", start);
 
     // exit from client...
     microkit_mr_set(0, 0x100);
