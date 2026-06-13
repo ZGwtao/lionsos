@@ -68,18 +68,22 @@ def connect_protocon_with_monitor(mpd: SystemDescription.ProtectionDomain, cpd: 
         trampoline_stack = MemoryRegion(sdf, name_prefix + "trampoline/stack", 0x1000)
         container_stack = MemoryRegion(sdf, name_prefix + "container/stack", 0x1000)
         container_exec = MemoryRegion(sdf, name_prefix + "container/exec", 0x2000000)
+        uk_boot_stack = MemoryRegion(sdf, name_prefix + "uk_boot_stack", 0x1000)
     else:
         trampoline_stack = MemoryRegion(name_prefix + "trampoline/stack", 0x1000)
         container_stack = MemoryRegion(name_prefix + "container/stack", 0x1000)
         container_exec = MemoryRegion(name_prefix + "container/exec", 0x2000000)
+        uk_boot_stack = MemoryRegion(name_prefix + "uk_boot_stack", 0x1000)
 
     sdf.add_mr(trampoline_stack)
     sdf.add_mr(container_stack)
     sdf.add_mr(container_exec)
+    sdf.add_mr(uk_boot_stack)
 
     cpd.add_map(Map(trampoline_stack, 0x00FFFDFF000, perms="rw", cached="true"))
     cpd.add_map(Map(container_stack,  0x00FFFBFF000, perms="rw", cached="true"))
     cpd.add_map(Map(container_exec, 0x2800000, perms="rwx", cached="true"))
+    cpd.add_map(Map(uk_boot_stack, 0xffff008000, perms="rw", cached="true"))
 
     sdf.add_channel(Channel(a=mpd, b=cpd, a_id=(24+cid), b_id=15, pp_b=True))
 
