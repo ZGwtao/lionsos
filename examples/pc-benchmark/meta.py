@@ -68,12 +68,12 @@ def connect_protocon_with_monitor(mpd: SystemDescription.ProtectionDomain, cpd: 
         trampoline_stack = MemoryRegion(sdf, name_prefix + "trampoline/stack", 0x1000)
         container_stack = MemoryRegion(sdf, name_prefix + "container/stack", 0x1000)
         container_exec = MemoryRegion(sdf, name_prefix + "container/exec", 0x2000000)
-        uk_boot_stack = MemoryRegion(sdf, name_prefix + "uk_boot_stack", 0x1000)
+        uk_boot_stack = MemoryRegion(sdf, name_prefix + "uk_boot_stack", (0x1000 * (1 << 4)))
     else:
         trampoline_stack = MemoryRegion(name_prefix + "trampoline/stack", 0x1000)
         container_stack = MemoryRegion(name_prefix + "container/stack", 0x1000)
         container_exec = MemoryRegion(name_prefix + "container/exec", 0x2000000)
-        uk_boot_stack = MemoryRegion(name_prefix + "uk_boot_stack", 0x1000)
+        uk_boot_stack = MemoryRegion(name_prefix + "uk_boot_stack", (0x1000 * (1 << 4)))
 
     sdf.add_mr(trampoline_stack)
     sdf.add_mr(container_stack)
