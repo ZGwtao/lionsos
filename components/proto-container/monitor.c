@@ -76,6 +76,7 @@ protocon_lifecycle_state_t protocon_states[PC_CHILD_PER_MONITOR_MAX_NUM];
 #define PC_MONITOR_CALL_HANG (3)
 #define PC_MONITOR_CALL_RESUME (4)
 #define PC_MONITOR_CALL_LIST_PROTOCONS (5)
+#define PC_MONITOR_CALL_QUERY_PROTOCONS (10)
 #define PC_MONITOR_CALL_BACKUP_CONTEXT (20)
 #define PC_MONITOR_CALL_TERMINATE_EXT (6)
 #define PC_MONITOR_CALL_TERMINATE (0x100)
@@ -407,13 +408,13 @@ seL4_MessageInfo_t monitor_call_resume_protocon(microkit_channel ch)
     return microkit_msginfo_new(seL4_NoError, 0);
 }
 
-
-seL4_MessageInfo_t monitor_call_list_protocons()
+static inline void monitor_main_list_protocon_states(int num_protocons)
 {
-    // FIXME
-    // change this ceiling with something parsed from sdf
-    // for (int i = 0; i < PC_CHILD_PER_MONITOR_MAX_NUM; ++i) {
-    for (int i = 0; i < 4; ++i) {
+    if (num_protocons > PC_CHILD_PER_MONITOR_MAX_NUM) {
+        TSLDR_DBG_PRINT(PROGNAME "Invalid number of protocons to list: %d\n", num_protocons);
+        return;
+    }
+    for (int i = 0; i < num_protocons; ++i) {
         sddf_printf("[*] dynamic-PD [id=%d] has state: ", i);
         switch (protocon_states[i]) {
             case PROTOCON_ACTIVE:
@@ -430,10 +431,35 @@ seL4_MessageInfo_t monitor_call_list_protocons()
         };
         sddf_printf("\n");
     }
+}
 
+seL4_MessageInfo_t monitor_call_list_protocons()
+{
+    // FIXME: should not hardcode the number of pc to list
+    monitor_main_list_protocon_states(4);
     return microkit_msginfo_new(seL4_NoError, 0);
 }
 
+seL4_MessageInfo_t monitor_call_query_protocons(microkit_channel ch)
+{
+    // FIXME: should not hardcode the number of pc to list
+    monitor_main_list_protocon_states(4);
+
+    seL4_Word self_id = monitor_main_get_cid_from_channel(ch);
+    seL4_Word bitmap = 0;
+    for (int i = 0; i < PC_CHILD_PER_MONITOR_MAX_NUM; ++i) {
+        if ((protocon_states[i] == PROTOCON_ACTIVE || protocon_states[i] == PROTOCON_HANG) && i != self_id) {
+            bitmap |= (1ULL << i);
+        }
+    }
+    seL4_MessageInfo_t ret = microkit_msginfo_new(seL4_NoError, 2);
+    microkit_mr_set(0, bitmap);
+    microkit_mr_set(1, monitor_main_get_cid_from_channel(ch));
+    if (bitmap == 0) {
+        sddf_printf("No dynamic PDs are currently available for communication\n");
+    }
+    return ret;
+}
 
 seL4_MessageInfo_t monitor_call_backup_protocon_loading_context(microkit_channel ch)
 {
@@ -488,6 +514,10 @@ seL4_MessageInfo_t monitor_main_handle_pccall(microkit_channel ch)
     case PC_MONITOR_CALL_LIST_PROTOCONS:
         TSLDR_DBG_PRINT(PROGNAME "List states of dynamic PDs\n");
         ret = monitor_call_list_protocons();
+        break;
+    case PC_MONITOR_CALL_QUERY_PROTOCONS:
+        TSLDR_DBG_PRINT(PROGNAME "Query states of dynamic PDs\n");
+        ret = monitor_call_query_protocons(ch);
         break;
     case PC_MONITOR_CALL_TERMINATE_EXT: {
         seL4_Word target_pd_id = seL4_GetMR(1);
