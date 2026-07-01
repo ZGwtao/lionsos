@@ -18,7 +18,7 @@ sys.path.append(
 from board import BOARDS
 
 assert (
-    version("sdfgen").split(".")[1] == "23" or version("sdfgen").split(".")[1] == "29"
+    version("sdfgen").split(".")[1] == "23" or version("sdfgen").split(".")[1] == "29" or version("sdfgen").split(".")[1] == "33"
 ), "Unexpected sdfgen version"
 
 ProtectionDomain = SystemDescription.ProtectionDomain

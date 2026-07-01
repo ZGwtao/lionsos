@@ -10,7 +10,7 @@ from importlib.metadata import version
 from board import BOARDS
 
 assert version('sdfgen').split(".")[1] == "23" or \
-    version('sdfgen').split(".")[1] == "25" or \
+    version('sdfgen').split(".")[1] == "33" or \
     version('sdfgen').split(".")[1] == "29", "Unexpected sdfgen version"
 
 ProtectionDomain = SystemDescription.ProtectionDomain
