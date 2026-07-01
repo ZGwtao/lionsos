@@ -110,7 +110,7 @@ static inline cycles_t rdtsc_lfence(void)
 
 #endif
 
-#define BM_ROUND (50)
+#define BM_ROUND (10)
 
 /**
  * Sets a timeout for the next lwip tick.
@@ -193,9 +193,9 @@ static void load_elf_payload(void)
     tsldr_miscutil_memcpy((void *)((seL4_Word *)SERVER_MONITOR_PAYLOAD_REGION_BASE + 1),
                           (void *)_bm_payload, _bm_payload_end - _bm_payload);
 
-    for (int i = 0; i < (BM_ROUND / 10); ++i) {
-        bm_server_call_monitor(MONITOR_CALL_DEPLOY);
-    }
+    // for (int i = 0; i < (BM_ROUND / 10); ++i) {
+    //     bm_server_call_monitor(MONITOR_CALL_DEPLOY);
+    // }
 #if defined(CONFIG_ARCH_AARCH64)
     cycles_t start = pmu_read_cycles();
 #elif defined(CONFIG_ARCH_X86_64)
@@ -204,9 +204,9 @@ static void load_elf_payload(void)
 #error "Unsupported architecture for PMU functions"
 #endif
 #if 1
-    for (int i = 0; i < BM_ROUND; ++i) {
+    // for (int i = 0; i < BM_ROUND; ++i) {
         bm_server_call_monitor(MONITOR_CALL_DEPLOY);
-    }
+    // }
 #else
     bm_server_call_monitor(MONITOR_CALL_BENCHMARK);
 #endif
