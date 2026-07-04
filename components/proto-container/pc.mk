@@ -23,7 +23,7 @@ PC_TIMEOUT_CLIENT_OBJS := pc/client_timeout.o
 PC_MONITOR_OBJS := pc/monitor.o pc/ossvc.o pc/pico_vfs.o
 PC_FRONTEND_OBJS :=	pc/frontend.o pc/pico_vfs.o
 PC_PROTOCON_OBJS := pc/protocon.o
-PC_TRAMPOLINE_OBJS := pc/trampoline.o
+PC_TRAMPOLINE_OBJS :=
 PC_OBJS := \
 	PC_FRONTEND_OBJS \
 	PC_MONITOR_OBJS \
@@ -71,9 +71,8 @@ protocon.elf: $(PC_PROTOCON_OBJS) \
 			  pc/$(PC_LIBTRUSTEDLO_OBJ)
 	$(LD) $(LDFLAGS) $^ $(LIBS) -o $@
 
-trampoline.elf: LDFLAGS += -L$(BOARD_DIR)/lib
-trampoline.elf: $(PC_TRAMPOLINE_OBJS) pc/$(PC_LIBTRUSTEDLO_OBJ)
-	$(LD) $(LDFLAGS) -Ttext=0x1800000 $^ $(LIBS) -o $@
+trampoline.elf:
+	cp $(BUILD_DIR)/pc/libtrustedlo/trampoline.elf $@
 
 client_echo.elf: LDFLAGS += -L$(BOARD_DIR)/lib
 client_echo.elf: $(PC_ECHO_CLIENT_OBJS) libsddf_util.a pc/$(PC_LIBTRUSTEDLO_OBJ)
