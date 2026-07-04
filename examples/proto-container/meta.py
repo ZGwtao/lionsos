@@ -41,6 +41,7 @@ def connect_protocon_with_monitor(
     tsldr_data = MemoryRegion(sdf, name_prefix + "tsldr/data", 0x1000)
     ossvc_data = MemoryRegion(sdf, name_prefix + "ossvc/data", 0x1000)
     tsldr_context = MemoryRegion(sdf, name_prefix + "tsldr/context", 0x1000)
+    trampoline_args = MemoryRegion(sdf, name_prefix + "tsldr/trampoline/args", 0x1000)
 
     sdf.add_mr(container_elf)
     sdf.add_mr(trampoline_elf)
@@ -49,6 +50,7 @@ def connect_protocon_with_monitor(
     sdf.add_mr(tsldr_data)
     sdf.add_mr(ossvc_data)
     sdf.add_mr(tsldr_context)
+    sdf.add_mr(trampoline_args)
 
     monitor.add_map(
         Map(tsldr_context, 0x0FF40000 + cid * 0x1000, perms="rw", cached="true")
@@ -66,6 +68,7 @@ def connect_protocon_with_monitor(
     pc.add_map(Map(tsldr_exec, 0x0200000, perms="rwx", cached="true"))
     pc.add_map(Map(tsldr_data, 0x0A00000, perms="rw", cached="true"))
     pc.add_map(Map(ossvc_data, 0x0A01000, perms="rw", cached="true"))
+    pc.add_map(Map(trampoline_args, 0x0A02000, perms="rw", cached="true"))
     pc.add_map(Map(tsldr_context, 0x0E00000, perms="rw", cached="true"))
     pc.add_map(Map(trampoline_elf, 0x1000000, perms="rwx", cached="true"))
     pc.add_map(Map(trampoline_exec, 0x1800000, perms="rwx", cached="true"))
