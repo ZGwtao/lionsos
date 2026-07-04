@@ -67,6 +67,13 @@ void init(void)
     seL4_Word self_id = seL4_GetMR(1);
     // sddf_printf("Monitor returned bitmap: 0x%llx\n", (unsigned long long)bitmap);
 
+    *((volatile uint64_t *)0x04800000) = bitmap;
+    *((volatile uint64_t *)0x04803000) = bitmap;
+    *((volatile uint64_t *)0x04806000) = bitmap;
+    *((volatile uint64_t *)0x04809000) = bitmap;
+    *((volatile uint64_t *)0x0480C000) = bitmap;
+    *((volatile uint64_t *)0x0490C000) = bitmap;
+
     for (int i = 0; i < PC_CHILD_PER_MONITOR_MAX_NUM; ++i) {
         if (bitmap & (1ULL << i) && i != self_id) {
             neighbours[i].avail = true;
