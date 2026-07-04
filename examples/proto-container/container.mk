@@ -39,6 +39,7 @@ all: ${IMAGE_FILE}
 include ${SDDF}/tools/make/board/common.mk
 
 METAPROGRAM := $(CONTAINER_DIR)/meta.py
+RAMDISK_INITIALISER := $(CONTAINER_DIR)/refresh-ramdisk.py
 FAT := $(LIONSOS)/components/fs/fat
 
 CFLAGS += \
@@ -110,10 +111,14 @@ $(IMAGE_FILE) $(REPORT_FILE): $(IMAGES) $(SYSTEM_FILE)
 		--search-path $(BUILD_DIR) --board $(MICROKIT_BOARD) 	\
 		--config $(MICROKIT_CONFIG) -o $(IMAGE_FILE) -r $(REPORT_FILE)
 
+refresh-ramdisk: $(RAMDISK_INITIALISER) $(IMAGE_FILE)
+	PYTHONPATH=${SDDF}/tools/meta:$$PYTHONPATH $(PYTHON) $(RAMDISK_INITIALISER)
+
 qemu_disk:
 	$(LIONSOS)/dep/sddf/tools/mkvirtdisk $@ 4 512 16777216 GPT
+	PYTHONPATH=${SDDF}/tools/meta:$$PYTHONPATH $(PYTHON) $(RAMDISK_INITIALISER)
 
-qemu: ${IMAGE_FILE} qemu_disk
+qemu: ${IMAGE_FILE} qemu_disk refresh-ramdisk
 	$(QEMU) -machine virt,virtualization=on \
 		-cpu cortex-a53 \
 		-serial mon:stdio \

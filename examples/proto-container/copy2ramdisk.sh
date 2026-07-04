@@ -1,34 +1,73 @@
-#!/bin/bash
-# Usage: ./copy-to-ramdisk.sh <file.elf> <partition_number>
+#!/usr/bin/env bash
+# Usage: ./copy2ramdisk.sh <file> <partition_number>
 
-set -e
+set -euo pipefail
 
-if [ $# -ne 2 ]; then
-    echo "Usage: $0 <file.elf> <partition_number>"
+if [ "$#" -ne 2 ]; then
+    echo "Usage: $0 <file> <partition_number>" >&2
     exit 1
 fi
 
 FILE=$1
 PART=$2
-DISK=build/qemu_disk
-MOUNTPOINT=$PWD/build/mbp
 
-SECTOR_SIZE=512
-POFFSET=2048  # first partition starts at 2048
+SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
+DISK="${SCRIPT_DIR}/build/qemu_disk"
 
-# Get partition size (FS_COUNT) from fdisk output
-# Partition entries look like: build/qemu_disk1   *   2048  ...  <end>  <size>
-FS_COUNT=$(fdisk -l $DISK | awk -v d="$DISK" '$1 ~ d {print $4; exit}')
-
-if [ -z "$FS_COUNT" ]; then
-    echo "Failed to get partition size from fdisk"
+if [ ! -f "$FILE" ]; then
+    echo "Error: source file does not exist: $FILE" >&2
     exit 1
 fi
 
-# Compute offset: partition N starts at POFFSET + (N-1)*FS_COUNT
-OFFSET=$(( (POFFSET + (PART - 1) * FS_COUNT) * SECTOR_SIZE ))
+if [ ! -f "$DISK" ]; then
+    echo "Error: disk image does not exist: $DISK" >&2
+    exit 1
+fi
 
-echo "Mounting partition $PART at offset=$OFFSET"
-sudo mount -o loop,offset=$OFFSET "$DISK" "$MOUNTPOINT"
-sudo cp "$FILE" "$MOUNTPOINT/"
-sudo umount "$MOUNTPOINT"
+if ! [[ "$PART" =~ ^[1-9][0-9]*$ ]]; then
+    echo "Error: invalid partition number: $PART" >&2
+    exit 1
+fi
+
+for command in sfdisk jq mcopy; do
+    if ! command -v "$command" >/dev/null 2>&1; then
+        echo "Error: required command not found: $command" >&2
+        exit 1
+    fi
+done
+
+DISK_JSON=$(sfdisk --json "$DISK")
+
+PARTITION_JSON=$(
+    jq -c --argjson index "$((PART - 1))" \
+        '.partitiontable.partitions[$index]' \
+        <<<"$DISK_JSON"
+)
+
+if [ -z "$PARTITION_JSON" ] || [ "$PARTITION_JSON" = "null" ]; then
+    echo "Error: partition $PART does not exist in $DISK" >&2
+    exit 1
+fi
+
+START_SECTOR=$(jq -r '.start' <<<"$PARTITION_JSON")
+SECTOR_SIZE=$(jq -r '.partitiontable.sectorsize // 512' <<<"$DISK_JSON")
+
+if ! [[ "$START_SECTOR" =~ ^[0-9]+$ ]]; then
+    echo "Error: failed to determine partition start sector" >&2
+    exit 1
+fi
+
+if ! [[ "$SECTOR_SIZE" =~ ^[0-9]+$ ]]; then
+    echo "Error: failed to determine disk sector size" >&2
+    exit 1
+fi
+
+OFFSET=$((START_SECTOR * SECTOR_SIZE))
+
+mcopy \
+    -o \
+    -i "${DISK}@@${OFFSET}" \
+    "$FILE" \
+    "::/$(basename "$FILE")"
+
+echo "Copied $(basename "$FILE") to partition $PART"
