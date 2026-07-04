@@ -20,10 +20,14 @@ typedef struct {
     uint8_t svc_idx;
     // the type of this os service
     uint8_t svc_type;
-    // channels
-    uint8_t channels[4];
+    // notifications
+    uint8_t notifications[4];
+    // ppcs
+    uint8_t ppcs[4];
     // irqs
     uint8_t irqs[4];
+    // ioports
+    uint8_t ioports[4];
     // mappings
     svc_mapping_t mappings[4];
     // data_path

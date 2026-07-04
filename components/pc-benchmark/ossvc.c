@@ -89,18 +89,27 @@ void monitor_patch_payload_with_ossvc__worker_func(int cid, protocon_svc_t *svc,
         return;
     }
     // maximumlly, we allow each OS svc to have at most:
-    //  - 4 channels
+    //  - 4 notifications
+    //  - 4 ppcs
     //  - 4 irqs (not implemented here)
     //  - *4 x86ioports (not implemented in microkit)
     //  - 4 mappings (4 pieaces of memory regions)
     // these low-level access rights should be enough to describe an OS service
     for (int i = 0; i < 4; ++i) {
-        if (svc->channels[i] >= MICROKIT_MAX_CHANNELS) {
+        if (svc->ppcs[i] >= MICROKIT_MAX_CHANNELS) {
             continue;
         }
-        seL4_Word channel = req_acrt->num_req_channels;
-        req_acrt->channels[channel] = (seL4_Word)svc->channels[i];
-        req_acrt->num_req_channels++;
+        seL4_Word ppc = req_acrt->num_req_ppcs;
+        req_acrt->ppcs[ppc] = (seL4_Word)svc->ppcs[i];
+        req_acrt->num_req_ppcs++;
+    }
+    for (int i = 0; i < 4; ++i) {
+        if (svc->notifications[i] >= MICROKIT_MAX_CHANNELS) {
+            continue;
+        }
+        seL4_Word ntfn = req_acrt->num_req_notifications;
+        req_acrt->notifications[ntfn] = (seL4_Word)svc->notifications[i];
+        req_acrt->num_req_notifications++;
     }
     /* TODO: irq, and x86ioports... */
     for (int i = 0; i < 4; ++i) {
@@ -155,7 +164,7 @@ void monitor_patch_payload_with_ossvc_info(int cid, protocon_svc_req_t *req, uin
     seL4_Word *svc_num_ptr = (seL4_Word *)((char *)monitor_svcdb_base + 0x1000 * cid);
     unsigned char *svc_data_ptr = (unsigned char*)(svc_num_ptr + 1);
 
-    *svc_num_ptr = req_acrt.num_req_channels + req_acrt.num_req_mappings + req_acrt.num_req_irqs;
+    *svc_num_ptr = req_acrt.num_req_notifications + req_acrt.num_req_ppcs + req_acrt.num_req_ioports + req_acrt.num_req_mappings + req_acrt.num_req_irqs;
 
     tsldr_main_monitor_encode_required_rights(svc_data_ptr, &req_acrt);
 }
