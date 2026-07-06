@@ -9,37 +9,30 @@ from sdfgen import SystemDescription, Sddf, DeviceTree, LionsOs
 from importlib.metadata import version
 from board import BOARDS
 
-assert version('sdfgen').split(".")[1] == "23" or \
-    version('sdfgen').split(".")[1] == "33" or \
-    version('sdfgen').split(".")[1] == "29", "Unexpected sdfgen version"
+assert (
+    version("sdfgen").split(".")[1] == "29" or version("sdfgen").split(".")[1] == "33"
+), "Unexpected sdfgen version"
 
 ProtectionDomain = SystemDescription.ProtectionDomain
 MemoryRegion = SystemDescription.MemoryRegion
 Map = SystemDescription.Map
 Channel = SystemDescription.Channel
 
-def connect_protocon_with_monitor(mpd: SystemDescription.ProtectionDomain, cpd: SystemDescription.ProtectionDomain, cid: int):
+def connect_protocon_with_monitor(
+    monitor: SystemDescription.ProtectionDomain,
+    pc: SystemDescription.ProtectionDomain,
+    cid: int,
+):
+    name_prefix = monitor.name + "/" + pc.name + "/"
 
-    name_prefix = mpd.name + "/" + cpd.name + "/"
-
-    if version('sdfgen').split(".")[1] != "23":
-        # one per container memory regions...
-        container_elf = MemoryRegion(sdf, name_prefix + "container/elf", 0x800000)
-        trampoline_elf = MemoryRegion(sdf, name_prefix + "trampoline/elf", 0x800000)
-        trampoline_exec = MemoryRegion(sdf, name_prefix + "trampoline/exec", 0x800000)
-        tsldr_exec = MemoryRegion(sdf, name_prefix + "tsldr/exec", 0x800000)
-        tsldr_data = MemoryRegion(sdf, name_prefix + "tsldr/data", 0x1000)
-        ossvc_data = MemoryRegion(sdf, name_prefix + "ossvc/data", 0x1000)
-        tsldr_context = MemoryRegion(sdf, name_prefix + "tsldr/context", 0x1000)
-    else:
-        # one per container memory regions...
-        container_elf = MemoryRegion(name_prefix + "container/elf", 0x800000)
-        trampoline_elf = MemoryRegion(name_prefix + "trampoline/elf", 0x800000)
-        trampoline_exec = MemoryRegion(name_prefix + "trampoline/exec", 0x800000)
-        tsldr_exec = MemoryRegion(name_prefix + "tsldr/exec", 0x800000)
-        tsldr_data = MemoryRegion(name_prefix + "tsldr/data", 0x1000)
-        ossvc_data = MemoryRegion(name_prefix + "ossvc/data", 0x1000)
-        tsldr_context = MemoryRegion(name_prefix + "tsldr/context", 0x1000)
+    container_elf = MemoryRegion(sdf, name_prefix + "container/elf", 0x800000)
+    trampoline_elf = MemoryRegion(sdf, name_prefix + "trampoline/elf", 0x800000)
+    trampoline_exec = MemoryRegion(sdf, name_prefix + "trampoline/exec", 0x800000)
+    tsldr_exec = MemoryRegion(sdf, name_prefix + "tsldr/exec", 0x800000)
+    tsldr_data = MemoryRegion(sdf, name_prefix + "tsldr/data", 0x1000)
+    ossvc_data = MemoryRegion(sdf, name_prefix + "ossvc/data", 0x1000)
+    tsldr_context = MemoryRegion(sdf, name_prefix + "tsldr/context", 0x1000)
+    trampoline_args = MemoryRegion(sdf, name_prefix + "tsldr/trampoline/args", 0x1000)
 
     sdf.add_mr(container_elf)
     sdf.add_mr(trampoline_elf)
@@ -48,77 +41,152 @@ def connect_protocon_with_monitor(mpd: SystemDescription.ProtectionDomain, cpd: 
     sdf.add_mr(tsldr_data)
     sdf.add_mr(ossvc_data)
     sdf.add_mr(tsldr_context)
+    sdf.add_mr(trampoline_args)
 
-    mpd.add_map(Map(tsldr_context,  0x0ff40000 + cid * 0x1000,   perms="rw", cached="true"))
-    mpd.add_map(Map(ossvc_data,     0x0ff80000 + cid * 0x1000,   perms="rw", cached="true"))
-    mpd.add_map(Map(tsldr_data,     0x0ffc0000 + cid * 0x1000,   perms="rw", cached="true"))
-    mpd.add_map(Map(tsldr_exec,     0x10000000 + cid * 0x800000, perms="rw", cached="true"))
-    mpd.add_map(Map(trampoline_elf, 0x30000000 + cid * 0x800000, perms="rw", cached="true"))
-    mpd.add_map(Map(container_elf,  0x50000000 + cid * 0x800000, perms="rw", cached="true"))
+    monitor.add_map(
+        Map(tsldr_context, 0x0FF40000 + cid * 0x1000, perms="rw", cached="true")
+    )
+    monitor.add_map(Map(ossvc_data, 0x0FF80000 + cid * 0x1000, perms="rw", cached="true"))
+    monitor.add_map(Map(tsldr_data, 0x0FFC0000 + cid * 0x1000, perms="rw", cached="true"))
+    monitor.add_map(Map(tsldr_exec, 0x10000000 + cid * 0x800000, perms="rw", cached="true"))
+    monitor.add_map(
+        Map(trampoline_elf, 0x30000000 + cid * 0x800000, perms="rw", cached="true")
+    )
+    monitor.add_map(
+        Map(container_elf, 0x50000000 + cid * 0x800000, perms="rw", cached="true")
+    )
 
-    cpd.add_map(Map(tsldr_exec,         0x0200000, perms="rwx", cached="true"))
-    cpd.add_map(Map(tsldr_data,         0x0A00000, perms="rw", cached="true"))
-    cpd.add_map(Map(ossvc_data,         0x0A01000, perms="rw", cached="true"))
-    cpd.add_map(Map(tsldr_context,      0x0E00000, perms="rw", cached="true"))
-    cpd.add_map(Map(trampoline_elf,     0x1000000, perms="rwx", cached="true"))
-    cpd.add_map(Map(trampoline_exec,    0x1800000, perms="rwx", cached="true"))
-    cpd.add_map(Map(container_elf,      0x2000000, perms="rw", cached="true"))
+    pc.add_map(Map(tsldr_exec, 0x0200000, perms="rwx", cached="true"))
+    pc.add_map(Map(tsldr_data, 0x0A00000, perms="rw", cached="true"))
+    pc.add_map(Map(ossvc_data, 0x0A01000, perms="rw", cached="true"))
+    pc.add_map(Map(trampoline_args, 0x0A02000, perms="rw", cached="true"))
+    pc.add_map(Map(tsldr_context, 0x0E00000, perms="rw", cached="true"))
+    pc.add_map(Map(trampoline_elf, 0x1000000, perms="rwx", cached="true"))
+    pc.add_map(Map(trampoline_exec, 0x1800000, perms="rwx", cached="true"))
+    pc.add_map(Map(container_elf, 0x2000000, perms="rw", cached="true"))
 
-    if version('sdfgen').split(".")[1] != "23":
-        trampoline_stack = MemoryRegion(sdf, name_prefix + "trampoline/stack", 0x1000)
-        container_stack = MemoryRegion(sdf, name_prefix + "container/stack", 0x1000)
-        container_exec = MemoryRegion(sdf, name_prefix + "container/exec", 0x2000000)
-        uk_boot_stack = MemoryRegion(sdf, name_prefix + "uk_boot_stack", (0x1000 * (1 << 4)))
-        uk_boot_heap = MemoryRegion(sdf, name_prefix + "uk_boot_heap", (0x1000 * (1 << 10)))
-    else:
-        trampoline_stack = MemoryRegion(name_prefix + "trampoline/stack", 0x1000)
-        container_stack = MemoryRegion(name_prefix + "container/stack", 0x1000)
-        container_exec = MemoryRegion(name_prefix + "container/exec", 0x2000000)
-        uk_boot_stack = MemoryRegion(name_prefix + "uk_boot_stack", (0x1000 * (1 << 4)))
-        uk_boot_heap = MemoryRegion(name_prefix + "uk_boot_heap", (0x1000 * (1 << 10)))
+    trampoline_stack = MemoryRegion(sdf, name_prefix + "trampoline/stack", 0x1000)
+    container_stack = MemoryRegion(sdf, name_prefix + "container/stack", 0x1000)
+    container_exec = MemoryRegion(sdf, name_prefix + "container/exec", 0x2000000)
 
     sdf.add_mr(trampoline_stack)
     sdf.add_mr(container_stack)
     sdf.add_mr(container_exec)
+
+    pc.add_map(Map(trampoline_stack, 0x00FFFDFF000, perms="rw", cached="true"))
+    pc.add_map(Map(container_stack, 0x00FFFBFF000, perms="rw", cached="true"))
+    pc.add_map(Map(container_exec, 0x2800000, perms="rwx", cached="true"))
+
+    client_monitor_rx_free = MemoryRegion(sdf, name_prefix + "rx/free", 0x3000)
+    client_monitor_tx_free = MemoryRegion(sdf, name_prefix + "tx/free", 0x3000)
+    client_monitor_rx_active = MemoryRegion(sdf, name_prefix + "rx/active", 0x3000)
+    client_monitor_tx_active = MemoryRegion(sdf, name_prefix + "tx/active", 0x3000)
+    client_monitor_rx_data = MemoryRegion(sdf, name_prefix + "rx/data", 0x100000)
+    client_monitor_tx_data = MemoryRegion(sdf, name_prefix + "tx/data", 0x100000)
+
+    sdf.add_mr(client_monitor_rx_free)
+    sdf.add_mr(client_monitor_rx_active)
+    sdf.add_mr(client_monitor_rx_data)
+    sdf.add_mr(client_monitor_tx_free)
+    sdf.add_mr(client_monitor_tx_active)
+    sdf.add_mr(client_monitor_tx_data)
+
+    pc.add_map(Map(client_monitor_rx_free, 0x04800000, perms="rw", cached="false"))
+    pc.add_map(Map(client_monitor_tx_free, 0x04803000, perms="rw", cached="false"))
+    pc.add_map(Map(client_monitor_rx_active, 0x04806000, perms="rw", cached="false"))
+    pc.add_map(Map(client_monitor_tx_active, 0x04809000, perms="rw", cached="false"))
+    pc.add_map(Map(client_monitor_rx_data, 0x0480C000, perms="rw", cached="false"))
+    pc.add_map(Map(client_monitor_tx_data, 0x0490C000, perms="rw", cached="false"))
+
+    monitor_queue_base = 0x80000000 + cid * 0x400000
+    # monitor RX uses client's TX regions
+    monitor.add_map(
+        Map(
+            client_monitor_tx_free,
+            monitor_queue_base + 0x000000,
+            perms="rw",
+            cached="false",
+        )
+    )
+    monitor.add_map(
+        Map(
+            client_monitor_tx_active,
+            monitor_queue_base + 0x006000,
+            perms="rw",
+            cached="false",
+        )
+    )
+    monitor.add_map(
+        Map(
+            client_monitor_tx_data,
+            monitor_queue_base + 0x00C000,
+            perms="rw",
+            cached="false",
+        )
+    )
+
+    # monitor TX uses client's RX regions
+    monitor.add_map(
+        Map(
+            client_monitor_rx_free,
+            monitor_queue_base + 0x003000,
+            perms="rw",
+            cached="false",
+        )
+    )
+    monitor.add_map(
+        Map(
+            client_monitor_rx_active,
+            monitor_queue_base + 0x009000,
+            perms="rw",
+            cached="false",
+        )
+    )
+    monitor.add_map(
+        Map(
+            client_monitor_rx_data,
+            monitor_queue_base + 0x10C000,
+            perms="rw",
+            cached="false",
+        )
+    )
+
+    uk_boot_stack = MemoryRegion(sdf, name_prefix + "uk_boot_stack", (0x1000 * (1 << 4)))
+    uk_boot_heap = MemoryRegion(sdf, name_prefix + "uk_boot_heap", (0x1000 * (1 << 10)))
+
     sdf.add_mr(uk_boot_stack)
     sdf.add_mr(uk_boot_heap)
 
-    cpd.add_map(Map(trampoline_stack, 0x00FFFDFF000, perms="rw", cached="true"))
-    cpd.add_map(Map(container_stack,  0x00FFFBFF000, perms="rw", cached="true"))
-    cpd.add_map(Map(container_exec, 0x2800000, perms="rwx", cached="true"))
-    cpd.add_map(Map(uk_boot_stack, 0xffff008000, perms="rw", cached="true"))
-    cpd.add_map(Map(uk_boot_heap, 0xffff018000, perms="rw", cached="true"))
+    pc.add_map(Map(uk_boot_stack, 0xffff008000, perms="rw", cached="true"))
+    pc.add_map(Map(uk_boot_heap, 0xffff018000, perms="rw", cached="true"))
 
-    sdf.add_channel(Channel(a=mpd, b=cpd, a_id=(24+cid), b_id=15, pp_b=True))
+    sdf.add_channel(Channel(a=monitor, b=pc, a_id=(24+cid), b_id=15, pp_b=True))
 
 
-def connect_frontend_with_monitor(mpd: SystemDescription.ProtectionDomain, fpd: SystemDescription.ProtectionDomain):
+def connect_frontend_with_monitor(
+    monitor: SystemDescription.ProtectionDomain,
+    orchestrator: SystemDescription.ProtectionDomain
+):
+    name_prefix = monitor.name + "/" + orchestrator.name + "/"
 
-    name_prefix = mpd.name + "/" + fpd.name + "/"
-
-    if version('sdfgen').split(".")[1] != "23":
-        ext_trampoline_elf = MemoryRegion(sdf, name_prefix + "trampoline", 0x800000)
-        ext_protocon_elf = MemoryRegion(sdf, name_prefix + "protocon", 0x800000)
-        ext_client_elf = MemoryRegion(sdf, name_prefix + "client", 0x800000)
-    else:
-        ext_trampoline_elf = MemoryRegion(name_prefix + "trampoline", 0x800000)
-        ext_protocon_elf = MemoryRegion(name_prefix + "protocon", 0x800000)
-        ext_client_elf = MemoryRegion(name_prefix + "client", 0x800000)
+    ext_trampoline_elf = MemoryRegion(sdf, name_prefix + "trampoline", 0x800000)
+    ext_protocon_elf = MemoryRegion(sdf, name_prefix + "protocon", 0x800000)
+    ext_client_elf = MemoryRegion(sdf, name_prefix + "client", 0x800000)
 
     sdf.add_mr(ext_trampoline_elf)
     sdf.add_mr(ext_protocon_elf)
     sdf.add_mr(ext_client_elf)
 
-    mpd.add_map(Map(ext_protocon_elf,   0x6000000, perms="rw", cached="true"))
-    mpd.add_map(Map(ext_trampoline_elf, 0x6800000, perms="rw", cached="true"))
-    mpd.add_map(Map(ext_client_elf,     0x7000000, perms="rw", cached="true"))
+    monitor.add_map(Map(ext_protocon_elf, 0x6000000, perms="rw", cached="true"))
+    monitor.add_map(Map(ext_trampoline_elf, 0x6800000, perms="rw", cached="true"))
+    monitor.add_map(Map(ext_client_elf, 0x7000000, perms="rw", cached="true"))
 
-    fpd.add_map(Map(ext_trampoline_elf, 0x6000000, perms="rw", cached="true"))
-    fpd.add_map(Map(ext_protocon_elf, 0x4000000, perms="rw", cached="true"))
-    fpd.add_map(Map(ext_client_elf, 0xB000000, perms="rw", cached="true"))
+    orchestrator.add_map(Map(ext_trampoline_elf, 0x6000000, perms="rw", cached="true"))
+    orchestrator.add_map(Map(ext_protocon_elf, 0x4000000, perms="rw", cached="true"))
+    orchestrator.add_map(Map(ext_client_elf, 0xB000000, perms="rw", cached="true"))
 
-    sdf.add_channel(Channel(a=mpd, b=fpd, a_id=50, b_id=1, pp_b=True))
-    sdf.add_channel(Channel(a=mpd, b=fpd, a_id=15, b_id=30))
+    sdf.add_channel(Channel(a=monitor, b=orchestrator, a_id=50, b_id=1, pp_b=True))
+    sdf.add_channel(Channel(a=monitor, b=orchestrator, a_id=15, b_id=30))
 
 
 def generate(
