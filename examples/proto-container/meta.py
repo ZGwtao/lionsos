@@ -87,6 +87,7 @@ def connect_protocon_with_monitor(
     pc.add_map(Map(container_exec, 0x2800000, perms="rwx", cached="true"))
 
     sdf.add_channel(Channel(a=monitor, b=pc, a_id=(24 + cid), b_id=15, pp_b=True))
+    sdf.add_channel(Channel(a=monitor, b=pc, a_id=(40 + cid), b_id=16))
 
     client_monitor_rx_free = MemoryRegion(sdf, name_prefix + "rx/free", 0x3000)
     client_monitor_tx_free = MemoryRegion(sdf, name_prefix + "tx/free", 0x3000)
@@ -184,7 +185,7 @@ def connect_frontend_with_monitor(
     orchestrator.add_map(Map(ext_protocon_elf, 0x4000000, perms="rw", cached="true"))
     orchestrator.add_map(Map(ext_client_elf, 0xB000000, perms="rw", cached="true"))
 
-    sdf.add_channel(Channel(a=monitor, b=orchestrator, a_id=50, b_id=1, pp_b=True))
+    sdf.add_channel(Channel(a=monitor, b=orchestrator, a_id=23, b_id=1, pp_b=True))
     sdf.add_channel(Channel(a=monitor, b=orchestrator, a_id=15, b_id=30))
 
 

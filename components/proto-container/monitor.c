@@ -10,6 +10,7 @@
 #include <libmicrokitco.h>
 #include <pc_config.h>
 #include <protocon.h>
+#include <pd_io_queue.h>
 
 #define PROGNAME "[@monitor] "
 
@@ -31,6 +32,151 @@
 #define FE_MONITOR_REGION_PROTOCON_ELF_BASE (0x6000000)
 #define FE_MONITOR_REGION_TRAMPOLINE_ELF_BASE (0x6800000)
 #define FE_MONITOR_REGION_CLIENT_PAYLOAD_BASE (0x7000000)
+
+#define PD_IO_CLIENT_COUNT              4u
+#define PD_IO_MONITOR_NOTIFY_BASE       40u
+#define PD_IO_MONITOR_SLOT_BASE         0x80000000u
+#define PD_IO_MONITOR_SLOT_SIZE         0x00400000u
+
+#define PD_IO_CAPACITY                  512u
+#define PD_IO_BUFFER_SIZE               2048u
+#define PD_IO_DATA_SIZE                 (PD_IO_CAPACITY * PD_IO_BUFFER_SIZE)
+
+#define PD_IO_CLIENT_TX_FREE_OFFSET     0x000000u
+#define PD_IO_CLIENT_RX_FREE_OFFSET     0x003000u
+#define PD_IO_CLIENT_TX_ACTIVE_OFFSET   0x006000u
+#define PD_IO_CLIENT_RX_ACTIVE_OFFSET   0x009000u
+#define PD_IO_CLIENT_TX_DATA_OFFSET     0x00C000u
+#define PD_IO_CLIENT_RX_DATA_OFFSET     0x10C000u
+
+static pd_io_link_t client_links[PD_IO_CLIENT_COUNT];
+
+static void monitor_init_client_link(uint32_t cid)
+{
+    uintptr_t base = PD_IO_MONITOR_SLOT_BASE +
+                     cid * PD_IO_MONITOR_SLOT_SIZE;
+
+    /*
+     * monitor RX == client TX
+     */
+    pd_io_direction_init(
+        &client_links[cid].rx,
+        (pd_io_queue_t *)(base + PD_IO_CLIENT_TX_FREE_OFFSET),
+        (pd_io_queue_t *)(base + PD_IO_CLIENT_TX_ACTIVE_OFFSET),
+        (void *)(base + PD_IO_CLIENT_TX_DATA_OFFSET),
+        PD_IO_DATA_SIZE,
+        PD_IO_CAPACITY,
+        PD_IO_BUFFER_SIZE
+    );
+
+    /*
+     * monitor TX == client RX
+     */
+    pd_io_direction_init(
+        &client_links[cid].tx,
+        (pd_io_queue_t *)(base + PD_IO_CLIENT_RX_FREE_OFFSET),
+        (pd_io_queue_t *)(base + PD_IO_CLIENT_RX_ACTIVE_OFFSET),
+        (void *)(base + PD_IO_CLIENT_RX_DATA_OFFSET),
+        PD_IO_DATA_SIZE,
+        PD_IO_CAPACITY,
+        PD_IO_BUFFER_SIZE
+    );
+
+    /*
+     * The monitor is the sole shared-state initialisation owner.
+     * Do this before the corresponding client starts.
+     */
+    int err = pd_io_direction_reset_and_fill(&client_links[cid].rx);
+    if (err != PD_IO_QUEUE_OK) {
+        sddf_printf(PROGNAME "failed to initialise client %u RX: %d\n",
+                    cid, err);
+        microkit_internal_crash(err);
+    }
+
+    err = pd_io_direction_reset_and_fill(&client_links[cid].tx);
+    if (err != PD_IO_QUEUE_OK) {
+        sddf_printf(PROGNAME "failed to initialise client %u TX: %d\n",
+                    cid, err);
+        microkit_internal_crash(err);
+    }
+}
+
+static void monitor_init_all_client_links(void)
+{
+    for (uint32_t cid = 0; cid < PD_IO_CLIENT_COUNT; cid++) {
+        monitor_init_client_link(cid);
+    }
+}
+
+static void monitor_handle_client_payload(uint32_t cid)
+{
+    char request[PD_IO_BUFFER_SIZE];
+    char response[PD_IO_BUFFER_SIZE];
+    uint32_t request_len;
+
+    for (;;) {
+        int err = pd_io_direction_receive(&client_links[cid].rx,
+                                          request,
+                                          sizeof(request),
+                                          &request_len);
+        if (err == PD_IO_QUEUE_EMPTY) {
+            break;
+        }
+        if (err != PD_IO_QUEUE_OK) {
+            sddf_printf(PROGNAME "client %u receive failed: %d\n",
+                        cid, err);
+            break;
+        }
+
+        if (request_len > 0) {
+            request[request_len - 1] = '\0';
+        }
+
+        sddf_printf(PROGNAME "client %u sent %u bytes: %s\n",
+                    cid, request_len, request);
+
+        static const char pong[] = "pong from monitor";
+        (void)response;
+        err = pd_io_direction_send(&client_links[cid].tx,
+                                   pong,
+                                   (uint32_t)sizeof(pong));
+        if (err != PD_IO_QUEUE_OK) {
+            sddf_printf(PROGNAME "client %u response failed: %d\n",
+                        cid, err);
+            continue;
+        }
+
+        microkit_notify(PD_IO_MONITOR_NOTIFY_BASE + cid);
+    }
+}
+
+/*
+ * Add this call near the end of monitor init(), before any child is started:
+ *
+ *     monitor_init_all_client_links();
+ *
+ * In the current program, placing it after microkit_cothread_init() is fine,
+ * provided it occurs before monitor_call_deploy_protocon_second_half() can
+ * restart a child.
+ */
+
+/*
+ * Replace the beginning of notified() with:
+ *
+ * void notified(microkit_channel ch)
+ * {
+ *     if (ch >= PD_IO_MONITOR_NOTIFY_BASE &&
+ *         ch < PD_IO_MONITOR_NOTIFY_BASE + PD_IO_CLIENT_COUNT) {
+ *         uint32_t cid = ch - PD_IO_MONITOR_NOTIFY_BASE;
+ *         monitor_handle_client_payload(cid);
+ *         return;
+ *     }
+ *
+ *     fs_process_completions(NULL);
+ *     microkit_cothread_recv_ntfn(ch);
+ * }
+ */
+
 
 __attribute__((__section__(".fs_client_config"))) fs_client_config_t fs_config;
 
@@ -251,12 +397,20 @@ void init(void)
     stack_ptrs_arg_array_t costacks = { (uintptr_t) monitor_costack1, (uintptr_t) monitor_costack2 };
     microkit_cothread_init(&co_controller_mem, 0x10000, costacks);
     monitor_main_cothread_spawn(monitor_main_init_storage, NULL, " failed to spawn thread for storage initialisation.\n");
+
+    monitor_init_all_client_links();
 }
 
-void notified(microkit_channel ch)
-{
-    fs_process_completions(NULL);
+ void notified(microkit_channel ch)
+ {
+    if (ch >= PD_IO_MONITOR_NOTIFY_BASE &&
+        ch < PD_IO_MONITOR_NOTIFY_BASE + PD_IO_CLIENT_COUNT) {
+        uint32_t cid = ch - PD_IO_MONITOR_NOTIFY_BASE;
+        monitor_handle_client_payload(cid);
+        return;
+    }
 
+    fs_process_completions(NULL);
     microkit_cothread_recv_ntfn(ch);
 }
 
