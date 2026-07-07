@@ -69,6 +69,8 @@ const protocon_svc_desc_t ciface = {
     .t3_iface = { (uintptr_t)&serial_config, 0, 0, 0, 0, 0, 0, 0 },
 };
 
+typedef uint8_t pd_io_id_t;
+pd_io_id_t self_id;
 typedef struct {
     uint64_t _unused;
     bool avail;
@@ -108,13 +110,29 @@ static void init_monitor_link(void)
     );
 }
 
+static void send_to_pd(uint8_t client_bitmap)
+{
+    const char message[] = "hello";
+
+    int err = pd_io_direction_send(
+        &monitor_link.tx,
+        self_id,
+        client_bitmap,
+        message,
+        sizeof(message)
+    );
+    if (err != PD_IO_QUEUE_OK) {
+        sddf_printf("CLIENT|ERROR: send payload to 0x%x failed: %d\n", client_bitmap, err);
+        return;
+    }
+
+    microkit_notify(MONITOR_NOTIFICATION_CHANNEL);
+    sddf_printf("CLIENT|INFO: payload sent to (bitmap) 0x%x\n", client_bitmap);
+}
+
 static void send_ping(void)
 {
-    static const char ping[] = "ping from client";
-
-    int err = pd_io_direction_send(&monitor_link.tx,
-                                 ping,
-                                 (uint32_t)sizeof(ping));
+    int err = pd_io_direction_send(&monitor_link.tx, self_id, 0, NULL, 0);
     if (err != PD_IO_QUEUE_OK) {
         sddf_printf("CLIENT|ERROR: send ping failed: %d\n", err);
         return;
@@ -126,30 +144,56 @@ static void send_ping(void)
 
 static void drain_monitor_messages(void)
 {
+    pd_io_header_t header;
     char payload[PD_IO_BUFFER_SIZE];
     uint32_t payload_len;
 
     for (;;) {
-        int err = pd_io_direction_receive(&monitor_link.rx,
-                                        payload,
-                                        sizeof(payload),
-                                        &payload_len);
+        int err = pd_io_direction_receive(
+            &monitor_link.rx,
+            &header,
+            payload,
+            sizeof(payload),
+            &payload_len
+        );
+
         if (err == PD_IO_QUEUE_EMPTY) {
             break;
         }
+
         if (err != PD_IO_QUEUE_OK) {
-            sddf_printf("CLIENT|ERROR: receive failed: %d\n", err);
+            sddf_printf(
+                "CLIENT|ERROR: receive failed: %d\n",
+                err
+            );
             break;
         }
 
         if (payload_len == 0) {
-            payload[0] = '\0';
-        } else {
-            payload[payload_len - 1] = '\0';
+            sddf_printf(
+                "CLIENT|INFO: received header-only message "
+                "from source %u, targets=0x%x\n",
+                header.source,
+                header.bitmap_targets
+            );
+            continue;
         }
-        sddf_printf("CLIENT|INFO: received %u bytes: %s\n",
-                    payload_len,
-                    payload);
+
+        /*
+         * Only treat it as a string for this test program.
+         * payload_len may equal sizeof(payload), so do not write
+         * payload[payload_len].
+         */
+        payload[payload_len - 1] = '\0';
+
+        sddf_printf(
+            "CLIENT|INFO: received %u-byte payload "
+            "from source %u, targets=0x%x: %s\n",
+            payload_len,
+            header.source,
+            header.bitmap_targets,
+            payload
+        );
     }
 }
 
@@ -186,7 +230,7 @@ void init(void)
     }
 
     seL4_Word bitmap = seL4_GetMR(0);
-    seL4_Word self_id = seL4_GetMR(1);
+    self_id = (pd_io_id_t)seL4_GetMR(1);
 
     for (int i = 0; i < PC_CHILD_PER_MONITOR_MAX_NUM; ++i) {
         if ((bitmap & (1ULL << i)) && i != self_id) {
@@ -195,6 +239,9 @@ void init(void)
     }
 
     init_monitor_link();
+    /*
+     * ping monitor first.
+     */
     send_ping();
 }
 
@@ -202,13 +249,13 @@ void notified(microkit_channel ch)
 {
     if (ch == MONITOR_NOTIFICATION_CHANNEL) {
         drain_monitor_messages();
-        sddf_timer_set_timeout(timer_channel, NS_IN_S);
+        /* broadcast */
+        send_to_pd(0xff);
         return;
     }
 
     if (ch == timer_channel) {
         uint64_t time = sddf_timer_time_now(timer_channel);
         sddf_printf("CLIENT|INFO: timer: %lu ns\n", time);
-        send_ping();
     }
 }

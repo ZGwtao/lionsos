@@ -11,6 +11,7 @@
 #define PD_IO_QUEUE_FULL       -2
 #define PD_IO_QUEUE_TOO_LARGE  -3
 #define PD_IO_QUEUE_BAD_DESC   -4
+#define PD_IO_QUEUE_BAD_HEADER -5
 
 typedef struct pd_io_buffer_desc {
     uint64_t offset;
@@ -46,6 +47,15 @@ _Static_assert(sizeof(pd_io_buffer_desc_t) == 16,
                "pd_io_buffer_desc_t layout changed");
 _Static_assert(sizeof(pd_io_queue_t) == 16,
                "pd_io_queue_t header layout changed");
+
+typedef struct {
+    uint8_t source;
+    uint8_t bitmap_targets;
+    uint16_t payload_size;
+} pd_io_header_t;
+
+_Static_assert(sizeof(pd_io_header_t) == 4,
+               "pd_io_header_t layout changed");
 
 static inline size_t pd_io_queue_bytes(uint32_t capacity)
 {
@@ -202,44 +212,68 @@ static inline bool pd_io_desc_valid(const pd_io_direction_t *direction,
 }
 
 /*
- * Obtain a free buffer, copy payload into it, and publish it on active.
- * The caller should notify the peer after PD_IO_QUEUE_OK.
+ * Recycle a descriptor back into the free queue.
+ *
+ * This helper assumes that the caller has already dequeued the descriptor
+ * from the active queue or free queue and currently owns it.
  */
-static inline int pd_io_direction_send(pd_io_direction_t *direction,
-                                       const void *payload,
-                                       uint32_t payload_len)
+static inline int pd_io_direction_recycle(pd_io_direction_t *direction,
+                                          pd_io_buffer_desc_t desc)
+{
+    desc.len = 0;
+    desc.reserved = 0;
+
+    return pd_io_queue_enqueue(direction->free,
+                               direction->capacity,
+                               desc);
+}
+
+/*
+ * Obtain a free buffer, copy an unframed payload into it, and publish the
+ * descriptor on the active queue.
+ *
+ * The caller should notify the peer after this function returns
+ * PD_IO_QUEUE_OK.
+ */
+static inline int pd_io_direction_send_raw(pd_io_direction_t *direction,
+                                           const void *payload,
+                                           uint32_t payload_len)
 {
     if (payload_len > direction->buffer_size) {
         return PD_IO_QUEUE_TOO_LARGE;
     }
 
+    if (payload_len != 0 && payload == NULL) {
+        return PD_IO_QUEUE_BAD_DESC;
+    }
+
     pd_io_buffer_desc_t desc;
     int err = pd_io_queue_dequeue(direction->free,
-                                direction->capacity,
-                                &desc);
+                                  direction->capacity,
+                                  &desc);
     if (err != PD_IO_QUEUE_OK) {
         return err;
     }
 
     desc.len = payload_len;
+    desc.reserved = 0;
+
     if (!pd_io_desc_valid(direction, &desc)) {
-        desc.len = 0;
-        (void)pd_io_queue_enqueue(direction->free,
-                                direction->capacity,
-                                desc);
+        (void)pd_io_direction_recycle(direction, desc);
         return PD_IO_QUEUE_BAD_DESC;
     }
 
-    memcpy(direction->data + desc.offset, payload, payload_len);
+    if (payload_len != 0) {
+        memcpy(direction->data + (size_t)desc.offset,
+               payload,
+               payload_len);
+    }
 
     err = pd_io_queue_enqueue(direction->active,
-                            direction->capacity,
-                            desc);
+                              direction->capacity,
+                              desc);
     if (err != PD_IO_QUEUE_OK) {
-        desc.len = 0;
-        (void)pd_io_queue_enqueue(direction->free,
-                                direction->capacity,
-                                desc);
+        (void)pd_io_direction_recycle(direction, desc);
         return err;
     }
 
@@ -247,43 +281,203 @@ static inline int pd_io_direction_send(pd_io_direction_t *direction,
 }
 
 /*
- * Consume one active message, copy it out, then recycle its descriptor.
+ * Build a framed message consisting of:
+ *
+ *     pd_io_header_t
+ *     payload bytes
+ *
+ * desc.len records the total framed-message length, while
+ * header.payload_size records only the payload length.
  */
-static inline int pd_io_direction_receive(pd_io_direction_t *direction,
-                                          void *payload_out,
-                                          uint32_t payload_capacity,
-                                          uint32_t *payload_len_out)
+static inline int pd_io_direction_send(pd_io_direction_t *direction,
+                                       uint8_t source,
+                                       uint8_t bitmap_targets,
+                                       const void *payload,
+                                       uint32_t payload_len)
 {
+    if (payload_len > UINT16_MAX) {
+        return PD_IO_QUEUE_TOO_LARGE;
+    }
+
+    if (payload_len != 0 && payload == NULL) {
+        return PD_IO_QUEUE_BAD_DESC;
+    }
+
+    const uint32_t header_len = (uint32_t)sizeof(pd_io_header_t);
+
+    if (header_len > direction->buffer_size ||
+        payload_len > direction->buffer_size - header_len) {
+        return PD_IO_QUEUE_TOO_LARGE;
+    }
+
+    pd_io_buffer_desc_t desc;
+    int err = pd_io_queue_dequeue(direction->free,
+                                  direction->capacity,
+                                  &desc);
+    if (err != PD_IO_QUEUE_OK) {
+        return err;
+    }
+
+    desc.len = header_len + payload_len;
+    desc.reserved = 0;
+
+    if (!pd_io_desc_valid(direction, &desc)) {
+        (void)pd_io_direction_recycle(direction, desc);
+        return PD_IO_QUEUE_BAD_DESC;
+    }
+
+    pd_io_header_t header = {
+        .source = source,
+        .bitmap_targets = bitmap_targets,
+        .payload_size = (uint16_t)payload_len,
+    };
+
+    uint8_t *buffer =
+        direction->data + (size_t)desc.offset;
+
+    /*
+     * Use memcpy rather than casting buffer to pd_io_header_t *.
+     * This avoids alignment and strict-aliasing assumptions.
+     */
+    memcpy(buffer, &header, sizeof(header));
+
+    if (payload_len != 0) {
+        memcpy(buffer + sizeof(header),
+               payload,
+               payload_len);
+    }
+
+    err = pd_io_queue_enqueue(direction->active,
+                              direction->capacity,
+                              desc);
+    if (err != PD_IO_QUEUE_OK) {
+        (void)pd_io_direction_recycle(direction, desc);
+        return err;
+    }
+
+    return PD_IO_QUEUE_OK;
+}
+
+/*
+ * Consume one unframed message, copy it out, and recycle its descriptor.
+ */
+static inline int pd_io_direction_receive_raw(
+    pd_io_direction_t *direction,
+    void *payload_out,
+    uint32_t payload_capacity,
+    uint32_t *payload_len_out)
+{
+    if (payload_len_out == NULL) {
+        return PD_IO_QUEUE_BAD_DESC;
+    }
+
     pd_io_buffer_desc_t desc;
     int err = pd_io_queue_dequeue(direction->active,
-                                direction->capacity,
-                                &desc);
+                                  direction->capacity,
+                                  &desc);
     if (err != PD_IO_QUEUE_OK) {
         return err;
     }
 
     if (!pd_io_desc_valid(direction, &desc)) {
-        desc.len = 0;
-        (void)pd_io_queue_enqueue(direction->free,
-                                direction->capacity,
-                                desc);
+        (void)pd_io_direction_recycle(direction, desc);
         return PD_IO_QUEUE_BAD_DESC;
     }
 
     if (desc.len > payload_capacity) {
-        desc.len = 0;
-        (void)pd_io_queue_enqueue(direction->free,
-                                direction->capacity,
-                                desc);
+        (void)pd_io_direction_recycle(direction, desc);
         return PD_IO_QUEUE_TOO_LARGE;
     }
 
-    memcpy(payload_out, direction->data + desc.offset, desc.len);
+    if (desc.len != 0 && payload_out == NULL) {
+        (void)pd_io_direction_recycle(direction, desc);
+        return PD_IO_QUEUE_BAD_DESC;
+    }
+
+    if (desc.len != 0) {
+        memcpy(payload_out,
+               direction->data + (size_t)desc.offset,
+               desc.len);
+    }
+
     *payload_len_out = desc.len;
 
-    desc.len = 0;
-    err = pd_io_queue_enqueue(direction->free,
-                            direction->capacity,
-                            desc);
-    return err;
+    return pd_io_direction_recycle(direction, desc);
+}
+
+/*
+ * Consume one framed message:
+ *
+ *     pd_io_header_t
+ *     payload bytes
+ *
+ * The header is copied into header_out and only the payload bytes are copied
+ * into payload_out.
+ */
+static inline int pd_io_direction_receive(
+    pd_io_direction_t *direction,
+    pd_io_header_t *header_out,
+    void *payload_out,
+    uint32_t payload_capacity,
+    uint32_t *payload_len_out)
+{
+    if (header_out == NULL || payload_len_out == NULL) {
+        return PD_IO_QUEUE_BAD_DESC;
+    }
+
+    pd_io_buffer_desc_t desc;
+    int err = pd_io_queue_dequeue(direction->active,
+                                  direction->capacity,
+                                  &desc);
+    if (err != PD_IO_QUEUE_OK) {
+        return err;
+    }
+
+    if (!pd_io_desc_valid(direction, &desc)) {
+        (void)pd_io_direction_recycle(direction, desc);
+        return PD_IO_QUEUE_BAD_DESC;
+    }
+
+    if (desc.len < sizeof(pd_io_header_t)) {
+        (void)pd_io_direction_recycle(direction, desc);
+        return PD_IO_QUEUE_BAD_HEADER;
+    }
+
+    const uint8_t *buffer =
+        direction->data + (size_t)desc.offset;
+
+    pd_io_header_t header;
+    memcpy(&header, buffer, sizeof(header));
+
+    uint32_t framed_payload_len =
+        desc.len - (uint32_t)sizeof(pd_io_header_t);
+
+    /*
+     * The descriptor and the in-band header must agree on the payload size.
+     */
+    if ((uint32_t)header.payload_size != framed_payload_len) {
+        (void)pd_io_direction_recycle(direction, desc);
+        return PD_IO_QUEUE_BAD_HEADER;
+    }
+
+    if (framed_payload_len > payload_capacity) {
+        (void)pd_io_direction_recycle(direction, desc);
+        return PD_IO_QUEUE_TOO_LARGE;
+    }
+
+    if (framed_payload_len != 0 && payload_out == NULL) {
+        (void)pd_io_direction_recycle(direction, desc);
+        return PD_IO_QUEUE_BAD_DESC;
+    }
+
+    if (framed_payload_len != 0) {
+        memcpy(payload_out,
+               buffer + sizeof(pd_io_header_t),
+               framed_payload_len);
+    }
+
+    *header_out = header;
+    *payload_len_out = framed_payload_len;
+
+    return pd_io_direction_recycle(direction, desc);
 }
