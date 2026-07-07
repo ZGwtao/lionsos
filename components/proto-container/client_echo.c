@@ -249,13 +249,17 @@ void notified(microkit_channel ch)
 {
     if (ch == MONITOR_NOTIFICATION_CHANNEL) {
         drain_monitor_messages();
-        /* broadcast */
-        send_to_pd(0xff);
+        sddf_timer_set_timeout(timer_channel, NS_IN_S * 2);
         return;
     }
 
     if (ch == timer_channel) {
         uint64_t time = sddf_timer_time_now(timer_channel);
         sddf_printf("CLIENT|INFO: timer: %lu ns\n", time);
+        /* broadcast */
+        if (self_id % 2)
+            send_to_pd(0xa);
+        else
+            send_to_pd(0x5);
     }
 }
