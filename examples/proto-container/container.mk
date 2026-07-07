@@ -14,6 +14,7 @@ IMAGES := \
 	client_timeout.elf \
 	trampoline.elf \
 	protocon.elf \
+	unikraft.elf \
 	serial_driver.elf \
 	serial_virt_rx.elf \
 	serial_virt_tx.elf \

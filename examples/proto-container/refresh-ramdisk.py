@@ -11,6 +11,7 @@ COPY_TABLE = [
     ("client_faulting.elf", 1),
     ("client_echo.elf", 1),
     ("client_looping.elf", 1),
+    ("unikraft.elf", 1),
     ("serial_client_protocon0.data", 2),
     ("serial_client_protocon1.data", 2),
     ("serial_client_protocon2.data", 2),
