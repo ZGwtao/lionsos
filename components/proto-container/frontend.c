@@ -132,6 +132,10 @@ static char fname_buf[FNAME_BUF_SIZE];
 static char _buf[FNAME_BUF_SIZE];
 static size_t input_len = 0;
 
+#define MIN_REQ_PC_NUM 1U
+#define MAX_REQ_PC_NUM 4U
+
+uint32_t req_pc_num = MIN_REQ_PC_NUM;
 
 void load_elf_payload(void)
 {
@@ -152,7 +156,8 @@ void load_elf_payload(void)
     TSLDR_DBG_PRINT(PROGNAME "Wrote test's ELF file into memory\n");
 
     microkit_mr_set(0, 1);
-    info = microkit_ppcall(1, microkit_msginfo_new(0, 1));
+    microkit_mr_set(1, req_pc_num);
+    info = microkit_ppcall(1, microkit_msginfo_new(0, 2));
     error = microkit_msginfo_get_label(info);
     if (error != seL4_NoError) {
         microkit_internal_crash(error);
@@ -163,29 +168,149 @@ void load_elf_payload(void)
 
 static int parse_start_cmd(const char *arg)
 {
-    // Skip leading spaces
-    while (*arg == ' ') arg++;
+    const char *filename_start;
+    const char *filename_end;
+    size_t filename_len;
+    uint32_t requested_pc_num = req_pc_num;
+
+    /* Skip spaces before the filename. */
+    while (*arg == ' ') {
+        arg++;
+    }
 
     if (*arg == '\0') {
-        sddf_printf("Invalid usage: 'start' requires a filename\n> ");
+        sddf_printf(
+            "Invalid usage: expected 'start <elf>' "
+            "or 'start <elf> <pc_num>'\n> "
+        );
         return 1;
     }
 
-    // Extract filename (stop at space or NUL)
-    const char *end = arg;
-    while (*end && *end != ' ') end++;
+    /*
+     * Parse the filename.
+     *
+     * Accepted forms:
+     *   start elf
+     *   start elf x
+     */
+    filename_start = arg;
 
-    size_t len = end - arg;
-    if (len >= sizeof(fname_buf)) len = sizeof(fname_buf) - 1;
+    while (*arg != '\0' && *arg != ' ') {
+        arg++;
+    }
 
-    memset(fname_buf, 0, FNAME_BUF_SIZE);
-    memcpy(fname_buf, arg, len);
-    fname_buf[len] = '\0';
+    filename_end = arg;
+    filename_len = (size_t)(filename_end - filename_start);
 
-    if (microkit_cothread_spawn(load_elf_payload, NULL) == LIBMICROKITCO_NULL_HANDLE) {
-        TSLDR_DBG_PRINT(PROGNAME "Cannot spawn cothread to load payload\n");
+    if (filename_len == 0) {
+        sddf_printf("Invalid usage: missing ELF filename\n> ");
         return 1;
     }
+
+    if (filename_len >= sizeof(fname_buf)) {
+        sddf_printf(
+            "Invalid usage: ELF filename is too long "
+            "(maximum %u characters)\n> ",
+            (unsigned int)(sizeof(fname_buf) - 1)
+        );
+        return 1;
+    }
+
+    /* Skip spaces after the filename. */
+    while (*arg == ' ') {
+        arg++;
+    }
+
+    /*
+     * An optional pc_num follows the filename.
+     * When omitted, retain the current req_pc_num value.
+     */
+    if (*arg != '\0') {
+        uint32_t value = 0;
+
+        /*
+         * The first character must be a decimal digit.
+         * This rejects negative values and signs such as "+1".
+         */
+        if (*arg < '0' || *arg > '9') {
+            sddf_printf(
+                "Invalid pc_num: expected an integer from %u to %u\n> ",
+                MIN_REQ_PC_NUM,
+                MAX_REQ_PC_NUM
+            );
+            return 1;
+        }
+
+        while (*arg >= '0' && *arg <= '9') {
+            uint32_t digit = (uint32_t)(*arg - '0');
+
+            /*
+             * The accepted maximum is only four, so reject as
+             * soon as the parsed value becomes too large.
+             */
+            value = value * 10U + digit;
+
+            if (value > MAX_REQ_PC_NUM) {
+                sddf_printf(
+                    "Invalid pc_num: expected an integer from %u to %u\n> ",
+                    MIN_REQ_PC_NUM,
+                    MAX_REQ_PC_NUM
+                );
+                return 1;
+            }
+
+            arg++;
+        }
+
+        /* Spaces after pc_num are permitted. */
+        while (*arg == ' ') {
+            arg++;
+        }
+
+        /* Reject another argument or malformed numeric text. */
+        if (*arg != '\0') {
+            sddf_printf(
+                "Invalid usage: expected 'start <elf>' "
+                "or 'start <elf> <pc_num>'\n> "
+            );
+            return 1;
+        }
+
+        if (value < MIN_REQ_PC_NUM || value > MAX_REQ_PC_NUM) {
+            sddf_printf(
+                "Invalid pc_num: expected an integer from %u to %u\n> ",
+                MIN_REQ_PC_NUM,
+                MAX_REQ_PC_NUM
+            );
+            return 1;
+        }
+
+        requested_pc_num = value;
+    }
+
+    /*
+     * Commit both parsed values only after the complete command has
+     * passed validation. An invalid command therefore cannot partially
+     * modify fname_buf or req_pc_num.
+     */
+    memset(fname_buf, 0, sizeof(fname_buf));
+    memcpy(fname_buf, filename_start, filename_len);
+    fname_buf[filename_len] = '\0';
+
+    req_pc_num = requested_pc_num;
+
+    if (
+        microkit_cothread_spawn(
+            load_elf_payload,
+            NULL
+        ) == LIBMICROKITCO_NULL_HANDLE
+    ) {
+        TSLDR_DBG_PRINT(
+            PROGNAME "Cannot spawn cothread to load payload\n"
+        );
+        return 1;
+    }
+
     microkit_cothread_yield();
 
     sddf_printf("> ");

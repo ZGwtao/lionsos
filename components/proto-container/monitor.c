@@ -98,6 +98,28 @@ char *fs_share;
 
 __attribute__((__section__(".monitor_svc_db"))) monitor_svcdb_t monitor_svc_db;
 
+#define MIN_REQ_PC_NUM 1U
+#define MAX_REQ_PC_NUM 4U
+
+typedef struct monitor_deploy_request {
+    uint32_t num_req_pc;
+} monitor_deploy_request_t;
+
+/*
+ * A value of zero means that there is no active deployment request.
+ * The request-specific count is copied into a local variable by the
+ * deployment cothread before it performs any work.
+ */
+static uint32_t req_pc_num = 0;
+static bool deploy_request_active = false;
+static monitor_deploy_request_t deploy_request;
+
+static void monitor_finish_deploy_request(void)
+{
+    req_pc_num = 0;
+    deploy_request.num_req_pc = 0;
+    deploy_request_active = false;
+}
 
 #define SET_PROTOCON_AS_INSTANTIATED(C) \
     do { protocon_states[C] = PROTOCON_ACTIVE; } while (0);
@@ -439,74 +461,127 @@ void monitor_main_load_elfs_into_protocon(int cid)
 }
 
 
-void monitor_call_deploy_protocon_second_half()
+void monitor_call_deploy_protocon_second_half(void)
 {
+    monitor_deploy_request_t *request = microkit_cothread_my_arg();
+    uint32_t num_req_pc = request->num_req_pc;
+
     TSLDR_DBG_PRINT(PROGNAME "entry of monitor_call_deploy_protocon_second_half\n");
+
+    if (num_req_pc < MIN_REQ_PC_NUM || num_req_pc > MAX_REQ_PC_NUM) {
+        TSLDR_DBG_PRINT(
+            PROGNAME "Invalid active deployment request count: %u\n",
+            num_req_pc
+        );
+        monitor_finish_deploy_request();
+        monitor_main_notify_frontend();
+        return;
+    }
 
     // FIXME: should not use shared memory to determine state...
     Elf64_Ehdr *payload_eh = (Elf64_Ehdr *)FE_MONITOR_REGION_CLIENT_PAYLOAD_BASE;
-    if (payload_eh->e_shoff == 0 || payload_eh->e_shnum == 0 || payload_eh->e_shentsize != sizeof(Elf64_Shdr)
-        || payload_eh->e_shstrndx == SHN_UNDEF || payload_eh->e_shstrndx >= payload_eh->e_shnum)
+    if (payload_eh->e_shoff == 0 ||
+        payload_eh->e_shnum == 0 ||
+        payload_eh->e_shentsize != sizeof(Elf64_Shdr) ||
+        payload_eh->e_shstrndx == SHN_UNDEF ||
+        payload_eh->e_shstrndx >= payload_eh->e_shnum)
     {
-        TSLDR_DBG_PRINT(PROGNAME "no section headers present or unexpected shentsize or invalid e_shstrndx\n");
+        TSLDR_DBG_PRINT(
+            PROGNAME
+            "no section headers present or unexpected shentsize "
+            "or invalid e_shstrndx\n"
+        );
+        monitor_finish_deploy_request();
         monitor_main_notify_frontend();
         return;
     }
 
-    // a request stat for OS services to be filled out by the client payload info...
     protocon_svc_req_t req;
 
-    // the section defined by the user application in elf for specifying requested OS services
-    Elf64_Shdr *user_defined_svc_section;
-    user_defined_svc_section = (Elf64_Shdr *)tsldr_miscutil_find_section_from_elf((void *)FE_MONITOR_REGION_CLIENT_PAYLOAD_BASE, PC_SVC_DESC_SECTION_NAME);
+    Elf64_Shdr *user_defined_svc_section =
+        (Elf64_Shdr *)tsldr_miscutil_find_section_from_elf(
+            (void *)FE_MONITOR_REGION_CLIENT_PAYLOAD_BASE,
+            PC_SVC_DESC_SECTION_NAME
+        );
     if (!user_defined_svc_section) {
-        TSLDR_DBG_PRINT(PROGNAME "Failed to restart container as no iface section specified\n");
+        TSLDR_DBG_PRINT(
+            PROGNAME
+            "Failed to restart container as no iface section specified\n"
+        );
+        monitor_finish_deploy_request();
         monitor_main_notify_frontend();
         return;
     }
 
-    // we will put the info of user-specified, requested OS services (user_defined_svc_section)
-    // into the request variable with a given format (req) and use it to query the OS service distribution map
-    // if we have any available dynamic PD that offers the superset of requested OS services,
-    // return the cid of that dynamic PD, update the state of the dynamic PD (protocon), and do the trusted loading work underneath
-    // otherwise, return early (when the cid returned is invalid)
-    int cid = monitor_match_ossvc_request_with_available_pd((void *)FE_MONITOR_REGION_CLIENT_PAYLOAD_BASE, user_defined_svc_section, &req, protocon_states);
-    if (cid >= PC_CHILD_PER_MONITOR_MAX_NUM || cid < 0) {
-        TSLDR_DBG_PRINT(PROGNAME "Failed to find suitable container for payload\n");
-        TSLDR_DBG_PRINT(PROGNAME "Fetched cid number is: %d\n", cid);
-        monitor_main_notify_frontend();
-        return;
+    for (uint32_t to_deploy = 0; to_deploy < num_req_pc; ++to_deploy) {
+        int cid = monitor_match_ossvc_request_with_available_pd(
+            (void *)FE_MONITOR_REGION_CLIENT_PAYLOAD_BASE,
+            user_defined_svc_section,
+            &req,
+            protocon_states
+        );
+        if (cid >= PC_CHILD_PER_MONITOR_MAX_NUM || cid < 0) {
+            TSLDR_DBG_PRINT(
+                PROGNAME
+                "Failed to find suitable container for payload\n"
+            );
+            TSLDR_DBG_PRINT(
+                PROGNAME "Requested PC number: %u\n",
+                num_req_pc
+            );
+            monitor_finish_deploy_request();
+            monitor_main_notify_frontend();
+            return;
+        }
+        TSLDR_DBG_PRINT(PROGNAME "cid available: %d\n", cid);
+
+        monitor_main_load_elfs_into_protocon(cid);
+
+        Elf64_Ehdr *client_payload_eh =
+            (Elf64_Ehdr *)(
+                (char *)PC_MONITOR_REGION_CLIENT_PAYLOAD_BASE +
+                PC_MONITOR_REGION_SIZE * cid
+            );
+
+        monitor_patch_payload_with_ossvc_info(
+            cid,
+            &req,
+            (uintptr_t)client_payload_eh,
+            msvcdb_base
+        );
+
+        tsldr_main_monitor_init_mdinfo(
+            (tsldr_mdinfodb_t *)microkit_trusted_loading_info,
+            cid,
+            (void *)(
+                (char *)TSLDR_METADATA_BASE +
+                cid * TSLDR_METADATA_SIZE
+            )
+        );
+
+        tsldr_miscutil_memcpy(
+            (char *)TSLDR_CONTEXT_BASE + cid * TSLDR_CONTEXT_SIZE,
+            &protocon_ctx_db[cid],
+            sizeof(tsldr_context_t)
+        );
+
+        tsldr_main_monitor_privilege_pd(cid);
+
+        SET_PROTOCON_AS_INSTANTIATED(cid)
+
+        Elf64_Ehdr *protocon_eh =
+            (Elf64_Ehdr *)FE_MONITOR_REGION_PROTOCON_ELF_BASE;
+
+        microkit_pd_restart(cid, protocon_eh->e_entry);
+        TSLDR_DBG_PRINT(
+            PROGNAME
+            "Started child PD at entrypoint address: %x\n",
+            protocon_eh->e_entry
+        );
     }
-    TSLDR_DBG_PRINT(PROGNAME "cid available: %d\n", cid);
 
-    monitor_main_load_elfs_into_protocon(cid);
-
-    Elf64_Ehdr *client_payload_eh = (Elf64_Ehdr *)((char *)PC_MONITOR_REGION_CLIENT_PAYLOAD_BASE + PC_MONITOR_REGION_SIZE * cid);
-    // when the client payload is loaded into the memory of the dynamic PD,
-    // we will patch the payload with the information of where to access the OS services (i.e., pointers to the OS services)
-    // we don't patch it on the shared memory of frontend side, as it is not correct to change the content of source input
-    monitor_patch_payload_with_ossvc_info(cid, &req, (uintptr_t)client_payload_eh, msvcdb_base);
-
-    // prepare the trusted loading metadata for this dynamic PD (protocon)
-    // the information source is patched by microkit (microkit_trusted_loading_info)
-    tsldr_main_monitor_init_mdinfo((tsldr_mdinfodb_t *)microkit_trusted_loading_info, cid, (void *)((char *)TSLDR_METADATA_BASE + cid * TSLDR_METADATA_SIZE));
-
-    // if a dynamic pd has a trusted loading context, copy the context from the db into the dynamic pd's shared memory region for trusted loading
-    // otherwise just do nothing as the trusted loader will check the metadata and find it is not initialised, then skip the restoring process and jump to the next steps directly
-    tsldr_miscutil_memcpy((char *)TSLDR_CONTEXT_BASE + cid * TSLDR_CONTEXT_SIZE, &protocon_ctx_db[cid], sizeof(tsldr_context_t));
-
-    // before trusted loading, grant high privileges to the dynamic PD (protocon)
-    tsldr_main_monitor_privilege_pd(cid);
-
-    // mark the matched dynamic PD (protocon) as instantiated (active, in use)
-    SET_PROTOCON_AS_INSTANTIATED(cid)
-    
-    /* --- at this stage, start the protocon --- */
-
-    Elf64_Ehdr *protocon_eh = (Elf64_Ehdr *)FE_MONITOR_REGION_PROTOCON_ELF_BASE;
-    /* switch to trusted loader in protocon */
-    microkit_pd_restart(cid, protocon_eh->e_entry);
-    TSLDR_DBG_PRINT(PROGNAME "Started child PD at entrypoint address: %x\n", protocon_eh->e_entry);
+    monitor_finish_deploy_request();
+    monitor_main_notify_frontend();
 }
 
 
@@ -527,6 +602,11 @@ void init(void)
     for (int i = 0; i < PC_CHILD_PER_MONITOR_MAX_NUM; ++i) {
         protocon_states[i] = PROTOCON_PASSIVE;
     }
+
+    req_pc_num = 0;
+    deploy_request.num_req_pc = 0;
+    deploy_request_active = false;
+
     // clean all loader context...
     tsldr_miscutil_memset(protocon_ctx_db, 0, sizeof(tsldr_context_t) * PC_CHILD_PER_MONITOR_MAX_NUM);
 
@@ -591,18 +671,68 @@ seL4_Bool fault(microkit_child child, microkit_msginfo msginfo, microkit_msginfo
     return seL4_False;
 }
 
-seL4_MessageInfo_t monitor_call_deploy_protocon_first_half(void)
+seL4_MessageInfo_t monitor_call_deploy_protocon_first_half(seL4_Word num_req_pc)
 {
-    TSLDR_DBG_PRINT(PROGNAME "entry of monitor_call_deploy_protocon_first_half\n");
-    seL4_Word err;
-    tsldr_main_check_elf_integrity(FE_MONITOR_REGION_PROTOCON_ELF_BASE, &err);
-    if (err) {
-        TSLDR_DBG_PRINT(PROGNAME "Integrity check failed for protocon elf\n");
-        monitor_main_notify_frontend();
-        return microkit_msginfo_new(seL4_NoError, 0);
+    if (num_req_pc < MIN_REQ_PC_NUM || num_req_pc > MAX_REQ_PC_NUM) {
+        TSLDR_DBG_PRINT(
+            PROGNAME "Invalid requested PC count: %lu\n",
+            (unsigned long)num_req_pc
+        );
+        return microkit_msginfo_new(-1, 0);
     }
-    TSLDR_DBG_PRINT(PROGNAME "Integrity check passed for protocon elf\n");
-    monitor_main_cothread_spawn(monitor_call_deploy_protocon_second_half, NULL, "cannot initialise monitor cothread for monitor call.\n");
+
+    /*
+     * The frontend ELF buffers and deployment context are shared.
+     * Only one deployment request may be active at a time.
+     */
+    if (deploy_request_active) {
+        TSLDR_DBG_PRINT(
+            PROGNAME
+            "Rejected deploy request: another deployment is still active\n"
+        );
+        return microkit_msginfo_new(-1, 0);
+    }
+
+    TSLDR_DBG_PRINT(
+        PROGNAME "entry of monitor_call_deploy_protocon_first_half\n"
+    );
+
+    seL4_Word err;
+    tsldr_main_check_elf_integrity(
+        FE_MONITOR_REGION_PROTOCON_ELF_BASE,
+        &err
+    );
+    if (err) {
+        TSLDR_DBG_PRINT(
+            PROGNAME "Integrity check failed for protocon elf\n"
+        );
+        monitor_main_notify_frontend();
+        return microkit_msginfo_new(err, 0);
+    }
+
+    deploy_request.num_req_pc = (uint32_t)num_req_pc;
+    req_pc_num = (uint32_t)num_req_pc;
+    deploy_request_active = true;
+
+    TSLDR_DBG_PRINT(
+        PROGNAME "Integrity check passed for protocon elf\n"
+    );
+
+    if (microkit_cothread_spawn(
+            monitor_call_deploy_protocon_second_half,
+            &deploy_request
+        ) == LIBMICROKITCO_NULL_HANDLE)
+    {
+        TSLDR_DBG_PRINT(
+            PROGNAME
+            "cannot initialise monitor cothread for monitor call.\n"
+        );
+        monitor_finish_deploy_request();
+        monitor_main_notify_frontend();
+        return microkit_msginfo_new(-1, 0);
+    }
+
+    microkit_cothread_yield();
     return microkit_msginfo_new(seL4_NoError, 0);
 }
 
@@ -773,7 +903,8 @@ seL4_MessageInfo_t monitor_main_handle_pccall(microkit_channel ch)
     switch (call_id) {
     case PC_MONITOR_CALL_DEPLOY:
         TSLDR_DBG_PRINT(PROGNAME "Deploy an application to a dynamic PD\n");
-        ret = monitor_call_deploy_protocon_first_half();
+        seL4_Word num_req_pc = microkit_mr_get(1);
+        ret = monitor_call_deploy_protocon_first_half(num_req_pc);
         break;
     case PC_MONITOR_CALL_FLIP_ACL_RULE:
         pd_io_acl_rule = !pd_io_acl_rule;
