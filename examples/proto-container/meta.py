@@ -6,6 +6,8 @@ import shutil
 import subprocess
 import argparse
 import struct
+import importlib.util
+from pathlib import Path
 from random import randint
 from dataclasses import dataclass
 from typing import List, Tuple
@@ -27,6 +29,52 @@ Map = SystemDescription.Map
 Channel = SystemDescription.Channel
 
 
+def load_vm_layout(path: str) -> dict[str, dict[str, int]]:
+    layout_path = Path(path).resolve()
+    if not layout_path.is_file():
+        raise FileNotFoundError(f"VM layout does not exist: {layout_path}")
+
+    spec = importlib.util.spec_from_file_location("libtrustedlo_vm_layout", layout_path)
+    if spec is None or spec.loader is None:
+        raise RuntimeError(f"Cannot load VM layout: {layout_path}")
+
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+
+    regions = getattr(module, "VM_REGIONS", None)
+    if not isinstance(regions, list):
+        raise TypeError("VM layout must define VM_REGIONS as a list")
+
+    result: dict[str, dict[str, int]] = {}
+    for index, region in enumerate(regions):
+        if not isinstance(region, dict):
+            raise TypeError(f"VM_REGIONS[{index}] must be a dictionary")
+        try:
+            name = region["name"]
+            base = region["base"]
+            size = region["size"]
+        except KeyError as error:
+            raise ValueError(
+                f"VM_REGIONS[{index}] is missing {error.args[0]!r}"
+            ) from error
+        if not isinstance(name, str) or not isinstance(base, int) or not isinstance(size, int):
+            raise TypeError(
+                f"VM_REGIONS[{index}] must contain string name and integer base/size"
+            )
+        if name in result:
+            raise ValueError(f"Duplicate VM region: {name}")
+        result[name] = {"base": base, "size": size}
+
+    return result
+
+
+def vm_region(name: str) -> dict[str, int]:
+    try:
+        return vm_layout[name]
+    except KeyError as error:
+        raise KeyError(f"Required VM region is missing: {name}") from error
+
+
 def connect_protocon_with_monitor(
     monitor: SystemDescription.ProtectionDomain,
     pc: SystemDescription.ProtectionDomain,
@@ -34,14 +82,14 @@ def connect_protocon_with_monitor(
 ):
     name_prefix = monitor.name + "/" + pc.name + "/"
 
-    container_elf = MemoryRegion(sdf, name_prefix + "container/elf", 0x800000)
-    trampoline_elf = MemoryRegion(sdf, name_prefix + "trampoline/elf", 0x800000)
-    trampoline_exec = MemoryRegion(sdf, name_prefix + "trampoline/exec", 0x800000)
-    tsldr_exec = MemoryRegion(sdf, name_prefix + "tsldr/exec", 0x800000)
-    tsldr_data = MemoryRegion(sdf, name_prefix + "tsldr/data", 0x1000)
-    ossvc_data = MemoryRegion(sdf, name_prefix + "ossvc/data", 0x1000)
-    tsldr_context = MemoryRegion(sdf, name_prefix + "tsldr/context", 0x1000)
-    trampoline_args = MemoryRegion(sdf, name_prefix + "tsldr/trampoline/args", 0x1000)
+    container_elf = MemoryRegion(sdf, name_prefix + "container/elf", vm_region("CONTAINER_IMAGE")["size"])
+    trampoline_elf = MemoryRegion(sdf, name_prefix + "trampoline/elf", vm_region("TRAMPOLINE_IMAGE")["size"])
+    trampoline_exec = MemoryRegion(sdf, name_prefix + "trampoline/exec", vm_region("TRAMPOLINE_PROGRAM")["size"])
+    tsldr_exec = MemoryRegion(sdf, name_prefix + "tsldr/exec", vm_region("LOADER_PROGRAM")["size"])
+    tsldr_data = MemoryRegion(sdf, name_prefix + "tsldr/data", vm_region("LOADER_METADATA")["size"])
+    ossvc_data = MemoryRegion(sdf, name_prefix + "ossvc/data", vm_region("OSSVC_METADATA")["size"])
+    tsldr_context = MemoryRegion(sdf, name_prefix + "tsldr/context", vm_region("LOADER_CONTEXT")["size"])
+    trampoline_args = MemoryRegion(sdf, name_prefix + "tsldr/trampoline/args", vm_region("TRAMPOLINE_ARGS")["size"])
 
     sdf.add_mr(container_elf)
     sdf.add_mr(trampoline_elf)
@@ -65,26 +113,26 @@ def connect_protocon_with_monitor(
         Map(container_elf, 0x50000000 + cid * 0x800000, perms="rw", cached="true")
     )
 
-    pc.add_map(Map(tsldr_exec, 0x0200000, perms="rwx", cached="true"))
-    pc.add_map(Map(tsldr_data, 0x0A00000, perms="rw", cached="true"))
-    pc.add_map(Map(ossvc_data, 0x0A01000, perms="rw", cached="true"))
-    pc.add_map(Map(trampoline_args, 0x0A02000, perms="rw", cached="true"))
-    pc.add_map(Map(tsldr_context, 0x0E00000, perms="rw", cached="true"))
-    pc.add_map(Map(trampoline_elf, 0x1000000, perms="rwx", cached="true"))
-    pc.add_map(Map(trampoline_exec, 0x1800000, perms="rwx", cached="true"))
-    pc.add_map(Map(container_elf, 0x2000000, perms="rw", cached="true"))
+    pc.add_map(Map(tsldr_exec, vm_region("LOADER_PROGRAM")["base"], perms="rwx", cached="true"))
+    pc.add_map(Map(tsldr_data, vm_region("LOADER_METADATA")["base"], perms="rw", cached="true"))
+    pc.add_map(Map(ossvc_data, vm_region("OSSVC_METADATA")["base"], perms="rw", cached="true"))
+    pc.add_map(Map(trampoline_args, vm_region("TRAMPOLINE_ARGS")["base"], perms="rw", cached="true"))
+    pc.add_map(Map(tsldr_context, vm_region("LOADER_CONTEXT")["base"], perms="rw", cached="true"))
+    pc.add_map(Map(trampoline_elf, vm_region("TRAMPOLINE_IMAGE")["base"], perms="rwx", cached="true"))
+    pc.add_map(Map(trampoline_exec, vm_region("TRAMPOLINE_PROGRAM")["base"], perms="rwx", cached="true"))
+    pc.add_map(Map(container_elf, vm_region("CONTAINER_IMAGE")["base"], perms="rw", cached="true"))
 
-    trampoline_stack = MemoryRegion(sdf, name_prefix + "trampoline/stack", 0x1000)
-    container_stack = MemoryRegion(sdf, name_prefix + "container/stack", 0x1000)
-    container_exec = MemoryRegion(sdf, name_prefix + "container/exec", 0x2000000)
+    trampoline_stack = MemoryRegion(sdf, name_prefix + "trampoline/stack", vm_region("TRAMPOLINE_STACK")["size"])
+    container_stack = MemoryRegion(sdf, name_prefix + "container/stack", vm_region("CONTAINER_STACK")["size"])
+    container_exec = MemoryRegion(sdf, name_prefix + "container/exec", vm_region("CONTAINER_PROGRAM")["size"])
 
     sdf.add_mr(trampoline_stack)
     sdf.add_mr(container_stack)
     sdf.add_mr(container_exec)
 
-    pc.add_map(Map(trampoline_stack, 0x00FFFDFF000, perms="rw", cached="true"))
-    pc.add_map(Map(container_stack, 0x00FFFBFF000, perms="rw", cached="true"))
-    pc.add_map(Map(container_exec, 0x2800000, perms="rwx", cached="true"))
+    pc.add_map(Map(trampoline_stack, vm_region("TRAMPOLINE_STACK")["base"], perms="rw", cached="true"))
+    pc.add_map(Map(container_stack, vm_region("CONTAINER_STACK")["base"], perms="rw", cached="true"))
+    pc.add_map(Map(container_exec, vm_region("CONTAINER_PROGRAM")["base"], perms="rwx", cached="true"))
 
     sdf.add_channel(Channel(a=monitor, b=pc, a_id=(24 + cid), b_id=15, pp_b=True))
     sdf.add_channel(Channel(a=monitor, b=pc, a_id=(40 + cid), b_id=16))
@@ -400,8 +448,16 @@ if __name__ == "__main__":
     parser.add_argument("--output", required=True)
     parser.add_argument("--sdf", required=True)
     parser.add_argument("--objcopy", required=True)
+    parser.add_argument(
+        "--vm-layout",
+        required=True,
+        help="path to libtrustedlo config/vm_layout.py",
+    )
 
     args = parser.parse_args()
+
+    global vm_layout
+    vm_layout = load_vm_layout(args.vm_layout)
 
     board = next(filter(lambda b: b.name == args.board, BOARDS))
 
