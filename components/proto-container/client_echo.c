@@ -37,7 +37,8 @@ fs_client_config_t fs_config;
 static void app_early_init(void)
 {
     microkit_dbg_puts("application constructor\n");
-    trampoline_args_t *args = (trampoline_args_t *)0x0A02000;
+    // FIXME: hardcoded for now.
+    trampoline_args_t *args = (trampoline_args_t *)0xa05000;
     client_args_t *client_args =
         (client_args_t *)((unsigned char *)args + sizeof(trampoline_args_t));
 
@@ -257,9 +258,10 @@ void notified(microkit_channel ch)
         uint64_t time = sddf_timer_time_now(timer_channel);
         sddf_printf("CLIENT|INFO: timer: %lu ns\n", time);
         /* broadcast */
-        if (self_id % 2)
-            send_to_pd(0xa);
-        else
-            send_to_pd(0x5);
+        // if (self_id % 2)
+        //     send_to_pd(0xa);
+        // else
+        //     send_to_pd(0x5);
+        send_to_pd(0xff);
     }
 }
