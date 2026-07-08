@@ -162,6 +162,15 @@ def connect_protocon_with_monitor(
             cached="false",
         )
     )
+    
+    uk_boot_stack = MemoryRegion(sdf, name_prefix + "uk_boot_stack", (0x1000 * (1 << 4)))
+    uk_boot_heap = MemoryRegion(sdf, name_prefix + "uk_boot_heap", (0x1000 * (1 << 10)))
+
+    sdf.add_mr(uk_boot_stack)
+    sdf.add_mr(uk_boot_heap)
+
+    pc.add_map(Map(uk_boot_stack, 0xff008000, perms="rw", cached="true"))
+    pc.add_map(Map(uk_boot_heap, 0xff018000, perms="rw", cached="true"))
 
 def connect_frontend_with_monitor(
     monitor: SystemDescription.ProtectionDomain,
