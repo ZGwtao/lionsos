@@ -119,10 +119,8 @@ monitor.elf: $(PC_MONITOR_OBJS) pc/$(PC_LIBTRUSTEDLO_OBJ) $(PC_LIBMICROKITCO_OBJ
 			 $(CONTAINER_LIBC_LIB)
 	$(LD) $(LDFLAGS) $^ $(LIBS) -o $@
 
-protocon.elf: LDFLAGS += -L$(BOARD_DIR)/lib
-protocon.elf: $(PC_PROTOCON_OBJS) \
-			  pc/$(PC_LIBTRUSTEDLO_OBJ)
-	$(LD) $(LDFLAGS) $^ $(LIBS) -o $@
+protocon.elf:
+	cp $(BUILD_DIR)/pc/libtrustedlo/loader.elf $@
 
 trampoline.elf:
 	cp $(BUILD_DIR)/pc/libtrustedlo/trampoline.elf $@
