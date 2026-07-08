@@ -209,6 +209,23 @@ static int parse_lspcs_cmd(void)
     return 0;
 }
 
+static int parse_flip_cmd(void)
+{
+    microkit_msginfo info;
+    seL4_Error error;
+
+    /* syscall id: flip acl rule */
+    microkit_mr_set(0, 17);
+
+    info = microkit_ppcall(1, microkit_msginfo_new(0, 1));
+    error = microkit_msginfo_get_label(info);
+    if (error != seL4_NoError) {
+        microkit_internal_crash(error);
+    }
+    sddf_printf("> \n");
+    return 0;
+}
+
 static int parse_resume_cmd(const char *arg)
 {
     while (*arg == ' ') arg++;
@@ -442,6 +459,14 @@ static int handle_line(const char *line)
             return 1;
         }
         return parse_lspcs_cmd();
+    } else if (strncmp(line, "flip", 4) == 0) {
+        const char *after = line + 4;
+        while (*after == ' ') after++;
+        if (*after != '\0') {
+            sddf_printf("Invalid command format\n");
+            return 1;
+        }
+        return parse_flip_cmd();
     } else if (strncmp(line, "stop", 4) == 0) {
         const char *after = line + 4;
         if (*after == '\0') {

@@ -78,6 +78,7 @@ protocon_lifecycle_state_t protocon_states[PC_CHILD_PER_MONITOR_MAX_NUM];
 #define PC_MONITOR_CALL_RESUME (4)
 #define PC_MONITOR_CALL_LIST_PROTOCONS (5)
 #define PC_MONITOR_CALL_QUERY_PROTOCONS (10)
+#define PC_MONITOR_CALL_FLIP_ACL_RULE (17)
 #define PC_MONITOR_CALL_BACKUP_CONTEXT (20)
 #define PC_MONITOR_CALL_TERMINATE_EXT (6)
 #define PC_MONITOR_CALL_TERMINATE (0x100)
@@ -107,9 +108,9 @@ __attribute__((__section__(".monitor_svc_db"))) monitor_svcdb_t monitor_svc_db;
 #define SET_PROTOCON_AS_AVAILABLE(C) \
     do { protocon_states[C] = PROTOCON_PASSIVE; } while (0);
 
-
-
 seL4_MessageInfo_t monitor_call_restore_protocon(microkit_channel ch);
+
+seL4_Word pd_io_acl_rule = 0;
 
 #define PD_IO_CLIENT_COUNT              4u
 #define PD_IO_MONITOR_NOTIFY_BASE       40u
@@ -242,6 +243,17 @@ static void monitor_forward_payload(uint32_t sender_cid,
 
         if (target_cid == sender_cid) {
             continue;
+        }
+        if (pd_io_acl_rule) {
+        #if 1
+            if ((sender_cid % 2) != (target_cid % 2)) {
+                continue;
+            }
+        } else {
+            if ((sender_cid % 2) == (target_cid % 2)) {
+                continue;
+            }
+        #endif
         }
 
         uint8_t target_bit = (uint8_t)(1u << target_cid);
@@ -762,6 +774,9 @@ seL4_MessageInfo_t monitor_main_handle_pccall(microkit_channel ch)
     case PC_MONITOR_CALL_DEPLOY:
         TSLDR_DBG_PRINT(PROGNAME "Deploy an application to a dynamic PD\n");
         ret = monitor_call_deploy_protocon_first_half();
+        break;
+    case PC_MONITOR_CALL_FLIP_ACL_RULE:
+        pd_io_acl_rule = !pd_io_acl_rule;
         break;
     case PC_MONITOR_CALL_BACKUP_CONTEXT:
         TSLDR_DBG_PRINT(PROGNAME "Backing up trusted loading context for dynamic PD with ID: %d\n", monitor_main_get_cid_from_channel(ch));
