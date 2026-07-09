@@ -447,9 +447,9 @@ static inline void monitor_main_notify_frontend()
 
 void monitor_main_load_elfs_into_protocon(int cid)
 {
-    uintptr_t payload_base = PC_MONITOR_REGION_CLIENT_PAYLOAD_BASE + PC_MONITOR_REGION_SIZE * cid;
-    uintptr_t protocon_base = PC_MONITOR_REGION_PROTOCON_ELF_BASE + PC_MONITOR_REGION_SIZE * cid;
-    uintptr_t trampoline_base = PC_MONITOR_REGION_TRAMPOLINE_ELF_BASE + PC_MONITOR_REGION_SIZE * cid;
+    uintptr_t payload_base = monitor_vm_region_base(&monitor_vm_layout.container_image, cid);
+    uintptr_t protocon_base = monitor_vm_region_base(&monitor_vm_layout.loader_program, cid);
+    uintptr_t trampoline_base = monitor_vm_region_base(&monitor_vm_layout.trampoline_image, cid);
 
     tsldr_miscutil_load_elf((void*)protocon_base, (const Elf64_Ehdr *)FE_MONITOR_REGION_PROTOCON_ELF_BASE);
     TSLDR_DBG_PRINT(PROGNAME "Copied proto container to child PD's memory region\n");
@@ -539,9 +539,9 @@ void monitor_call_deploy_protocon_second_half(void)
         monitor_main_load_elfs_into_protocon(cid);
 
         Elf64_Ehdr *client_payload_eh =
-            (Elf64_Ehdr *)(
-                (char *)PC_MONITOR_REGION_CLIENT_PAYLOAD_BASE +
-                PC_MONITOR_REGION_SIZE * cid
+            (Elf64_Ehdr *)monitor_vm_region_base(
+                &monitor_vm_layout.container_image,
+                cid
             );
 
         monitor_patch_payload_with_ossvc_info(
@@ -554,14 +554,17 @@ void monitor_call_deploy_protocon_second_half(void)
         tsldr_main_monitor_init_mdinfo(
             (tsldr_mdinfodb_t *)microkit_trusted_loading_info,
             cid,
-            (void *)(
-                (char *)TSLDR_METADATA_BASE +
-                cid * TSLDR_METADATA_SIZE
+            (void *)monitor_vm_region_base(
+                &monitor_vm_layout.loader_metadata,
+                cid
             )
         );
 
         tsldr_miscutil_memcpy(
-            (char *)TSLDR_CONTEXT_BASE + cid * TSLDR_CONTEXT_SIZE,
+            (char *)monitor_vm_region_base(
+                &monitor_vm_layout.loader_context,
+                cid
+            ),
             &protocon_ctx_db[cid],
             sizeof(tsldr_context_t)
         );
@@ -886,7 +889,8 @@ seL4_MessageInfo_t monitor_call_backup_protocon_loading_context(microkit_channel
 {
     int cid = monitor_main_get_cid_from_channel(ch);
 
-    tsldr_context_t *context = (tsldr_context_t *)((unsigned char *)TSLDR_CONTEXT_BASE + cid * TSLDR_CONTEXT_SIZE);
+    tsldr_context_t *context = \
+        (tsldr_context_t *)monitor_vm_region_base(&monitor_vm_layout.loader_context, cid);
 
     tsldr_miscutil_memcpy(&protocon_ctx_db[cid], context, sizeof(tsldr_context_t));
 
