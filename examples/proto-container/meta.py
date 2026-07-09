@@ -226,7 +226,7 @@ def connect_protocon_with_monitor(
     pc.add_map(Map(uk_boot_stack, 0xff008000, perms="rw", cached="true"))
     pc.add_map(Map(uk_boot_heap, 0xff018000, perms="rw", cached="true"))
 
-def connect_frontend_with_monitor(
+def connect_orchestrator_with_monitor(
     monitor: SystemDescription.ProtectionDomain,
     orchestrator: SystemDescription.ProtectionDomain
 ):
@@ -312,8 +312,8 @@ def generate(sdf_path: str, output_dir: str, dtb: DeviceTree):
     )
     blk_system = Sddf.Blk(sdf, blk_node, blk_driver, blk_virt)
 
-    pd_frontend = ProtectionDomain(
-        "frontend", "frontend.elf", priority=60, stack_size=0x10000
+    pd_orchestrator = ProtectionDomain(
+        "orchestrator", "orchestrator.elf", priority=60, stack_size=0x10000
     )
     # noted that the 'is_monitor' feature is enabled for container monitor, which needs sdfgen support
     pd_monitor = ProtectionDomain(
@@ -324,9 +324,9 @@ def generate(sdf_path: str, output_dir: str, dtb: DeviceTree):
         is_monitor=True,
     )
 
-    connect_frontend_with_monitor(pd_monitor, pd_frontend)
+    connect_orchestrator_with_monitor(pd_monitor, pd_orchestrator)
 
-    serial_system.add_client(pd_frontend)
+    serial_system.add_client(pd_orchestrator)
     serial_system.add_client(pd_monitor)
 
     if board.name == "maaxboard":
@@ -347,13 +347,13 @@ def generate(sdf_path: str, output_dir: str, dtb: DeviceTree):
     connect_protocon_with_monitor(pd_monitor, protocon2, 2)
     connect_protocon_with_monitor(pd_monitor, protocon3, 3)
 
-    pd_fs_frontend = ProtectionDomain("frontend_fs", "frontend_fs.elf", priority=96)
+    pd_fs_orchestrator = ProtectionDomain("orchestrator_fs", "orchestrator_fs.elf", priority=96)
     pd_fs_monitor = ProtectionDomain("monitor_fs", "monitor_fs.elf", priority=96)
     pd_fs_sp0 = ProtectionDomain("protocon0_fs", "protocon0_fs.elf", priority=96)
     pd_fs_sp1 = ProtectionDomain("protocon1_fs", "protocon1_fs.elf", priority=96)
 
-    frontend_fs = LionsOs.FileSystem.Fat(
-        sdf, pd_fs_frontend, pd_frontend, blk=blk_system, partition=0
+    orchestrator_fs = LionsOs.FileSystem.Fat(
+        sdf, pd_fs_orchestrator, pd_orchestrator, blk=blk_system, partition=0
     )
     monitor_fs = LionsOs.FileSystem.Fat(
         sdf, pd_fs_monitor, pd_monitor, blk=blk_system, partition=1
@@ -379,8 +379,8 @@ def generate(sdf_path: str, output_dir: str, dtb: DeviceTree):
         serial_driver,
         serial_virt_tx,
         serial_virt_rx,
-        pd_frontend,
-        pd_fs_frontend,
+        pd_orchestrator,
+        pd_fs_orchestrator,
         timer_driver,
         blk_driver,
         blk_virt,
@@ -396,8 +396,8 @@ def generate(sdf_path: str, output_dir: str, dtb: DeviceTree):
     assert protocon0_fs.serialise_config(output_dir)
     assert protocon1_fs.connect(optional=True)
     assert protocon1_fs.serialise_config(output_dir)
-    assert frontend_fs.connect()
-    assert frontend_fs.serialise_config(output_dir)
+    assert orchestrator_fs.connect()
+    assert orchestrator_fs.serialise_config(output_dir)
     assert monitor_fs.connect()
     assert monitor_fs.serialise_config(output_dir)
     assert serial_system.connect()
@@ -407,16 +407,16 @@ def generate(sdf_path: str, output_dir: str, dtb: DeviceTree):
     assert blk_system.connect()
     assert blk_system.serialise_config(output_dir)
 
-    copy_elf("fat", "frontend_fs", None)
+    copy_elf("fat", "orchestrator_fs", None)
     copy_elf("fat", "monitor_fs", None)
     copy_elf("fat", "protocon0_fs", None)
     copy_elf("fat", "protocon1_fs", None)
 
     update_elf_section(
-        "frontend_fs.elf", "blk_client_config", "blk_client_frontend_fs"
+        "orchestrator_fs.elf", "blk_client_config", "blk_client_orchestrator_fs"
     )
     update_elf_section(
-        "frontend_fs.elf", "fs_server_config", "fs_server_frontend_fs"
+        "orchestrator_fs.elf", "fs_server_config", "fs_server_orchestrator_fs"
     )
 
     update_elf_section(

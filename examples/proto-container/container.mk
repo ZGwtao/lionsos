@@ -6,7 +6,7 @@
 IMAGES := \
 	timer_driver.elf \
 	monitor.elf \
-	frontend.elf \
+	orchestrator.elf \
 	fat.elf \
 	client_echo.elf \
 	client_looping.elf \
@@ -111,8 +111,8 @@ $(SYSTEM_FILE): $(METAPROGRAM) $(IMAGES) $(DTB)
 	$(OBJCOPY) --update-section .serial_virt_tx_config=serial_virt_tx.data serial_virt_tx.elf
 	$(OBJCOPY) --update-section .serial_virt_rx_config=serial_virt_rx.data serial_virt_rx.elf
 	$(OBJCOPY) --update-section .device_resources=timer_driver_device_resources.data timer_driver.elf
-	$(OBJCOPY) --update-section .serial_client_config=serial_client_frontend.data frontend.elf
-	$(OBJCOPY) --update-section .fs_client_config=fs_client_frontend.data frontend.elf
+	$(OBJCOPY) --update-section .serial_client_config=serial_client_orchestrator.data orchestrator.elf
+	$(OBJCOPY) --update-section .fs_client_config=fs_client_orchestrator.data orchestrator.elf
 	$(OBJCOPY) --update-section .fs_client_config=fs_client_container_monitor.data monitor.elf
 	$(OBJCOPY) --update-section .device_resources=blk_driver_device_resources.data blk_driver.elf
 	$(OBJCOPY) --update-section .blk_driver_config=blk_driver.data blk_driver.elf

@@ -65,11 +65,11 @@ PC_FAULTING_CLIENT_OBJS := pc/client_faulting.o
 PC_LOOPING_CLIENT_OBJS := pc/client_looping.o
 PC_TIMEOUT_CLIENT_OBJS := pc/client_timeout.o
 PC_MONITOR_OBJS := pc/monitor.o pc/ossvc.o pc/pico_vfs.o
-PC_FRONTEND_OBJS :=	pc/frontend.o pc/pico_vfs.o
+PC_ORCHESTRATOR_OBJS :=	pc/orchestrator.o pc/pico_vfs.o
 PC_PROTOCON_OBJS := 
 PC_TRAMPOLINE_OBJS :=
 PC_OBJS := \
-	PC_FRONTEND_OBJS \
+	PC_ORCHESTRATOR_OBJS \
 	PC_MONITOR_OBJS \
 	PC_PROTOCON_OBJS \
 	PC_TRAMPOLINE_OBJS \
@@ -125,10 +125,10 @@ pc/%.o: $(PC_SRC_DIR)/%.c | pc $(PC_MONITOR_VM_LAYOUT_HEADER)
 	$(CC) -c $(CFLAGS) $< -o $@
 
 
-frontend.elf: LDFLAGS += -L$(BOARD_DIR)/lib
-frontend.elf: $(PC_FRONTEND_OBJS) \
-			  $(PC_LIBMICROKITCO_OBJ) pc/$(PC_LIBTRUSTEDLO_OBJ) libsddf_util.a \
-              $(CONTAINER_LIBC_LIB)
+orchestrator.elf: LDFLAGS += -L$(BOARD_DIR)/lib
+orchestrator.elf: $(PC_ORCHESTRATOR_OBJS) \
+			  	  $(PC_LIBMICROKITCO_OBJ) pc/$(PC_LIBTRUSTEDLO_OBJ) libsddf_util.a \
+              	  $(CONTAINER_LIBC_LIB)
 	$(LD) $(LDFLAGS) $^ $(LIBS) -o $@
 
 monitor.elf: LDFLAGS += -L$(BOARD_DIR)/lib

@@ -27,12 +27,12 @@
 #define PC_MONITOR_REGION_CLIENT_PAYLOAD_BASE MONITOR_VM_CONTAINER_IMAGE_BASE
 
 // each elf file is of the same upper size limit
-#define FE_MONITOR_REGION_SIZE (0x800000)
-// elf files from frontend as external files...
-// shared memory with the frontend PD
-#define FE_MONITOR_REGION_PROTOCON_ELF_BASE (0x6000000)
-#define FE_MONITOR_REGION_TRAMPOLINE_ELF_BASE (0x6800000)
-#define FE_MONITOR_REGION_CLIENT_PAYLOAD_BASE (0x7000000)
+#define ORC_MONITOR_REGION_SIZE (0x800000)
+// elf files from orchestrator as external files...
+// shared memory with the orchestrator PD
+#define ORC_MONITOR_REGION_PROTOCON_ELF_BASE (0x6000000)
+#define ORC_MONITOR_REGION_TRAMPOLINE_ELF_BASE (0x6800000)
+#define ORC_MONITOR_REGION_CLIENT_PAYLOAD_BASE (0x7000000)
 
 __attribute__((__section__(".fs_client_config"))) fs_client_config_t fs_config;
 
@@ -69,8 +69,8 @@ protocon_lifecycle_state_t protocon_states[PC_CHILD_PER_MONITOR_MAX_NUM];
 // if not match, it means the metadata is not initialised
 #define TSLDR_MDINFO_HASH   (0xffff)
 
-// channels id for monitor PD to communicate with the frontend PD and the dynamic PDs (protocons)
-#define PC_MONITOR_FRONTEND_CHANNEL (15)
+// channels id for monitor PD to communicate with the orchestrator PD and the dynamic PDs (protocons)
+#define PC_MONITOR_ORCHESTRATOR_CHANNEL (15)
 #define PC_MONITOR_PROTOCON_BASE_CHANNEL (24)
 
 // monitor call numbers
@@ -440,9 +440,9 @@ void monitor_main_init_storage(void)
 }
 
 
-static inline void monitor_main_notify_frontend()
+static inline void monitor_main_notify_orchestrator()
 {
-    microkit_notify(PC_MONITOR_FRONTEND_CHANNEL);
+    microkit_notify(PC_MONITOR_ORCHESTRATOR_CHANNEL);
 }
 
 void monitor_main_load_elfs_into_protocon(int cid)
@@ -451,13 +451,13 @@ void monitor_main_load_elfs_into_protocon(int cid)
     uintptr_t protocon_base = monitor_vm_region_base(&monitor_vm_layout.loader_program, cid);
     uintptr_t trampoline_base = monitor_vm_region_base(&monitor_vm_layout.trampoline_image, cid);
 
-    tsldr_miscutil_load_elf((void*)protocon_base, (const Elf64_Ehdr *)FE_MONITOR_REGION_PROTOCON_ELF_BASE);
+    tsldr_miscutil_load_elf((void*)protocon_base, (const Elf64_Ehdr *)ORC_MONITOR_REGION_PROTOCON_ELF_BASE);
     TSLDR_DBG_PRINT(PROGNAME "Copied proto container to child PD's memory region\n");
 
-    tsldr_miscutil_memcpy((void*)payload_base, (char *)FE_MONITOR_REGION_CLIENT_PAYLOAD_BASE, FE_MONITOR_REGION_SIZE);
+    tsldr_miscutil_memcpy((void*)payload_base, (char *)ORC_MONITOR_REGION_CLIENT_PAYLOAD_BASE, ORC_MONITOR_REGION_SIZE);
     TSLDR_DBG_PRINT(PROGNAME "Copied client program to child PD's memory region\n");
 
-    tsldr_miscutil_memcpy((void*)trampoline_base, (char *)FE_MONITOR_REGION_TRAMPOLINE_ELF_BASE, FE_MONITOR_REGION_SIZE);
+    tsldr_miscutil_memcpy((void*)trampoline_base, (char *)ORC_MONITOR_REGION_TRAMPOLINE_ELF_BASE, ORC_MONITOR_REGION_SIZE);
     TSLDR_DBG_PRINT(PROGNAME "Copied trampoline program to child PD's memory region\n");
 }
 
@@ -475,12 +475,12 @@ void monitor_call_deploy_protocon_second_half(void)
             num_req_pc
         );
         monitor_finish_deploy_request();
-        monitor_main_notify_frontend();
+        monitor_main_notify_orchestrator();
         return;
     }
 
     // FIXME: should not use shared memory to determine state...
-    Elf64_Ehdr *payload_eh = (Elf64_Ehdr *)FE_MONITOR_REGION_CLIENT_PAYLOAD_BASE;
+    Elf64_Ehdr *payload_eh = (Elf64_Ehdr *)ORC_MONITOR_REGION_CLIENT_PAYLOAD_BASE;
     if (payload_eh->e_shoff == 0 ||
         payload_eh->e_shnum == 0 ||
         payload_eh->e_shentsize != sizeof(Elf64_Shdr) ||
@@ -493,7 +493,7 @@ void monitor_call_deploy_protocon_second_half(void)
             "or invalid e_shstrndx\n"
         );
         monitor_finish_deploy_request();
-        monitor_main_notify_frontend();
+        monitor_main_notify_orchestrator();
         return;
     }
 
@@ -501,7 +501,7 @@ void monitor_call_deploy_protocon_second_half(void)
 
     Elf64_Shdr *user_defined_svc_section =
         (Elf64_Shdr *)tsldr_miscutil_find_section_from_elf(
-            (void *)FE_MONITOR_REGION_CLIENT_PAYLOAD_BASE,
+            (void *)ORC_MONITOR_REGION_CLIENT_PAYLOAD_BASE,
             PC_SVC_DESC_SECTION_NAME
         );
     if (!user_defined_svc_section) {
@@ -510,13 +510,13 @@ void monitor_call_deploy_protocon_second_half(void)
             "Failed to restart container as no iface section specified\n"
         );
         monitor_finish_deploy_request();
-        monitor_main_notify_frontend();
+        monitor_main_notify_orchestrator();
         return;
     }
 
     for (uint32_t to_deploy = 0; to_deploy < num_req_pc; ++to_deploy) {
         int cid = monitor_match_ossvc_request_with_available_pd(
-            (void *)FE_MONITOR_REGION_CLIENT_PAYLOAD_BASE,
+            (void *)ORC_MONITOR_REGION_CLIENT_PAYLOAD_BASE,
             user_defined_svc_section,
             &req,
             protocon_states
@@ -531,7 +531,7 @@ void monitor_call_deploy_protocon_second_half(void)
                 num_req_pc
             );
             monitor_finish_deploy_request();
-            monitor_main_notify_frontend();
+            monitor_main_notify_orchestrator();
             return;
         }
         TSLDR_DBG_PRINT(PROGNAME "cid available: %d\n", cid);
@@ -574,7 +574,7 @@ void monitor_call_deploy_protocon_second_half(void)
         SET_PROTOCON_AS_INSTANTIATED(cid)
 
         Elf64_Ehdr *protocon_eh =
-            (Elf64_Ehdr *)FE_MONITOR_REGION_PROTOCON_ELF_BASE;
+            (Elf64_Ehdr *)ORC_MONITOR_REGION_PROTOCON_ELF_BASE;
 
         microkit_pd_restart(cid, protocon_eh->e_entry);
         TSLDR_DBG_PRINT(
@@ -585,7 +585,7 @@ void monitor_call_deploy_protocon_second_half(void)
     }
 
     monitor_finish_deploy_request();
-    monitor_main_notify_frontend();
+    monitor_main_notify_orchestrator();
 }
 
 
@@ -661,7 +661,7 @@ void monitor_main_handle_fault(microkit_child child, microkit_msginfo msginfo)
     }
     // do not print fault label for initialising dynamic pd...
     TSLDR_DBG_PRINT(PROGNAME "Fault label: %d\n", label);
-    monitor_main_notify_frontend();
+    monitor_main_notify_orchestrator();
 
     monitor_call_restore_protocon(child + PC_MONITOR_PROTOCON_BASE_CHANNEL);
 }
@@ -686,7 +686,7 @@ seL4_MessageInfo_t monitor_call_deploy_protocon_first_half(seL4_Word num_req_pc)
     }
 
     /*
-     * The frontend ELF buffers and deployment context are shared.
+     * The orchestrator ELF buffers and deployment context are shared.
      * Only one deployment request may be active at a time.
      */
     if (deploy_request_active) {
@@ -703,14 +703,14 @@ seL4_MessageInfo_t monitor_call_deploy_protocon_first_half(seL4_Word num_req_pc)
 
     seL4_Word err;
     tsldr_main_check_elf_integrity(
-        FE_MONITOR_REGION_PROTOCON_ELF_BASE,
+        ORC_MONITOR_REGION_PROTOCON_ELF_BASE,
         &err
     );
     if (err) {
         TSLDR_DBG_PRINT(
             PROGNAME "Integrity check failed for protocon elf\n"
         );
-        monitor_main_notify_frontend();
+        monitor_main_notify_orchestrator();
         return microkit_msginfo_new(err, 0);
     }
 
@@ -732,7 +732,7 @@ seL4_MessageInfo_t monitor_call_deploy_protocon_first_half(seL4_Word num_req_pc)
             "cannot initialise monitor cothread for monitor call.\n"
         );
         monitor_finish_deploy_request();
-        monitor_main_notify_frontend();
+        monitor_main_notify_orchestrator();
         return microkit_msginfo_new(-1, 0);
     }
 
@@ -763,7 +763,7 @@ seL4_MessageInfo_t monitor_call_restore_protocon(microkit_channel ch)
         // assert(protocon_states[cid] == PROTOCON_ACTIVE);
         SET_PROTOCON_AS_AVAILABLE(cid)
     }
-    monitor_main_notify_frontend();
+    monitor_main_notify_orchestrator();
     return microkit_msginfo_new(seL4_NoError, 0);
 }
 
@@ -797,7 +797,7 @@ seL4_MessageInfo_t monitor_call_hang_protocon(microkit_channel ch)
             microkit_pd_stop(target_pd_id);
         }
     }
-    monitor_main_notify_frontend();
+    monitor_main_notify_orchestrator();
     return microkit_msginfo_new(seL4_NoError, 0);
 }
 
@@ -828,7 +828,7 @@ seL4_MessageInfo_t monitor_call_resume_protocon(microkit_channel ch)
             SET_PROTOCON_AS_INSTANTIATED(cid)
         }
     }
-    monitor_main_notify_frontend();
+    monitor_main_notify_orchestrator();
     return microkit_msginfo_new(seL4_NoError, 0);
 }
 

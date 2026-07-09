@@ -17,7 +17,7 @@
 #include <lions/fs/config.h>
 #include <pico_vfs.h>
 
-#define PROGNAME "[@frontend] "
+#define PROGNAME "[@orchestrator] "
 
 uintptr_t shared1 = 0x4000000;
 uintptr_t shared2 = 0xb000000;
@@ -116,7 +116,7 @@ void init(void)
     microkit_cothread_init(&co_controller_mem, 0x10000, costacks);
 
     if (microkit_cothread_spawn(test_entrypoint, NULL) == LIBMICROKITCO_NULL_HANDLE) {
-        TSLDR_DBG_PRINT(PROGNAME "Cannot initialise frontend cothread2\n");
+        TSLDR_DBG_PRINT(PROGNAME "Cannot initialise orchestrator cothread2\n");
         microkit_internal_crash(-1);
     }
     microkit_cothread_yield();
