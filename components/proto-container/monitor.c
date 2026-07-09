@@ -11,6 +11,7 @@
 #include <pc_config.h>
 #include <protocon.h>
 #include <pd_io_queue.h>
+#include <monitor_vm_layout.h>
 
 #define PROGNAME "[@monitor] "
 
@@ -20,10 +21,10 @@
 // the size of these memory regions are:
 //    -> PC_MONITOR_REGION_SIZE (for one dynamic pd)
 //
-#define PC_MONITOR_REGION_SIZE (0x800000)
-#define PC_MONITOR_REGION_PROTOCON_ELF_BASE (0x10000000)
-#define PC_MONITOR_REGION_TRAMPOLINE_ELF_BASE (0x30000000)
-#define PC_MONITOR_REGION_CLIENT_PAYLOAD_BASE (0x50000000)
+#define PC_MONITOR_REGION_SIZE MONITOR_VM_LOADER_PROGRAM_SIZE
+#define PC_MONITOR_REGION_PROTOCON_ELF_BASE MONITOR_VM_LOADER_PROGRAM_BASE
+#define PC_MONITOR_REGION_TRAMPOLINE_ELF_BASE MONITOR_VM_TRAMPOLINE_IMAGE_BASE
+#define PC_MONITOR_REGION_CLIENT_PAYLOAD_BASE MONITOR_VM_CONTAINER_IMAGE_BASE
 
 // each elf file is of the same upper size limit
 #define FE_MONITOR_REGION_SIZE (0x800000)
@@ -56,13 +57,13 @@ protocon_lifecycle_state_t protocon_states[PC_CHILD_PER_MONITOR_MAX_NUM];
 
 // this is the base address of the trusted loader context region for each dynamic PD (protocon)
 // this describes the information of all requested low-level access rights of a dynamic PD, which is the SUBSET of trusted loading metadata
-#define TSLDR_CONTEXT_BASE  (0xff40000)
-#define TSLDR_CONTEXT_SIZE  SMALL_PAGE_SIZE
+#define TSLDR_CONTEXT_BASE  MONITOR_VM_LOADER_CONTEXT_BASE
+#define TSLDR_CONTEXT_SIZE  MONITOR_VM_LOADER_CONTEXT_SIZE
 // this is the base address of the trusted loader metadata region for each dynamic PD (protocon)
 // the monitor PD will prepare the metadata for each dynamic PD in this region, and the dynamic PD will read the metadata from this region when it is loading
 // this describes the information of all low-level access rights of a dynamic PD, which will be used by the trusted loader to do the actual loading work
-#define TSLDR_METADATA_BASE (0xffc0000)
-#define TSLDR_METADATA_SIZE SMALL_PAGE_SIZE
+#define TSLDR_METADATA_BASE MONITOR_VM_LOADER_METADATA_BASE
+#define TSLDR_METADATA_SIZE MONITOR_VM_LOADER_METADATA_SIZE
 
 // if a trusted loader metadata region is initialised, check the hash with this number
 // if not match, it means the metadata is not initialised
@@ -90,7 +91,7 @@ protocon_lifecycle_state_t protocon_states[PC_CHILD_PER_MONITOR_MAX_NUM];
 // and put the serialised, encoded info into this region.
 // the dynamic PD can then read the OS svc information at high-level, while initialise the trusted loader
 // with the low-level information provided here...
-uintptr_t msvcdb_base = 0x0ff80000;
+uintptr_t msvcdb_base = MONITOR_VM_OSSVC_METADATA_BASE;
 
 fs_queue_t *fs_command_queue;
 fs_queue_t *fs_completion_queue;

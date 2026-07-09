@@ -1,6 +1,9 @@
 
 
 PC_SRC_DIR := $(realpath $(dir $(lastword $(MAKEFILE_LIST))))
+PC_CONFIG_DIR := $(PC_SRC_DIR)/config
+PC_HEADER_DIR := $(PC_SRC_DIR)/include
+PC_TOOL_DIR := $(PC_SRC_DIR)/tools
 PC_LIBMICROKITCO_DIR := $(LIBMICROKITCO_PATH)
 PC_LIBTRUSTEDLO_DIR := $(LIONSOS)/dep/libtrustedlo
 
@@ -35,12 +38,22 @@ BM_UK_MAKE_ARGS := \
 
 # ===================== unikraft variables ==========================
 
+pc:
+	mkdir -p pc
+
+PC_BUILD_DIR_GEN := pc/generated
+
+PC_MONITOR_VM_LAYOUT := $(PC_CONFIG_DIR)/monitor_vm_layout.py
+PC_MONITOR_VM_LAYOUT_GEN := $(PC_TOOL_DIR)/gen_vm_layout.py
+PC_MONITOR_VM_LAYOUT_HEADER := $(PC_BUILD_DIR_GEN)/monitor_vm_layout.h
+
 PC_CLAGS := \
 	-I$(CONTAINER_LIBC_INCLUDE) \
-	-I$(PC_SRC_DIR)/config \
+	-I$(PC_HEADER_DIR) \
 	-I$(PC_SRC_DIR) \
 	-I$(PC_LIBTRUSTEDLO_DIR)/include \
-	-I$(PC_LIBMICROKITCO_DIR)
+	-I$(PC_LIBMICROKITCO_DIR) \
+	-I$(PC_BUILD_DIR_GEN)
 
 LIBMICROKITCO_CFLAGS_pc := ${PC_CLAGS}
 PC_LIBMICROKITCO_OBJ := libmicrokitco_pc.a
@@ -65,8 +78,12 @@ PC_OBJS := \
 	PC_LOOPING_CLIENT_OBJS \
 	PC_TIMEOUT_CLIENT_OBJS
 
-pc:
-	mkdir -p pc
+$(PC_MONITOR_VM_LAYOUT_HEADER): pc \
+	$(PC_MONITOR_VM_LAYOUT) $(PC_MONITOR_VM_LAYOUT_GEN)
+	@mkdir -p $(dir $@)
+	python3 -B $(PC_MONITOR_VM_LAYOUT_GEN) \
+		--config $(PC_MONITOR_VM_LAYOUT) \
+		--header-output $@
 
 pc/$(PC_LIBTRUSTEDLO_OBJ): pc
 	make -f $(PC_LIBTRUSTEDLO_DIR)/Makefile \
@@ -104,7 +121,7 @@ $(BM_UK_CONFIGURED): $(BM_UK_CONFIG_SRC)
 
 pc/%.o: CFLAGS := $(PC_CLAGS) \
 			 		$(CFLAGS)
-pc/%.o: $(PC_SRC_DIR)/%.c | pc
+pc/%.o: $(PC_SRC_DIR)/%.c | pc $(PC_MONITOR_VM_LAYOUT_HEADER)
 	$(CC) -c $(CFLAGS) $< -o $@
 
 
