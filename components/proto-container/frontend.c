@@ -171,7 +171,7 @@ static int parse_start_cmd(const char *arg)
     const char *filename_start;
     const char *filename_end;
     size_t filename_len;
-    uint32_t requested_pc_num = req_pc_num;
+    uint32_t requested_pc_num = MIN_REQ_PC_NUM;
 
     /* Skip spaces before the filename. */
     while (*arg == ' ') {
