@@ -29,12 +29,12 @@ Map = SystemDescription.Map
 Channel = SystemDescription.Channel
 
 
-def load_vm_layout(path: str) -> dict[str, dict[str, int]]:
+def load_vm_layout(path: str, module_name: str) -> dict[str, dict[str, int]]:
     layout_path = Path(path).resolve()
     if not layout_path.is_file():
         raise FileNotFoundError(f"VM layout does not exist: {layout_path}")
 
-    spec = importlib.util.spec_from_file_location("libtrustedlo_vm_layout", layout_path)
+    spec = importlib.util.spec_from_file_location(module_name, layout_path)
     if spec is None or spec.loader is None:
         raise RuntimeError(f"Cannot load VM layout: {layout_path}")
 
@@ -72,7 +72,19 @@ def vm_region(name: str) -> dict[str, int]:
     try:
         return vm_layout[name]
     except KeyError as error:
-        raise KeyError(f"Required VM region is missing: {name}") from error
+        raise KeyError(f"Required container VM region is missing: {name}") from error
+
+
+def monitor_vm_region(name: str) -> dict[str, int]:
+    try:
+        return monitor_vm_layout[name]
+    except KeyError as error:
+        raise KeyError(f"Required monitor VM region is missing: {name}") from error
+
+
+def monitor_region_base(name: str, cid: int) -> int:
+    region = monitor_vm_region(name)
+    return region["base"] + cid * region["size"]
 
 
 def connect_protocon_with_monitor(
@@ -100,18 +112,12 @@ def connect_protocon_with_monitor(
     sdf.add_mr(tsldr_context)
     sdf.add_mr(trampoline_args)
 
-    monitor.add_map(
-        Map(tsldr_context, 0x0FF40000 + cid * 0x1000, perms="rw", cached="true")
-    )
-    monitor.add_map(Map(ossvc_data, 0x0FF80000 + cid * 0x1000, perms="rw", cached="true"))
-    monitor.add_map(Map(tsldr_data, 0x0FFC0000 + cid * 0x1000, perms="rw", cached="true"))
-    monitor.add_map(Map(tsldr_exec, 0x10000000 + cid * 0x800000, perms="rw", cached="true"))
-    monitor.add_map(
-        Map(trampoline_elf, 0x30000000 + cid * 0x800000, perms="rw", cached="true")
-    )
-    monitor.add_map(
-        Map(container_elf, 0x50000000 + cid * 0x800000, perms="rw", cached="true")
-    )
+    monitor.add_map(Map(tsldr_context, monitor_region_base("LOADER_CONTEXT", cid), perms="rw", cached="true"))
+    monitor.add_map(Map(ossvc_data, monitor_region_base("OSSVC_METADATA", cid), perms="rw", cached="true"))
+    monitor.add_map(Map(tsldr_data, monitor_region_base("LOADER_METADATA", cid), perms="rw", cached="true"))
+    monitor.add_map(Map(tsldr_exec, monitor_region_base("LOADER_PROGRAM", cid), perms="rw", cached="true"))
+    monitor.add_map(Map(trampoline_elf, monitor_region_base("TRAMPOLINE_IMAGE", cid), perms="rw", cached="true"))
+    monitor.add_map(Map(container_elf, monitor_region_base("CONTAINER_IMAGE", cid), perms="rw", cached="true"))
 
     pc.add_map(Map(tsldr_exec, vm_region("LOADER_PROGRAM")["base"], perms="rwx", cached="true"))
     pc.add_map(Map(tsldr_data, vm_region("LOADER_METADATA")["base"], perms="rw", cached="true"))
@@ -453,11 +459,21 @@ if __name__ == "__main__":
         required=True,
         help="path to libtrustedlo config/vm_layout.py",
     )
+    parser.add_argument(
+        "--monitor-vm-layout",
+        required=True,
+        help="path to monitor config/vm_layout.py",
+    )
 
     args = parser.parse_args()
 
     global vm_layout
-    vm_layout = load_vm_layout(args.vm_layout)
+    vm_layout = load_vm_layout(args.vm_layout, "libtrustedlo_vm_layout")
+
+    global monitor_vm_layout
+    monitor_vm_layout = load_vm_layout(
+        args.monitor_vm_layout, "monitor_vm_layout"
+    )
 
     board = next(filter(lambda b: b.name == args.board, BOARDS))
 

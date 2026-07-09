@@ -72,6 +72,7 @@ include ${BLK_COMPONENTS}/blk_components.mk
 
 LIBTRUSTEDLO_PATH ?= $(LIONSOS)/dep/libtrustedlo
 PROTOCON_VM_LAYOUT := $(LIBTRUSTEDLO_PATH)/config/vm_layout.py
+MONITOR_VM_LAYOUT := $()
 
 FAT_LIBC_LIB := $(LIONS_LIBC)/lib/libc.a
 FAT_LIBC_INCLUDE := $(LIONS_LIBC)/include
@@ -79,7 +80,8 @@ include $(LIONSOS)/components/fs/fat/fat.mk
 
 CONTAINER_LIBC_LIB := $(LIONS_LIBC)/lib/libc.a
 CONTAINER_LIBC_INCLUDE := $(LIONS_LIBC)/include
-include $(LIONSOS)/components/proto-container/pc.mk
+CONTAINER_COMPONENT_DIR := $(LIONSOS)/components/proto-container
+include $(CONTAINER_COMPONENT_DIR)/pc.mk
 
 LIBMICROKITCO_LIBC_INCLUDE := $(LIONS_LIBC)/include
 include $(LIBMICROKITCO_PATH)/libmicrokitco.mk
@@ -94,13 +96,15 @@ FORCE:
 system: $(METAPROGRAM) $(DTB)
 	PYTHONPATH=${SDDF}/tools/meta:$$PYTHONPATH $(PYTHON) -B $(METAPROGRAM) \
 	--sddf $(SDDF) --board $(MICROKIT_BOARD) --dtb $(DTB) --objcopy $(OBJCOPY) \
-	--vm-layout $(PROTOCON_VM_LAYOUT) --output . --sdf $(SYSTEM_FILE)
+	--vm-layout $(PROTOCON_VM_LAYOUT) --monitor-vm-layout $(CONTAINER_COMPONENT_DIR)/config/monitor_vm_layout.py \
+	--output . --sdf $(SYSTEM_FILE)
 
 
 $(SYSTEM_FILE): $(METAPROGRAM) $(IMAGES) $(DTB)
 	PYTHONPATH=${SDDF}/tools/meta:$$PYTHONPATH $(PYTHON) -B $(METAPROGRAM) \
 	--sddf $(SDDF) --board $(MICROKIT_BOARD) --dtb $(DTB) --objcopy $(OBJCOPY) \
-	--vm-layout $(PROTOCON_VM_LAYOUT) --output . --sdf $(SYSTEM_FILE)
+	--vm-layout $(PROTOCON_VM_LAYOUT) --monitor-vm-layout $(CONTAINER_COMPONENT_DIR)/config/monitor_vm_layout.py \
+	--output . --sdf $(SYSTEM_FILE)
 	$(OBJCOPY) --update-section .monitor_svc_db=container_monitor.svc monitor.elf
 	$(OBJCOPY) --update-section .device_resources=serial_driver_device_resources.data serial_driver.elf
 	$(OBJCOPY) --update-section .serial_driver_config=serial_driver_config.data serial_driver.elf
